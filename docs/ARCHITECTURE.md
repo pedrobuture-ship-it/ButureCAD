@@ -57,3 +57,24 @@ Proprietary, all rights reserved (see `LICENSE`). Crates use `LicenseRef-Proprie
   `CommandEngine::recovered` (starts dirty). A failing `revert` clears history rather than continue.
 - The entity model (`model.rs`) is a deliberately minimal skeleton to host the commands; pins,
   nets, footprints etc. arrive with the schematic/PCB stages.
+
+## Renderer (`buturecad-renderer`)
+
+- **CPU side (no GPU needed, fully unit-tested):** `View` (pan/zoom, world↔screen, +Y up),
+  adaptive grid (1-2-5 multiples of the user grid, so drawn lines coincide with snap nodes), grid
+  and object snapping, `Scene` (layers + shapes + R-tree), picking (exact distance tests, smaller
+  objects first), hover, selection, window/crossing box selection, tessellation (curves flattened
+  to 0.25 px, ear-clipped polygons, built-in 5×7 bitmap font).
+- **GPU side:** `GpuRenderer` (wgpu, 4× MSAA) renders offscreen and reads pixels back. The webview
+  displays the RGBA frame in a `<canvas>`: the DOM never holds per-object elements. wgpu cannot
+  present directly into a webview on all platforms, so readback is the portable transport; the cost
+  is one memcpy per frame (≈1.5 ms at 1400×900 here). Frames are produced on demand.
+- **Caching:** the scene mesh is rebuilt only when the scene revision or the zoom bucket (≈19 %
+  steps) changes; panning re-uses it. Selection/hover/previews and the pixel-space overlay (grid,
+  rubber band, debug text) are small per-frame meshes. Meshes store `f32` offsets from a per-mesh
+  origin kept in `f64`.
+- **Measured (RTX 2060, release):** 200 000 tracks: pick 18 µs, tessellation 35 ms (only on
+  rebuild), pan frame ≈1.7 ms. See `examples/stress.rs`.
+- **Limits:** text is a basic ASCII bitmap font; strokes overlap with simple joins (opaque colours
+  only, translucent strokes would double-blend); arcs/text use bounding boxes for crossing
+  selection; no GPU instancing yet; no direct swapchain presentation.

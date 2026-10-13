@@ -8,3 +8,4 @@ apps/desktop/src-tauri/gen/
 
 # Local state
 .buture/
+render_demo.ppm

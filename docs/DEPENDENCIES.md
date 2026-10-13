@@ -16,3 +16,6 @@ Run `cargo deny`/license audit before release (not yet configured).
 | tempfile (dev) | tests | MIT OR Apache-2.0 |
 | rstar (geometry) | R-tree spatial index | MIT OR Apache-2.0 |
 | proptest (dev) | property-based tests | MIT OR Apache-2.0 |
+| wgpu 30 (renderer) | GPU rendering (Vulkan/Metal/DX12) | MIT OR Apache-2.0 |
+| pollster (renderer) | block on wgpu async setup | Apache-2.0 OR MIT |
+| bytemuck (renderer) | vertex buffer casting | Zlib OR Apache-2.0 OR MIT |

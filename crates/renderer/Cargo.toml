@@ -1,6 +1,6 @@
 [package]
 name = "buturecad-renderer"
-description = "GPU renderer (wgpu) for schematic and PCB views."
+description = "2D renderer for schematic and PCB views: view/grid/snap/picking, tessellation and a wgpu backend."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,3 +12,11 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+buturecad-geometry = { path = "../geometry" }
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
+thiserror = "2"
+wgpu = "30"
+
+[dev-dependencies]
+proptest = "1"
