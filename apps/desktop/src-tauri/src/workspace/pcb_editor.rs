@@ -23,6 +23,8 @@ pub(crate) enum PcbTool {
     OutlineRect,
     OutlineLine,
     PlaceFootprint(String),
+    Route,
+    Via,
 }
 
 impl PcbTool {
@@ -32,6 +34,8 @@ impl PcbTool {
             PcbTool::OutlineRect => "outline_rect",
             PcbTool::OutlineLine => "outline_line",
             PcbTool::PlaceFootprint(_) => "place_footprint",
+            PcbTool::Route => "route",
+            PcbTool::Via => "via",
         }
     }
     pub fn arg(&self) -> Option<String> {
@@ -43,7 +47,7 @@ impl PcbTool {
 }
 
 #[derive(Debug, Clone)]
-enum Drag {
+pub(crate) enum Drag {
     Pending {
         start_px: (f64, f64),
         start: Point,
@@ -53,22 +57,35 @@ enum Drag {
         start: Point,
         ids: Vec<Id>,
     },
+    /// Dragging one vertex of a track; coincident ends of same-net tracks on the same layer move
+    /// with it. `ends` are (track, end index 0 = start / 1 = end).
+    Vertex {
+        from: Point,
+        ends: Vec<(Id, u8)>,
+    },
 }
 
 pub(crate) struct PcbEditor {
     pub tool: PcbTool,
-    drag: Option<Drag>,
+    pub(crate) drag: Option<Drag>,
     /// Points of the outline being drawn.
-    pts: Vec<Point>,
-    pending_rotation: u8,
-    pending_flipped: bool,
+    pub(crate) pts: Vec<Point>,
+    pub(crate) pending_rotation: u8,
+    pub(crate) pending_flipped: bool,
     /// The footprint of the active placement tool, resolved once (the ghost redraws every frame).
-    pending_fp: Option<Footprint>,
+    pub(crate) pending_fp: Option<Footprint>,
     /// Objects whose scene shapes differ from the model (live preview).
-    touched: BTreeSet<Id>,
+    pub(crate) touched: BTreeSet<Id>,
     pub show_ratsnest: bool,
     /// Ratsnest lines of the nets affected by the move in progress.
-    rat_preview: BTreeMap<Id, Vec<RatLine>>,
+    pub(crate) rat_preview: BTreeMap<Id, Vec<RatLine>>,
+    pub(crate) route: Option<super::pcb_route::Route>,
+    pub(crate) route_width: i64,
+    pub(crate) route_mode: buturecad_eda_core::routing::AngleMode,
+    pub(crate) route_flip: bool,
+    pub(crate) route_clearance: i64,
+    pub(crate) via_diameter: i64,
+    pub(crate) via_drill: i64,
 }
 
 impl Default for PcbEditor {
@@ -83,11 +100,18 @@ impl Default for PcbEditor {
             touched: BTreeSet::new(),
             show_ratsnest: true,
             rat_preview: BTreeMap::new(),
+            route: None,
+            route_width: buturecad_eda_core::routing::DEFAULT_WIDTH,
+            route_mode: Default::default(),
+            route_flip: false,
+            route_clearance: buturecad_eda_core::routing::DEFAULT_CLEARANCE,
+            via_diameter: 800_000,
+            via_drill: 400_000,
         }
     }
 }
 
-fn mm_str(v: i64) -> String {
+pub(crate) fn mm_str(v: i64) -> String {
     let s = format!("{:.4}", v as f64 / 1e6);
     let s = s.trim_end_matches('0').trim_end_matches('.');
     if s.is_empty() || s == "-" || s == "-0" {
@@ -97,7 +121,7 @@ fn mm_str(v: i64) -> String {
     }
 }
 
-fn parse_mm(text: &str, what: &str) -> Result<i64, String> {
+pub(crate) fn parse_mm(text: &str, what: &str) -> Result<i64, String> {
     let t = text.trim().trim_end_matches("mm").trim();
     let v: f64 = t
         .replace(',', ".")
@@ -208,7 +232,7 @@ impl Workspace {
         }
     }
 
-    fn pcb_new_id(&mut self) -> Id {
+    pub(crate) fn pcb_new_id(&mut self) -> Id {
         match self.open.as_mut() {
             Some(o) => o.engine.new_id(),
             None => Id(0),
@@ -528,6 +552,14 @@ impl Workspace {
             nets: doc.nets.len() as u32,
             warnings,
             ratsnest_visible: self.pcb_ed.show_ratsnest,
+            route_width_mm: mm_str(self.pcb_ed.route_width),
+            route_mode: self.pcb_ed.route_mode.id().into(),
+            via_size: format!(
+                "{}/{}",
+                mm_str(self.pcb_ed.via_diameter),
+                mm_str(self.pcb_ed.via_drill)
+            ),
+            route: self.route_info(),
             unrouted: self.ratsnest(|e| e.count() as u32).unwrap_or(0),
         })
     }
@@ -561,6 +593,12 @@ impl Workspace {
                     self.pcb_rotate()?;
                 }
             }
+            "flip_elbow" => self.pcb_ed.route_flip = !self.pcb_ed.route_flip,
+            "route_via" => self.route_via()?,
+            "route_finish" => {
+                let mut out = Outcome::default();
+                self.route_finish(&mut out);
+            }
             "flip" => {
                 if matches!(self.pcb_ed.tool, PcbTool::PlaceFootprint(_)) {
                     self.pcb_ed.pending_flipped = !self.pcb_ed.pending_flipped;
@@ -590,6 +628,8 @@ impl Workspace {
             "select" => PcbTool::Select,
             "outline_rect" => PcbTool::OutlineRect,
             "outline_line" => PcbTool::OutlineLine,
+            "route" => PcbTool::Route,
+            "via" => PcbTool::Via,
             "place_footprint" => {
                 let f = arg
                     .map(str::trim)
@@ -621,6 +661,9 @@ impl Workspace {
     }
 
     fn pcb_cancel(&mut self) {
+        if self.route_cancel() {
+            return;
+        }
         if !self.pcb_ed.pts.is_empty() || self.pcb_ed.drag.is_some() {
             self.pcb_ed.pts.clear();
             self.pcb_ed.drag = None;
@@ -816,6 +859,7 @@ impl Workspace {
                 }
                 Ok(())
             }
+            other if self.pcb_route_command(other, arg)? => Ok(()),
             "toggle_ratsnest" => {
                 self.pcb_ed.show_ratsnest = !self.pcb_ed.show_ratsnest;
                 Ok(())
@@ -910,6 +954,7 @@ impl Workspace {
                         }
                     }
                     Some(Drag::Moving { .. }) => self.pcb_preview_move(at),
+                    Some(Drag::Vertex { .. }) => self.pcb_vertex_preview(at),
                     None => {
                         if !self.update_box(ev.x, ev.y) {
                             self.hover = self.pick_owner(ev.x, ev.y);
@@ -943,6 +988,14 @@ impl Workspace {
                             }
                         }
                     }
+                    Some(v @ Drag::Vertex { .. }) => {
+                        self.pcb_ed.drag = Some(v);
+                        if self.pcb_vertex_commit(at) {
+                            out.model_changed = true;
+                        } else {
+                            self.pcb_restore_scene();
+                        }
+                    }
                     Some(Drag::Pending { .. }) | None => {
                         if self.finish_box() {
                             out.selection_changed = true;
@@ -951,6 +1004,7 @@ impl Workspace {
                 }
                 out.redraw = true;
             }
+            PointerKind::DoubleClick => self.route_double_click(out),
             _ => {}
         }
     }
@@ -987,6 +1041,14 @@ impl Workspace {
         match self.pcb_ed.tool.clone() {
             PcbTool::Select => {
                 let additive = ev.shift || ev.ctrl;
+                let raw = self
+                    .views
+                    .get(&Mode::Pcb)
+                    .map_or(at, |v| v.screen_to_world(ev.x, ev.y));
+                if !additive && self.pcb_try_vertex_drag(raw) {
+                    out.redraw = true;
+                    return;
+                }
                 match self.pick_owner(ev.x, ev.y) {
                     Some(owner) => {
                         self.select_owner(owner, additive);
@@ -1006,6 +1068,8 @@ impl Workspace {
             PcbTool::OutlineRect => self.pcb_outline_click(at, true, out),
             PcbTool::OutlineLine => self.pcb_outline_click(at, false, out),
             PcbTool::PlaceFootprint(id) => self.pcb_place(&id, at, out),
+            PcbTool::Route => self.pcb_route_click(at, out),
+            PcbTool::Via => self.pcb_place_via(at, out),
         }
         out.redraw = true;
     }
@@ -1138,6 +1202,7 @@ impl Workspace {
         };
         let at = self.cursor;
         let mut out: Vec<(Shape, Rgba)> = self.ratsnest_shapes();
+        out.extend(self.route_preview_shapes());
         match (&self.pcb_ed.tool, self.pcb_ed.pts.as_slice()) {
             (PcbTool::OutlineRect, [a]) => {
                 if let Ok(rect) = Rectangle::new(*a, at) {
@@ -1236,6 +1301,8 @@ impl Workspace {
             (PcbTool::OutlineLine, 0) => "Board outline: click the start point.".into(),
             (PcbTool::OutlineLine, _) => "Board outline: click the next corner; click the first point to close. Esc ends.".into(),
             (PcbTool::PlaceFootprint(_), _) => "Place footprint: click to place. R rotates, F flips to the back, Esc stops.".into(),
+            (PcbTool::Route, _) => self.route_hint(),
+            (PcbTool::Via, _) => "Via: click to place a through via (it takes the net of the pad or track under it). Esc stops.".into(),
         }
     }
 }

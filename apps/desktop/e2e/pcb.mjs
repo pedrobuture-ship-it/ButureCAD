@@ -52,8 +52,8 @@ try {
   console.log(`zoom ${zoom}% → ${mmpx.toFixed(1)} px/mm`);
 
   await b.key("o"); await b.wait(200);
-  await b.click(...at(-40, -25)); await b.wait(200);
-  await b.click(...at(40, 25)); await b.wait(400);
+  await b.click(...at(-30, -15)); await b.wait(200);
+  await b.click(...at(30, 15)); await b.wait(400);
   check("the outline is drawn as four Edge.Cuts segments", !(await text(".symbol-bar")).includes("no board outline"));
 
   await b.key("a"); await b.wait(400);

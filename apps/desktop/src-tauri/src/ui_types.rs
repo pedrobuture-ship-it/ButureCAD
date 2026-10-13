@@ -353,8 +353,24 @@ pub struct PcbInfo {
     pub nets: u32,
     pub warnings: Vec<String>,
     pub ratsnest_visible: bool,
+    /// Track width (mm) and angle mode (`45`, `90`, `free`) of the Route tool, via size `d/drill`.
+    pub route_width_mm: String,
+    pub route_mode: String,
+    pub via_size: String,
+    /// The route in progress.
+    pub route: Option<RouteInfo>,
     /// Connections still to route (ratsnest lines).
     pub unrouted: u32,
+}
+
+/// A route in progress.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct RouteInfo {
+    pub net: String,
+    pub layer: String,
+    pub length_mm: String,
+    pub vias: u32,
 }
 
 /// One line of the "Update PCB from Schematic" preview.

@@ -24,9 +24,11 @@ desktop app; limits are stated in the sections that follow.*
 
 - **Ratsnest** (roadmap 16): per-net minimum spanning trees over copper islands (layers, vias, back-side pads), incremental per-net updates (also live while dragging), show/hide; 33 ms full vs 1.9 ms per move on 4000 footprints. See `docs/ratsnest.md`.
 
+- **Routing and vias** (roadmap 17–18): pad-to-pad routing with 45°/90°/free, width, active layer, preview with clearance halo, net highlight and targets, finish/cancel, net-aware (refuses shorts), through vias while routing and as a tool with automatic layer change, editing of width/net/layer/vertices, one undo step per route, ratsnest kept in step. See `docs/routing.md`.
+
 # Partial
 
-- **PCB:** the model and the placement editor exist; there are no track routing or via tools yet (roadmap 17–18), no DRC (19+), zones/keepouts have no tools (25).
+- **PCB:** the model, placement, routing and vias exist; routing does not avoid obstacles and clearance is only displayed (no DRC until roadmap 19); zones/keepouts have no tools (25).
 - **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
 - **Hierarchy:** only the root sheet can be drawn and edited; hierarchical sheets exist in the model and connectivity but have no UI tools. ERC findings inside child sheets are listed but cannot be focused.
 - **Symbol edits and placed parts:** changing a symbol's pins moves the pins but not the wires attached to them in the schematic; ERC shows what became unconnected. There is no "update symbol from library" command: the project copy is authoritative once opened.

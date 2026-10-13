@@ -842,3 +842,7 @@ textarea {
 .plan-add_net .plan-kind {
   color: var(--ok);
 }
+.route-status {
+  color: var(--ok);
+  font-weight: 600;
+}

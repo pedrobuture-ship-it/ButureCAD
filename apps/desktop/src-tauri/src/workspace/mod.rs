@@ -18,6 +18,7 @@ mod editor;
 mod erc;
 mod footprint_editor;
 mod pcb_editor;
+mod pcb_route;
 mod symbol_editor;
 use editor::EditorState;
 pub use footprint_editor::generator_infos;

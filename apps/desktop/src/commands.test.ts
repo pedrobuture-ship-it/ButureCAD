@@ -183,6 +183,10 @@ describe("Symbol Editor commands", () => {
         warnings: [],
         ratsnest_visible: true,
         unrouted: 0,
+        route_width_mm: "0.25",
+        route_mode: "45",
+        via_size: "0.8/0.4",
+        route: null,
       },
     });
   const state = (snap: Snapshot): UiState => ({ ...store.getState(), snapshot: snap });

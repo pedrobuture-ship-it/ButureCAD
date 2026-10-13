@@ -74,22 +74,8 @@ export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
     tool("place_footprint", "Place Footprint", "Cpu", "A"),
     tool("outline_rect", "Board Outline (rectangle)", "Square", "O"),
     tool("outline_line", "Board Outline (polyline)", "PenLine"),
-    {
-      id: "route",
-      label: "Route Track",
-      icon: "Route",
-      shortcut: "X",
-      implemented: false,
-      planned: "roadmap stage 17 (tracks)",
-    },
-    {
-      id: "via",
-      label: "Place Via",
-      icon: "CircleSlash",
-      shortcut: "V",
-      implemented: false,
-      planned: "roadmap stage 18 (vias)",
-    },
+    tool("route", "Route Track", "Route", "X"),
+    tool("via", "Place Via", "CircleSlash", "V"),
   ],
 };
 
