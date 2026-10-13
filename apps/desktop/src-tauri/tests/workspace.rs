@@ -234,10 +234,14 @@ fn pcb_mode_shows_tracks_and_vias_and_layer_visibility() {
     let snap = ws.snapshot();
     assert_eq!(snap.object_count, 2, "one track and one via");
     let names: Vec<_> = snap.layers.iter().map(|l| l.name.as_str()).collect();
-    assert_eq!(names, vec!["F.Cu", "B.Cu"]);
+    for want in ["F.Cu", "B.Cu", "Edge.Cuts", "F.Silkscreen", "User 1"] {
+        assert!(names.contains(&want), "{want} in {names:?}");
+    }
+    assert_eq!(snap.pcb.as_ref().unwrap().copper_layers, 2);
     ws.set_pcb_layer_visible(0, false);
     let snap = ws.snapshot();
-    assert!(!snap.layers[0].visible && snap.layers[1].visible);
+    let f_cu = |s: &Snapshot| s.layers.iter().find(|l| l.name == "F.Cu").unwrap().visible;
+    assert!(!f_cu(&snap));
     // Hidden layers are not pickable.
     ws.set_canvas_size(800.0, 600.0);
     ws.fit_view();

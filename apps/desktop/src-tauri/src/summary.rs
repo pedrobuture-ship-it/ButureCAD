@@ -208,37 +208,6 @@ pub fn summarize(
             };
             (obj.kind().to_owned(), title, props)
         }
-        Mode::Pcb => {
-            if let Some(t) = project.pcb().tracks.get(&id) {
-                let mut props = vec![
-                    prop(
-                        "layer",
-                        "Layer",
-                        crate::scene_builder::pcb_layer_name(t.layer),
-                        false,
-                    ),
-                    prop("width", "Width", format!("{} mm", mm(t.width)), false),
-                ];
-                props.extend(segment_props(&t.segment));
-                ("track".to_owned(), "Track".to_owned(), props)
-            } else {
-                let v = project.pcb().vias.get(&id)?;
-                (
-                    "via".to_owned(),
-                    "Via".to_owned(),
-                    vec![
-                        prop("position", "Position", pos(v.position), false),
-                        prop(
-                            "diameter",
-                            "Diameter",
-                            format!("{} mm", mm(v.diameter)),
-                            false,
-                        ),
-                        prop("drill", "Drill", format!("{} mm", mm(v.drill)), false),
-                    ],
-                )
-            }
-        }
         _ => return None,
     };
     Some(ObjectSummary {

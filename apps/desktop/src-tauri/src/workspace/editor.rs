@@ -283,6 +283,9 @@ impl Workspace {
         if self.mode == Mode::FootprintEditor {
             return self.fped_preview_shapes();
         }
+        if self.mode == Mode::Pcb {
+            return self.pcb_preview_shapes();
+        }
         if self.mode != Mode::Schematic || self.open.is_none() {
             return Vec::new();
         }
@@ -434,6 +437,9 @@ impl Workspace {
         }
         if self.mode == Mode::FootprintEditor {
             return self.fped_editor_command(name);
+        }
+        if self.mode == Mode::Pcb {
+            return self.pcb_editor_command(name);
         }
         if let Some(rest) = name.strip_prefix("tool:") {
             let (id, arg) = match rest.split_once(':') {
@@ -749,6 +755,9 @@ impl Workspace {
         }
         if self.mode == Mode::FootprintEditor {
             return self.fped_set_item_property(id, key, value);
+        }
+        if self.mode == Mode::Pcb {
+            return self.pcb_set_property(id, key, value);
         }
         self.require_schematic()?;
         let sch = self.sch().ok_or("no project is open")?;

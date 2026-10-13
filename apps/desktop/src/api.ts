@@ -62,6 +62,9 @@ export const api = {
   footprintLibraries: () => invoke<LibraryInfo[]>("footprint_libraries"),
   footprintGenerators: () => invoke<GeneratorInfo[]>("footprint_generators"),
   libraryFootprints: () => invoke<FootprintInfo[]>("library_footprints"),
+  pcbCommand: (name: string, arg?: string) =>
+    invoke<Snapshot>("pcb_command", { name, arg: arg ?? null }),
+  pcbFootprints: () => invoke<FootprintInfo[]>("pcb_footprints"),
   ercRun: () => invoke<Snapshot>("erc_run"),
   ercFocus: (index: number) => invoke<Snapshot>("erc_focus", { index }),
   ercWaive: (fingerprint: string, reason: string) =>

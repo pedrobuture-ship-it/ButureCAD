@@ -47,6 +47,8 @@ export interface Actions {
   symbolSaveToLibrary(): void;
   symbolCommand(name: string, arg?: string): void;
   runErc(): void;
+  pcbPlaceFootprint(): void;
+  pcbCommand(name: string, arg?: string): void;
   footprintNew(): void;
   footprintOpen(): void;
   footprintGenerate(): void;
@@ -85,8 +87,20 @@ const inFootprintEditor = (s: UiState): true | string => {
   return s.snapshot.footprint_editor ? true : "Open, create or generate a footprint first";
 };
 
-/** Editing commands that work in the schematic and in the symbol and footprint editors. */
+const inPcb = (s: UiState): true | string => {
+  if (!s.snapshot?.project) return "Open or create a project first";
+  return s.snapshot.mode === "pcb" ? true : "Switch to the PCB view";
+};
+
+const hasPcbSelection = (s: UiState): true | string => {
+  const a = inPcb(s);
+  if (a !== true) return a;
+  return (s.snapshot?.selection.length ?? 0) > 0 ? true : "Select something first";
+};
+
+/** Editing commands that work in the schematic, the PCB and the symbol/footprint editors. */
 const inEditor = (s: UiState): true | string => {
+  if (s.snapshot?.mode === "pcb") return inPcb(s);
   if (s.snapshot?.mode === "symbol_editor") return inSymbolEditor(s);
   if (s.snapshot?.mode === "footprint_editor") return inFootprintEditor(s);
   return inSchematic(s);
@@ -97,6 +111,10 @@ const hasSelection = (s: UiState): true | string => {
   if (a !== true) return a;
   return (s.snapshot?.selection.length ?? 0) > 0 ? true : "Select something first";
 };
+
+/** Duplicate works in the schematic and the PCB. */
+const canDuplicate = (s: UiState): true | string =>
+  s.snapshot?.mode === "pcb" ? hasPcbSelection(s) : hasSchematicSelection(s);
 
 /** Like `hasSelection`, for commands the Symbol Editor does not implement. */
 const hasSchematicSelection = (s: UiState): true | string =>
@@ -151,6 +169,41 @@ function footprintToolCommands(): AppCommand[] {
     t("circle", "Draw Circle", "C"),
     t("arc", "Draw Arc", "A"),
     t("text", "Place Text…", "T"),
+  ];
+}
+
+function pcbCommands(): AppCommand[] {
+  const tool = (id: string, title: string, shortcut?: string): AppCommand => ({
+    id: `pcbtool.${id}`,
+    title: `${title} (PCB)`,
+    category: "Tools",
+    shortcut,
+    available: inPcb,
+    run: (a) => a.selectTool(id),
+  });
+  const edit = (id: string, title: string, name: string, shortcut?: string): AppCommand => ({
+    id: `pcb.${id}`,
+    title: `${title} (PCB)`,
+    category: "Edit",
+    shortcut,
+    available: hasPcbSelection,
+    run: (a) => a.editor(name),
+  });
+  return [
+    tool("place_footprint", "Place Footprint…", "A"),
+    tool("outline_rect", "Draw Board Outline (rectangle)", "O"),
+    tool("outline_line", "Draw Board Outline (polyline)"),
+    edit("flip", "Flip to the Other Side", "flip", "F"),
+    edit("lock", "Lock Footprint", "lock", "K"),
+    edit("unlock", "Unlock Footprint", "unlock", "Shift+K"),
+    edit("alignLeft", "Align Left", "align_left"),
+    edit("alignRight", "Align Right", "align_right"),
+    edit("alignTop", "Align Top", "align_top"),
+    edit("alignBottom", "Align Bottom", "align_bottom"),
+    edit("alignCenterH", "Align Centres Horizontally", "align_center_h"),
+    edit("alignCenterV", "Align Centres Vertically", "align_center_v"),
+    edit("distributeH", "Distribute Horizontally", "distribute_h"),
+    edit("distributeV", "Distribute Vertically", "distribute_v"),
   ];
 }
 
@@ -361,7 +414,7 @@ export function buildCommands(): AppCommand[] {
       title: "Duplicate",
       category: "Edit",
       shortcut: "Ctrl+D",
-      available: hasSchematicSelection,
+      available: canDuplicate,
       run: (a) => a.editor("duplicate"),
     },
     {
@@ -505,6 +558,7 @@ export function buildCommands(): AppCommand[] {
 
     ...symbolToolCommands(),
     ...footprintToolCommands(),
+    ...pcbCommands(),
     {
       id: "footprint.new",
       title: "New Footprint…",

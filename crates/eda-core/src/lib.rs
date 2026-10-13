@@ -8,6 +8,7 @@ pub mod command;
 pub mod commands;
 pub mod engine;
 pub mod model;
+pub mod pcb_ops;
 pub mod project;
 
 pub use command::{Command, CommandError};

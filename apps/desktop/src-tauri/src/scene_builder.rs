@@ -3,7 +3,6 @@
 //! Every model object becomes one or more renderer shapes. Shape ids encode the owner
 //! (`owner << 12 | n`), so picking a shape resolves to the model object that owns it.
 
-use buturecad_eda_core::model::{LayerId as PcbLayer, PcbDoc};
 use buturecad_geometry::{Arc, Circle, Point, Rectangle, Segment, Vector};
 use buturecad_renderer::{Item, Layer, LayerId, ObjectId, Rgba, Scene, Shape};
 use buturecad_schematic::{Direction, Graphic, Id, Object, Placement, Schematic, Symbol};
@@ -459,133 +458,6 @@ impl SchematicScene {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
-// PCB (read-only view of the skeleton PCB document)
-// ---------------------------------------------------------------------------------------------
-
-pub const PCB_VIA_LAYER: LayerId = LayerId(200);
-pub const PCB_DRILL_LAYER: LayerId = LayerId(201);
-
-/// Scene layer for a PCB copper layer.
-pub fn pcb_layer_id(layer: PcbLayer) -> LayerId {
-    LayerId(100 + layer.0)
-}
-
-pub fn pcb_layer_name(layer: PcbLayer) -> String {
-    match layer.0 {
-        0 => "F.Cu".into(),
-        1 => "B.Cu".into(),
-        n => format!("In{}.Cu", n - 1),
-    }
-}
-
-fn pcb_layer_color(layer: PcbLayer, theme: ThemeKind) -> Rgba {
-    let dark = theme == ThemeKind::Dark;
-    match (layer.0, dark) {
-        (0, true) => Rgba::rgb(222, 70, 70),
-        (0, false) => Rgba::rgb(190, 30, 30),
-        (1, true) => Rgba::rgb(70, 120, 225),
-        (1, false) => Rgba::rgb(30, 80, 190),
-        (_, true) => Rgba::rgb(190, 160, 70),
-        (_, false) => Rgba::rgb(130, 105, 20),
-    }
-}
-
-/// Copper layers shown for a PCB: F.Cu, B.Cu and any other layer carrying tracks.
-pub fn pcb_copper_layers(pcb: &PcbDoc) -> Vec<PcbLayer> {
-    let mut v: Vec<PcbLayer> = vec![PcbLayer(0), PcbLayer(1)];
-    for t in pcb.tracks.values() {
-        if !v.contains(&t.layer) {
-            v.push(t.layer);
-        }
-    }
-    v.sort_by_key(|l| l.0);
-    v
-}
-
-#[derive(Default)]
-pub struct PcbScene {
-    pub scene: Scene,
-}
-
-impl PcbScene {
-    /// Rebuilds from the PCB document, keeping the given layer visibility.
-    pub fn rebuild(
-        &mut self,
-        pcb: &PcbDoc,
-        theme: ThemeKind,
-        hidden: &std::collections::BTreeSet<u16>,
-    ) {
-        self.scene = Scene::new();
-        for l in pcb_copper_layers(pcb) {
-            self.scene.set_layer(
-                pcb_layer_id(l),
-                Layer::new(pcb_layer_name(l), pcb_layer_color(l, theme))
-                    .with_visible(!hidden.contains(&l.0)),
-            );
-        }
-        let gold = if theme == ThemeKind::Dark {
-            Rgba::rgb(212, 175, 55)
-        } else {
-            Rgba::rgb(160, 120, 10)
-        };
-        let hole = if theme == ThemeKind::Dark {
-            Rgba::rgb(11, 14, 20)
-        } else {
-            Rgba::rgb(248, 249, 251)
-        };
-        self.scene
-            .set_layer(PCB_VIA_LAYER, Layer::new("Vias", gold));
-        self.scene
-            .set_layer(PCB_DRILL_LAYER, Layer::new("Drills", hole).not_snappable());
-        for (id, t) in &pcb.tracks {
-            self.scene.insert(
-                shape_id(*id, 0),
-                Item {
-                    layer: pcb_layer_id(t.layer),
-                    shape: Shape::Line {
-                        segment: t.segment,
-                        width: t.width,
-                    },
-                    color: None,
-                },
-            );
-        }
-        for (id, v) in &pcb.vias {
-            self.scene.insert(
-                shape_id(*id, 0),
-                Item {
-                    layer: PCB_VIA_LAYER,
-                    shape: Shape::Circle {
-                        circle: Circle {
-                            center: v.position,
-                            radius: v.diameter / 2,
-                        },
-                        filled: true,
-                        stroke: 0,
-                    },
-                    color: None,
-                },
-            );
-            self.scene.insert(
-                shape_id(*id, 1),
-                Item {
-                    layer: PCB_DRILL_LAYER,
-                    shape: Shape::Circle {
-                        circle: Circle {
-                            center: v.position,
-                            radius: v.drill / 2,
-                        },
-                        filled: true,
-                        stroke: 0,
-                    },
-                    color: None,
-                },
-            );
-        }
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -694,36 +566,5 @@ mod tests {
             arcs.iter().all(|a| a.sweeps(Vector::new(-1, 0))),
             "mirror must flip bump side"
         );
-    }
-
-    #[test]
-    fn pcb_scene_draws_tracks_and_vias() {
-        use buturecad_eda_core::model::{Track, Via};
-        let mut pcb = PcbDoc::default();
-        pcb.tracks.insert(
-            Id(1),
-            Track {
-                layer: PcbLayer(0),
-                segment: Segment::new(Point::ORIGIN, Point::new(G, 0)),
-                width: 250_000,
-                net: None,
-            },
-        );
-        pcb.vias.insert(
-            Id(2),
-            Via {
-                position: Point::new(G, 0),
-                diameter: 600_000,
-                drill: 300_000,
-                net: None,
-                kind: Default::default(),
-            },
-        );
-        let mut ps = PcbScene::default();
-        ps.rebuild(&pcb, ThemeKind::Dark, &Default::default());
-        assert_eq!(ps.scene.len(), 3);
-        ps.rebuild(&pcb, ThemeKind::Dark, &[0u16].into_iter().collect());
-        assert!(!ps.scene.is_visible(pcb_layer_id(PcbLayer(0))));
-        assert_eq!(pcb_layer_name(PcbLayer(1)), "B.Cu");
     }
 }

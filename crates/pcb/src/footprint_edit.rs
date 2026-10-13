@@ -99,7 +99,7 @@ pub fn delete_items(fp: &mut Footprint, items: &[Item]) -> Result<usize, Footpri
 // Transforms
 // ---------------------------------------------------------------------------------------------
 
-fn map_shape(s: &FpShape, f: &impl Fn(Point) -> Point, flips: bool) -> Option<FpShape> {
+pub fn map_shape(s: &FpShape, f: &impl Fn(Point) -> Point, flips: bool) -> Option<FpShape> {
     Some(match s {
         FpShape::Line { segment, width } => FpShape::Line {
             segment: Segment::new(f(segment.a), f(segment.b)),

@@ -18,9 +18,11 @@ desktop app; limits are stated in the sections that follow.*
 
 - **PCB core** (roadmap 13): layer set and stackup (2–32 copper layers), placed footprints with exact flip/rotate transforms and pad geometry, nets, tracks/vias carrying nets, zones, keepouts, texts, graphics, via kinds modelled; generic atomic `PcbEditCommand`; PCB schema 3. See `docs/pcb-core.md`.
 
+- **PCB editor** (roadmap 14): board outline (closure checked), footprint placement, move/rotate/flip/lock/delete/duplicate/align/distribute with multi-selection, layer manager with visibility and active layer, stackup selector; all rendered by wgpu and undoable. See `docs/pcb-editor.md`.
+
 # Partial
 
-- **PCB** is only the footprint model plus a skeleton (tracks, vias) hosting the commands. There is no board outline, no placed footprints, no nets, no PCB editing tools (the PCB view is read-only). Roadmap 13+.
+- **PCB:** the model and the placement editor exist; there is no schematic→PCB update, ratsnest, track routing or via tools yet (roadmap 15–18), no DRC (19+), zones/keepouts have no tools (25).
 - **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
 - **Hierarchy:** only the root sheet can be drawn and edited; hierarchical sheets exist in the model and connectivity but have no UI tools. ERC findings inside child sheets are listed but cannot be focused.
 - **Symbol edits and placed parts:** changing a symbol's pins moves the pins but not the wires attached to them in the schematic; ERC shows what became unconnected. There is no "update symbol from library" command: the project copy is authoritative once opened.

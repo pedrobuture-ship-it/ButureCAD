@@ -17,10 +17,12 @@ use std::cell::RefCell;
 mod editor;
 mod erc;
 mod footprint_editor;
+mod pcb_editor;
 mod symbol_editor;
 use editor::EditorState;
 pub use footprint_editor::generator_infos;
 use footprint_editor::FootprintEditor;
+use pcb_editor::PcbEditor;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use symbol_editor::SymbolEditor;
@@ -83,7 +85,8 @@ pub struct Workspace {
     pub(crate) user_libs: Option<PathBuf>,
 
     sch_scene: SchematicScene,
-    pcb_scene: sb::PcbScene,
+    pcb_scene: crate::pcb_scene::PcbScene,
+    pub(crate) pcb_ed: PcbEditor,
     built_for: Option<(u64, ThemeName, BTreeSet<u16>)>,
     pub views: BTreeMap<Mode, View>,
     fitted: BTreeSet<Mode>,
@@ -127,7 +130,8 @@ impl Workspace {
             erc: erc::ErcState::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
-            pcb_scene: sb::PcbScene::default(),
+            pcb_scene: crate::pcb_scene::PcbScene::default(),
+            pcb_ed: PcbEditor::default(),
             built_for: None,
             views: BTreeMap::new(),
             fitted: BTreeSet::new(),
@@ -229,6 +233,7 @@ impl Workspace {
         self.editor = EditorState::default();
         self.symed = SymbolEditor::default();
         self.fped = FootprintEditor::default();
+        self.pcb_ed = PcbEditor::default();
         *self.conn.get_mut() = None;
         self.erc = erc::ErcState::default();
     }
@@ -387,9 +392,7 @@ impl Workspace {
             sel.retain(|id| project.schematic().object(*id).is_some());
         }
         if let Some(sel) = self.selection.get_mut(&Mode::Pcb) {
-            sel.retain(|id| {
-                project.pcb().tracks.contains_key(id) || project.pcb().vias.contains_key(id)
-            });
+            sel.retain(|id| project.pcb().object(*id).is_some());
         }
         self.symed_prune_selection();
         self.fped_prune_selection();
@@ -407,9 +410,7 @@ impl Workspace {
             return self.fped_describe(id).is_some();
         }
         let p = open.engine.project();
-        p.schematic().object(id).is_some()
-            || p.pcb().tracks.contains_key(&id)
-            || p.pcb().vias.contains_key(&id)
+        p.schematic().object(id).is_some() || p.pcb().object(id).is_some()
     }
 
     // -- view settings ---------------------------------------------------------------------------
@@ -532,16 +533,10 @@ impl Workspace {
                 .into_iter()
                 .flat_map(|o| self.sch_scene.shapes_of(o).to_vec())
                 .collect(),
-            Mode::Pcb => {
-                let Some(scene) = self.scene() else {
-                    return Vec::new();
-                };
-                owners
-                    .into_iter()
-                    .flat_map(|o| (0..2).map(move |n| sb::shape_id(o, n)))
-                    .filter(|s| scene.get(*s).is_some())
-                    .collect()
-            }
+            Mode::Pcb => owners
+                .into_iter()
+                .flat_map(|o| self.pcb_scene.shapes_of(o).to_vec())
+                .collect(),
             Mode::SymbolEditor => owners
                 .into_iter()
                 .flat_map(|o| self.symed.shapes_of(o).to_vec())
@@ -628,6 +623,8 @@ impl Workspace {
                 self.pointer_symbol(ev, &mut out);
             } else if self.mode == Mode::FootprintEditor {
                 self.pointer_footprint(ev, &mut out);
+            } else if self.mode == Mode::Pcb {
+                self.pointer_pcb(ev, &mut out);
             } else {
                 self.pointer_select(ev, &mut out);
             }
@@ -796,9 +793,7 @@ impl Workspace {
     fn hint(&self) -> String {
         match self.mode {
             Mode::Schematic => self.tool_hint(),
-            Mode::Pcb => {
-                "Select: click or drag a box. Middle button or Space+drag pans, wheel zooms.".into()
-            }
+            Mode::Pcb => self.pcb_hint(),
             Mode::SymbolEditor => self.symed_hint(),
             Mode::FootprintEditor => self.fped_hint(),
             _ => String::new(),
@@ -877,10 +872,8 @@ impl Workspace {
                 .unwrap_or_default(),
             Mode::Pcb => project
                 .pcb()
-                .tracks
-                .keys()
-                .chain(project.pcb().vias.keys())
-                .copied()
+                .ids()
+                .filter(|i| !project.pcb().nets.contains_key(i))
                 .collect(),
             _ => BTreeSet::new(),
         };
@@ -918,20 +911,7 @@ impl Workspace {
                     other => other.kind().to_owned(),
                 })
             }
-            Mode::Pcb => {
-                if let Some(t) = p.pcb().tracks.get(&id) {
-                    Some(format!(
-                        "Track {} {:.3} mm",
-                        sb::pcb_layer_name(t.layer),
-                        t.width as f64 / 1e6
-                    ))
-                } else {
-                    p.pcb()
-                        .vias
-                        .get(&id)
-                        .map(|v| format!("Via Ø{:.3} mm", v.diameter as f64 / 1e6))
-                }
-            }
+            Mode::Pcb => self.pcb_describe(id),
             _ => None,
         }
     }
@@ -945,6 +925,9 @@ impl Workspace {
         }
         if self.mode == Mode::FootprintEditor {
             return self.fped_summaries();
+        }
+        if self.mode == Mode::Pcb {
+            return self.pcb_summaries();
         }
         let project = open.engine.project();
         let ids: Vec<Id> = self
@@ -971,26 +954,7 @@ impl Workspace {
     fn layer_infos(&self) -> Vec<LayerInfo> {
         let hex = |c: Rgba| format!("#{:02x}{:02x}{:02x}", c.0[0], c.0[1], c.0[2]);
         match (&self.open, self.mode) {
-            (Some(open), Mode::Pcb) => {
-                let mut v: Vec<LayerInfo> = sb::pcb_copper_layers(open.engine.project().pcb())
-                    .into_iter()
-                    .map(|l| LayerInfo {
-                        id: l.0 as u32,
-                        name: sb::pcb_layer_name(l),
-                        color: self
-                            .pcb_scene
-                            .scene
-                            .layer(sb::pcb_layer_id(l))
-                            .map(|x| hex(x.color))
-                            .unwrap_or_default(),
-                        visible: !self.hidden_pcb_layers.contains(&l.0),
-                        active: self.active_pcb_layer == l.0,
-                        toggleable: true,
-                    })
-                    .collect();
-                v.sort_by_key(|l| l.id);
-                v
-            }
+            (Some(_), Mode::Pcb) => self.pcb_layer_infos(),
             (Some(_), Mode::Schematic) => sb::schematic_layers(self.theme_kind())
                 .into_iter()
                 .filter(|(_, l)| !l.hit_only)
@@ -1014,7 +978,11 @@ impl Workspace {
         let p = open.engine.project();
         match self.mode {
             Mode::Schematic => p.schematic().object_count() as u64,
-            Mode::Pcb => (p.pcb().tracks.len() + p.pcb().vias.len()) as u64,
+            Mode::Pcb => p
+                .pcb()
+                .ids()
+                .filter(|i| !p.pcb().nets.contains_key(i))
+                .count() as u64,
             Mode::SymbolEditor => self
                 .symed_symbol()
                 .map_or(0, |s| (s.pins.len() + s.graphics.len()) as u64),
@@ -1043,6 +1011,8 @@ impl Workspace {
                 self.symed.tool.id().to_owned()
             } else if self.mode == Mode::FootprintEditor {
                 self.fped.tool.id().to_owned()
+            } else if self.mode == Mode::Pcb {
+                self.pcb_ed.tool.id().to_owned()
             } else {
                 self.editor.tool.id().to_owned()
             },
@@ -1050,6 +1020,8 @@ impl Workspace {
                 self.symed.tool.arg()
             } else if self.mode == Mode::FootprintEditor {
                 self.fped.tool.arg()
+            } else if self.mode == Mode::Pcb {
+                self.pcb_ed.tool.arg()
             } else {
                 self.editor.tool.arg()
             },
@@ -1076,6 +1048,7 @@ impl Workspace {
             hint: self.hint(),
             symbol_editor: self.symbol_editor_info(),
             erc: self.erc_info(),
+            pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }
     }

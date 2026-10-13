@@ -17,4 +17,4 @@ dialog plugin returns a canned folder, window APIs are no-ops.
 
 Scenarios: `run.mjs` (shell and canvas), `edit.mjs` (schematic editing), `symbol.mjs` (Symbol
 Editor), `erc.mjs` (ERC, findings, waivers), `footprint.mjs` (Footprint Editor, generators,
-libraries). Run them after `npm run build` and `cargo build -p buturecad-desktop --examples`.
+libraries), `pcb.mjs` (PCB editor). Run them after `npm run build` and `cargo build -p buturecad-desktop --examples`.

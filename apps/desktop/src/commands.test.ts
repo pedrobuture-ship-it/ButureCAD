@@ -6,6 +6,9 @@ import type { Snapshot } from "./bindings/Snapshot";
 
 const commands = buildCommands();
 
+/** Commands of the symbol, footprint and PCB editors may reuse keys of other modes. */
+const modeSpecific = (id: string) => /^(symtool|fptool|pcbtool|pcb)\./.test(id);
+
 function snapshot(over: Partial<Snapshot> = {}): Snapshot {
   return {
     project: {
@@ -39,6 +42,7 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     symbol_editor: null,
     erc: null,
     footprint_editor: null,
+    pcb: null,
     ...over,
   };
 }
@@ -62,9 +66,7 @@ describe("command registry", () => {
     // Symbol Editor tools reuse letters of schematic tools; the Symbol Editor describe block
     // below checks that the two are never available at the same time.
     const shortcuts = commands.flatMap((c) =>
-      c.shortcut && !c.id.startsWith("symtool.") && !c.id.startsWith("fptool.")
-        ? [c.shortcut.toLowerCase()]
-        : [],
+      c.shortcut && !modeSpecific(c.id) ? [c.shortcut.toLowerCase()] : [],
     );
     expect(new Set(shortcuts).size).toBe(shortcuts.length);
   });
@@ -170,6 +172,11 @@ describe("Symbol Editor commands", () => {
         generators: [],
       },
     });
+  const withPcb = () =>
+    snapshot({
+      mode: "pcb",
+      pcb: { copper_layers: 2, active_layer: "F.Cu", footprints: 0, nets: 0, warnings: [] },
+    });
   const state = (snap: Snapshot): UiState => ({ ...store.getState(), snapshot: snap });
   const byId = (id: string) => {
     const c = commands.find((x) => x.id === id);
@@ -186,14 +193,12 @@ describe("Symbol Editor commands", () => {
   });
 
   it("shares keys with other modes without ever being available together", () => {
-    for (const sym of commands.filter(
-      (c) => c.id.startsWith("symtool.") || c.id.startsWith("fptool."),
-    )) {
+    for (const sym of commands.filter((c) => modeSpecific(c.id) && c.shortcut)) {
       const clashes = commands.filter(
         (c) => c !== sym && c.shortcut?.toLowerCase() === sym.shortcut?.toLowerCase(),
       );
       for (const other of clashes) {
-        for (const snap of [snapshot(), withSymbol(), withFootprint()]) {
+        for (const snap of [snapshot(), withSymbol(), withFootprint(), withPcb()]) {
           const both =
             availability(sym, state(snap)) === true && availability(other, state(snap)) === true;
           expect(both, `${sym.id} vs ${other.id} in ${snap.mode}`).toBe(false);

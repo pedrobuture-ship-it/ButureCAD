@@ -6,6 +6,7 @@ import type { LayerInfo } from "./LayerInfo";
 import type { Message } from "./Message";
 import type { Mode } from "./Mode";
 import type { ObjectSummary } from "./ObjectSummary";
+import type { PcbInfo } from "./PcbInfo";
 import type { ProjectInfo } from "./ProjectInfo";
 import type { RecentProject } from "./RecentProject";
 import type { SymbolEditorInfo } from "./SymbolEditorInfo";
@@ -51,4 +52,8 @@ erc: ErcInfo | null,
 /**
  * Present while the Footprint Editor has a footprint open.
  */
-footprint_editor: FootprintEditorInfo | null, };
+footprint_editor: FootprintEditorInfo | null, 
+/**
+ * Board state (stackup, outline warnings…).
+ */
+pcb: PcbInfo | null, };

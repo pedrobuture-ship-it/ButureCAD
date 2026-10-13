@@ -117,6 +117,11 @@ export function createActions(): Actions {
     openPalette: () => store.set({ paletteOpen: true }),
     showAbout: () => store.set({ dialog: { kind: "about" } }),
     selectTool: (id) => {
+      if (snap()?.mode === "pcb") {
+        if (id === "place_footprint") store.set({ dialog: { kind: "pcb-place" } });
+        else void call(api.editorCommand(`tool:${id}`));
+        return;
+      }
       if (snap()?.mode === "footprint_editor") {
         if (id === "text") store.set({ dialog: { kind: "footprint-text" } });
         else void call(api.editorCommand(`tool:${id}`));
@@ -144,6 +149,8 @@ export function createActions(): Actions {
     footprintGenerate: () => store.set({ dialog: { kind: "footprint-generate" } }),
     footprintSaveToLibrary: () => store.set({ dialog: { kind: "footprint-save" } }),
     footprintCommand: (name, arg) => void call(api.footprintEditorCommand(name, arg)),
+    pcbPlaceFootprint: () => store.set({ dialog: { kind: "pcb-place" } }),
+    pcbCommand: (name, arg) => void call(api.pcbCommand(name, arg)),
     runErc: () => {
       store.set({ bottomTab: "erc", bottomOpen: true });
       void call(api.ercRun());

@@ -7,6 +7,7 @@
 //! Live previews (dragging, a primitive being drawn) never touch the model.
 
 use super::*;
+use crate::pcb_scene::rounded_rect;
 use crate::scene_builder::{self as sb, ThemeKind};
 use buturecad_eda_core::commands::SetFootprintCommand;
 use buturecad_geometry::{Arc, Circle, Polygon, Rectangle, Segment};
@@ -17,7 +18,6 @@ use buturecad_pcb::{
     Footprint, FpGraphic, FpLayer, FpShape, FpText, MountType, Pad, PadKind, PadShape, TextKind,
 };
 use buturecad_renderer::{Item as SceneItem, Layer, LayerId, Rgba, Shape};
-use std::f64::consts::PI;
 
 /// Item ids: pads are `1 + index`, graphics `GFX_BASE + index`, texts `TXT_BASE + index`.
 const GFX_BASE: u64 = 1 << 20;
@@ -235,40 +235,6 @@ fn fp_layers(theme: ThemeKind, hidden: &BTreeSet<FpLayer>) -> Vec<(LayerId, Laye
             Layer::new("Pad numbers", c((250, 235, 235), (60, 10, 10))).not_snappable(),
         ),
     ]
-}
-
-/// Stadium / rounded-rectangle outline (counter-clockwise), `r` clamped to half the shorter side.
-fn rounded_rect(c: Point, w: i64, h: i64, r: i64) -> Vec<Point> {
-    let r = r.clamp(0, w.min(h) / 2);
-    let (hw, hh) = (w as f64 / 2.0, h as f64 / 2.0);
-    let r = r as f64;
-    if r < 1.0 {
-        let (hw, hh) = (w / 2, h / 2);
-        return vec![
-            Point::new(c.x - hw, c.y - hh),
-            Point::new(c.x + hw, c.y - hh),
-            Point::new(c.x + hw, c.y + hh),
-            Point::new(c.x - hw, c.y + hh),
-        ];
-    }
-    let steps = 10;
-    let mut pts = Vec::with_capacity(4 * (steps + 1));
-    // Corner centres in counter-clockwise order starting at the bottom-right.
-    for (k, (sx, sy)) in [(1.0, -1.0), (1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0)]
-        .into_iter()
-        .enumerate()
-    {
-        let (cx, cy) = (c.x as f64 + sx * (hw - r), c.y as f64 + sy * (hh - r));
-        for i in 0..=steps {
-            let a = -PI / 2.0 + (k as f64) * PI / 2.0 + PI / 2.0 * (i as f64) / (steps as f64);
-            pts.push(Point::new(
-                (cx + r * a.cos()).round() as i64,
-                (cy + r * a.sin()).round() as i64,
-            ));
-        }
-    }
-    pts.dedup();
-    pts
 }
 
 /// Render shape of a pad (copper outline), optionally grown by `grow` nm on every side.

@@ -338,3 +338,19 @@ pub fn library_footprints(state: State<'_, AppState>) -> Result<Vec<FootprintInf
 pub fn footprint_generators() -> Vec<GeneratorInfo> {
     crate::workspace::generator_infos()
 }
+
+/// Board-level commands: stackup, active layer (see `Workspace::pcb_command`).
+#[tauri::command]
+pub fn pcb_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.pcb_command(&name, arg.as_deref()))
+}
+
+/// Footprints the PCB placement tool can offer.
+#[tauri::command]
+pub fn pcb_footprints(state: State<'_, AppState>) -> Result<Vec<FootprintInfo>, String> {
+    state.with(|ws| Ok(ws.pcb_footprint_choices()))
+}

@@ -754,6 +754,70 @@ function FootprintTextDialog() {
   );
 }
 
+function PcbPlaceDialog() {
+  const [items, setItems] = useState<FootprintInfo[]>([]);
+  const [query, setQuery] = useState("");
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    api
+      .pcbFootprints()
+      .then(setItems)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const q = query.trim().toLowerCase();
+  const shown = items.filter(
+    (f) => q === "" || `${f.lib_id} ${f.description} ${f.tags}`.toLowerCase().includes(q),
+  );
+  const pick = async (f: FootprintInfo | undefined) => {
+    if (!f) return;
+    close();
+    await call(api.editorCommand(`tool:place_footprint:${f.lib_id}`));
+  };
+  return (
+    <Modal title="Place a footprint" onClose={close}>
+      <input
+        autoFocus
+        value={query}
+        placeholder="Search the project and the libraries…"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIndex(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") setIndex((i) => Math.min(shown.length - 1, i + 1));
+          else if (e.key === "ArrowUp") setIndex((i) => Math.max(0, i - 1));
+          else if (e.key === "Enter") void pick(shown[index]);
+        }}
+      />
+      <ul className="symbol-list" role="listbox">
+        {shown.length === 0 && (
+          <li className="muted">
+            No footprints yet — generate or draw one in the Footprint Editor first.
+          </li>
+        )}
+        {shown.map((f, i) => (
+          <li
+            key={f.lib_id}
+            role="option"
+            aria-selected={i === index}
+            className={i === index ? "sel" : ""}
+            onMouseEnter={() => setIndex(i)}
+            onClick={() => void pick(f)}
+          >
+            <strong>{f.lib_id}</strong>
+            <span className="muted">
+              {f.source} · {f.pad_count} pads
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="muted">
+        Click on the board to place. R rotates, F flips to the back side, Esc stops.
+      </p>
+    </Modal>
+  );
+}
+
 function AboutDialog() {
   const [info, setInfo] = useState<CoreInfo | null>(null);
   useEffect(() => {
@@ -805,6 +869,8 @@ export function Dialogs() {
       return <SymbolSaveDialog />;
     case "symbol-text":
       return <SymbolTextDialog />;
+    case "pcb-place":
+      return <PcbPlaceDialog />;
     case "footprint-new":
       return <FootprintNewDialog />;
     case "footprint-open":

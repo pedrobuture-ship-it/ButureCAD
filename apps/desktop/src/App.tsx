@@ -14,6 +14,7 @@ import { Inspector } from "./components/Inspector";
 import { MenuBar } from "./components/MenuBar";
 import { NotImplemented } from "./components/NotImplemented";
 import { FootprintEditorBar, FootprintEditorHome } from "./components/FootprintEditor";
+import { PcbBar } from "./components/PcbBar";
 import { SymbolEditorBar, SymbolEditorHome } from "./components/SymbolEditor";
 import { StartScreen } from "./components/StartScreen";
 import { StatusBar } from "./components/StatusBar";
@@ -139,6 +140,7 @@ export function App() {
               <>
                 {mode === "symbol_editor" && <SymbolEditorBar />}
                 {mode === "footprint_editor" && <FootprintEditorBar />}
+                {mode === "pcb" && <PcbBar />}
                 <CanvasView />
               </>
             ) : (

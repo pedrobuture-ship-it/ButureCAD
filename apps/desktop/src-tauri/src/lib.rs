@@ -2,6 +2,7 @@
 //! (`workspace`), translates it to scenes (`scene_builder`) and exposes it over typed IPC.
 
 pub mod commands;
+pub mod pcb_scene;
 pub mod scene_builder;
 pub mod summary;
 pub mod ui_types;
@@ -44,6 +45,8 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::symbol_editor_command,
         commands::symbol_editor_set,
         commands::symbol_libraries,
+        commands::pcb_command,
+        commands::pcb_footprints,
         commands::erc_run,
         commands::erc_focus,
         commands::erc_waive,

@@ -71,6 +71,9 @@ export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
   footprint_editor: FOOTPRINT_TOOLS,
   pcb: [
     select,
+    tool("place_footprint", "Place Footprint", "Cpu", "A"),
+    tool("outline_rect", "Board Outline (rectangle)", "Square", "O"),
+    tool("outline_line", "Board Outline (polyline)", "PenLine"),
     {
       id: "route",
       label: "Route Track",

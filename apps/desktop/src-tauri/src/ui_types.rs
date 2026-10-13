@@ -168,6 +168,8 @@ pub struct Snapshot {
     pub erc: Option<ErcInfo>,
     /// Present while the Footprint Editor has a footprint open.
     pub footprint_editor: Option<FootprintEditorInfo>,
+    /// Board state (stackup, outline warnings…).
+    pub pcb: Option<PcbInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -339,6 +341,17 @@ pub struct FootprintEditorInfo {
     pub models: Vec<ModelInfo>,
     pub warnings: Vec<String>,
     pub generators: Vec<GeneratorInfo>,
+}
+
+/// Board-level state for the PCB view.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct PcbInfo {
+    pub copper_layers: u32,
+    pub active_layer: String,
+    pub footprints: u32,
+    pub nets: u32,
+    pub warnings: Vec<String>,
 }
 
 /// State of the Symbol Editor for the symbol being edited.
