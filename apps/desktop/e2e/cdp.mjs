@@ -71,3 +71,7 @@ export async function launch({ port = 9333, width = 1500, height = 950 } = {}) {
   };
   return api;
 }
+
+export async function typeText(b, text) {
+  await b.send("Input.insertText", { text });
+}

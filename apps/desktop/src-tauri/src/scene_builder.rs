@@ -97,7 +97,7 @@ fn line(a: Point, b: Point, width: i64) -> Shape {
 }
 
 /// Shapes of a symbol instance, in sheet coordinates.
-fn symbol_shapes(sym: &Symbol, placement: &Placement) -> Vec<(LayerId, Shape)> {
+pub fn symbol_shapes(sym: &Symbol, placement: &Placement) -> Vec<(LayerId, Shape)> {
     let mut out = Vec::new();
     for g in &sym.graphics {
         match g {

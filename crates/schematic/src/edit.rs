@@ -357,12 +357,20 @@ fn plan(sch: &Schematic, ids: &BTreeSet<Id>, op: Op, stretch: bool) -> Result<Pl
         }
     }
     if stretch {
-        // A junction sitting on a moved connection point is part of that connection.
+        // Junctions, power symbols, labels and no-connect marks sitting on a moved connection
+        // point belong to that connection and travel with it (they cannot stretch like wires).
         for (id, o) in sheet_objects(sch, sheet) {
-            if let Object::Junction(j) = o {
-                if points.contains(&j.position) {
-                    moved.insert(id);
-                }
+            let attached = matches!(
+                o,
+                Object::Junction(_)
+                    | Object::PowerSymbol(_)
+                    | Object::NetLabel(_)
+                    | Object::GlobalLabel(_)
+                    | Object::HierLabel(_)
+                    | Object::NoConnect(_)
+            );
+            if attached && connection_points(sch, o).iter().any(|p| points.contains(p)) {
+                moved.insert(id);
             }
         }
         // Wires with both ends on moved points move as a whole.

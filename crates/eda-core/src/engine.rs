@@ -72,6 +72,17 @@ impl CommandEngine {
         self.project.alloc_id()
     }
 
+    /// The id the next reservation would return. Tools that build several objects at once start
+    /// an id generator here, then call [`Self::reserve_ids_until`] with its final position.
+    pub fn peek_next_id(&self) -> u64 {
+        self.project.next_id()
+    }
+
+    /// Marks ids `< next` as used (see [`Self::peek_next_id`]).
+    pub fn reserve_ids_until(&mut self, next: u64) {
+        self.project.reserve_ids_until(next);
+    }
+
     pub fn into_project(self) -> Project {
         self.project
     }

@@ -126,6 +126,10 @@ pub struct Snapshot {
     pub project: Option<ProjectInfo>,
     pub mode: Mode,
     pub tool: String,
+    /// Argument of the active tool (symbol id for placement tools, text for label tools).
+    pub tool_arg: Option<String>,
+    /// The clipboard holds something to paste.
+    pub can_paste: bool,
     pub units: Units,
     pub theme: ThemeName,
     pub grid: GridInfo,
@@ -144,6 +148,8 @@ pub struct Snapshot {
     #[ts(type = "number")]
     pub object_count: u64,
     pub zoom_percent: f64,
+    /// What the active tool expects next (status bar).
+    pub hint: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -191,4 +197,15 @@ pub struct PointerResult {
     pub model_changed: bool,
     /// Short hint for the status bar describing what the active tool expects next.
     pub hint: String,
+}
+
+/// A library symbol offered by the placement tools.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct SymbolInfo {
+    pub lib_id: String,
+    pub name: String,
+    pub reference_prefix: String,
+    pub is_power: bool,
+    pub pin_count: u32,
 }

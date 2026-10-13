@@ -636,3 +636,30 @@ kbd {
   z-index: 200;
   cursor: pointer;
 }
+
+/* Editing */
+.prop-input {
+  width: 100%;
+  font: 11.5px var(--mono);
+  padding: 1px 4px;
+  background: var(--bg);
+}
+.symbol-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.symbol-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.symbol-list li.sel {
+  background: var(--sel);
+}

@@ -16,12 +16,35 @@ const select: ToolDef = {
   id: "select",
   label: "Select",
   icon: "MousePointer2",
-  shortcut: "Esc",
+  shortcut: "V",
   implemented: true,
 };
 
+const tool = (id: string, label: string, icon: string, shortcut?: string): ToolDef => ({
+  id,
+  label,
+  icon,
+  shortcut,
+  implemented: true,
+});
+
 export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
-  schematic: [select],
+  schematic: [
+    select,
+    tool("place_component", "Place Component", "Cpu", "A"),
+    tool("wire", "Wire", "PenLine", "W"),
+    tool("bus", "Bus", "Cable", "B"),
+    tool("junction", "Junction", "CircleDot", "J"),
+    tool("net_label", "Net Label", "Tag", "L"),
+    tool("global_label", "Global Label", "Globe", "Ctrl+L"),
+    tool("power", "Power Symbol", "Zap", "P"),
+    tool("move", "Move", "Move", "M"),
+    tool("drag", "Drag", "Hand", "G"),
+    tool("rotate", "Rotate", "RotateCw", "R"),
+    tool("mirror", "Mirror", "FlipHorizontal", "X / Y"),
+    tool("delete", "Delete", "Trash2", "Del"),
+    tool("duplicate", "Duplicate", "Copy", "Ctrl+D"),
+  ],
   pcb: [
     select,
     {
@@ -35,7 +58,7 @@ export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
     {
       id: "via",
       label: "Place Via",
-      icon: "CircleDot",
+      icon: "CircleSlash",
       shortcut: "V",
       implemented: false,
       planned: "roadmap stage 18 (vias)",

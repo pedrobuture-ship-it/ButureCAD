@@ -4,6 +4,7 @@ import type { Mode } from "./bindings/Mode";
 import type { PointerEvent as CanvasPointerEvent } from "./bindings/PointerEvent";
 import type { PointerResult } from "./bindings/PointerResult";
 import type { Snapshot } from "./bindings/Snapshot";
+import type { SymbolInfo } from "./bindings/SymbolInfo";
 import type { ThemeName } from "./bindings/ThemeName";
 import type { Units } from "./bindings/Units";
 
@@ -43,6 +44,9 @@ export const api = {
   viewFit: () => invoke<Snapshot>("view_fit"),
   viewZoom: (factor: number) => invoke<Snapshot>("view_zoom", { factor }),
   editorCommand: (name: string) => invoke<Snapshot>("editor_command", { name }),
+  librarySymbols: () => invoke<SymbolInfo[]>("library_symbols"),
+  propertySet: (id: number, key: string, value: string) =>
+    invoke<Snapshot>("property_set", { id, key, value }),
   pointer: (event: CanvasPointerEvent) => invoke<PointerResult>("pointer", { event }),
   /** Raw frame: `width u32 LE`, `height u32 LE`, RGBA8 pixels. */
   renderFrame: (width: number, height: number) =>

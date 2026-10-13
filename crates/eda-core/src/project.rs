@@ -94,6 +94,15 @@ impl Project {
         Ok(())
     }
 
+    pub(crate) fn next_id(&self) -> u64 {
+        self.next_id
+    }
+
+    /// Makes sure ids below `next` are never handed out again.
+    pub(crate) fn reserve_ids_until(&mut self, next: u64) {
+        self.next_id = self.next_id.max(next);
+    }
+
     pub(crate) fn alloc_id(&mut self) -> Id {
         let id = Id(self.next_id);
         self.next_id += 1;

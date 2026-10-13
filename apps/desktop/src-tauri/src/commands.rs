@@ -234,3 +234,18 @@ pub fn render_frame(
     out.extend_from_slice(&rgba);
     Ok(tauri::ipc::Response::new(out))
 }
+
+#[tauri::command]
+pub fn library_symbols(state: State<'_, AppState>) -> Result<Vec<SymbolInfo>, String> {
+    state.with(|ws| Ok(ws.library_symbols()))
+}
+
+#[tauri::command]
+pub fn property_set(
+    state: State<'_, AppState>,
+    id: u64,
+    key: String,
+    value: String,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.set_property(id, &key, &value))
+}

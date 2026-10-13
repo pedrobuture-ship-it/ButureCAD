@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { call, pickFolder, toast } from "../actions";
+import type { SymbolInfo } from "../bindings/SymbolInfo";
 import type { CoreInfo } from "../bindings/CoreInfo";
 import { store, useUi } from "../store";
 
@@ -171,6 +172,95 @@ function RecoveryDialog() {
   );
 }
 
+function SymbolPicker({ power }: { power: boolean }) {
+  const [symbols, setSymbols] = useState<SymbolInfo[]>([]);
+  const [query, setQuery] = useState("");
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    api
+      .librarySymbols()
+      .then(setSymbols)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const q = query.trim().toLowerCase();
+  const shown = symbols.filter(
+    (s) => s.is_power === power && (q === "" || s.lib_id.toLowerCase().includes(q)),
+  );
+  const pick = async (s: SymbolInfo | undefined) => {
+    if (!s) return;
+    close();
+    await call(api.editorCommand(`tool:${power ? "power" : "place_component"}:${s.lib_id}`));
+  };
+  return (
+    <Modal title={power ? "Choose a power symbol" : "Choose a component"} onClose={close}>
+      <input
+        autoFocus
+        value={query}
+        placeholder="Search the library…"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIndex(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") setIndex((i) => Math.min(shown.length - 1, i + 1));
+          else if (e.key === "ArrowUp") setIndex((i) => Math.max(0, i - 1));
+          else if (e.key === "Enter") void pick(shown[index]);
+        }}
+      />
+      <ul className="symbol-list" role="listbox">
+        {shown.length === 0 && <li className="muted">No matching symbol</li>}
+        {shown.map((s, i) => (
+          <li
+            key={s.lib_id}
+            role="option"
+            aria-selected={i === index}
+            className={i === index ? "sel" : ""}
+            onMouseEnter={() => setIndex(i)}
+            onClick={() => void pick(s)}
+          >
+            <strong>{s.name}</strong>
+            <span className="muted">
+              {s.lib_id.split(":")[0]} · {s.pin_count} pin{s.pin_count === 1 ? "" : "s"}
+              {s.reference_prefix ? ` · ${s.reference_prefix}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="muted">
+        Click to arm the tool, then click on the sheet to place. R rotates, X/Y mirror, Esc stops.
+      </p>
+    </Modal>
+  );
+}
+
+function LabelNameDialog({ global }: { global: boolean }) {
+  const [name, setName] = useState("NET1");
+  const submit = async () => {
+    if (!name.trim()) return;
+    close();
+    await call(api.editorCommand(`tool:${global ? "global_label" : "net_label"}:${name.trim()}`));
+  };
+  return (
+    <Modal title={global ? "Global label" : "Net label"} onClose={close}>
+      <label className="field">
+        <span>Name (a trailing number counts up as you place more labels)</span>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+        />
+      </label>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!name.trim()} onClick={() => void submit()}>
+          Place…
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function AboutDialog() {
   const [info, setInfo] = useState<CoreInfo | null>(null);
   useEffect(() => {
@@ -210,5 +300,9 @@ export function Dialogs() {
       return <RecoveryDialog />;
     case "about":
       return <AboutDialog />;
+    case "symbol-picker":
+      return <SymbolPicker power={dialog.power} />;
+    case "label-name":
+      return <LabelNameDialog global={dialog.global} />;
   }
 }

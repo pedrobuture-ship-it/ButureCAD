@@ -1,9 +1,40 @@
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { call } from "../actions";
 import type { LayerInfo } from "../bindings/LayerInfo";
 import type { Snapshot } from "../bindings/Snapshot";
 import { useUi } from "../store";
 import { MODE_TITLES } from "../tools";
+
+/** An editable property: commits on Enter or blur, and only when the value changed. */
+function PropertyInput({
+  objectId,
+  propKey,
+  value,
+}: {
+  objectId: number;
+  propKey: string;
+  value: string;
+}) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value, objectId]);
+  const commit = () => {
+    if (text !== value) void call(api.propertySet(objectId, propKey, text));
+  };
+  return (
+    <input
+      className="prop-input"
+      value={text}
+      aria-label={propKey}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        else if (e.key === "Escape") setText(value);
+      }}
+    />
+  );
+}
 
 function LayerRow({ layer, mode }: { layer: LayerInfo; mode: Snapshot["mode"] }) {
   return (
@@ -74,7 +105,13 @@ export function Inspector() {
               {sel[0].properties.map((p) => (
                 <div key={p.key} className="prop-row">
                   <dt>{p.label}</dt>
-                  <dd title={p.value}>{p.value}</dd>
+                  <dd title={p.value}>
+                    {p.editable ? (
+                      <PropertyInput objectId={sel[0].id} propKey={p.key} value={p.value} />
+                    ) : (
+                      p.value
+                    )}
+                  </dd>
                 </div>
               ))}
             </dl>

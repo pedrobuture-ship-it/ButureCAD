@@ -284,6 +284,45 @@ fn junctions_travel_with_the_connection_they_belong_to() {
 }
 
 #[test]
+fn power_symbols_and_labels_on_a_moved_pin_travel_with_it() {
+    let mut w = World::new();
+    let r = w.part("Buture:R", "R1", 0, 0, 0); // pins (0,3) (0,-3)
+    let gnd = w.power("Buture:GND", "GND", (0, -3)); // sits directly on pin 2
+    let label = w.put(Object::NetLabel(buturecad_schematic::NetLabel {
+        position: Point::new(0, 3 * G),
+        name: "SIG".into(),
+        orientation: Direction::Right,
+    }));
+    let before = topology(&w.sch);
+    let edit = move_objects(
+        &w.sch,
+        &ids(&[r]),
+        Vector::new(5 * G, 2 * G),
+        true,
+        &mut w.gen,
+    )
+    .unwrap();
+    w.apply_edit(&edit);
+    assert_eq!(
+        topology(&w.sch),
+        before,
+        "GND and SIG stay attached to their pins"
+    );
+    let Object::PowerSymbol(p) = w.sch.object(gnd).unwrap().1 else {
+        unreachable!()
+    };
+    assert_eq!(p.placement.position, Point::new(5 * G, -G));
+    let Object::NetLabel(l) = w.sch.object(label).unwrap().1 else {
+        unreachable!()
+    };
+    assert_eq!(l.position, Point::new(5 * G, 5 * G));
+    // Rotation turns them with the part.
+    let edit = rotate_objects(&w.sch, &ids(&[r]), G, &mut w.gen).unwrap();
+    w.apply_edit(&edit);
+    assert_eq!(topology(&w.sch), before);
+}
+
+#[test]
 fn delete_removes_orphan_junctions_but_keeps_needed_ones() {
     let mut w = World::new();
     let a = w.wire((0, 0), (10, 0));

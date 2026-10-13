@@ -7,6 +7,8 @@ export type BottomTab = "erc" | "drc" | "messages" | "console";
 export type Dialog =
   | { kind: "new-project" }
   | { kind: "save-as" }
+  | { kind: "symbol-picker"; power: boolean }
+  | { kind: "label-name"; global: boolean }
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }
@@ -27,6 +29,8 @@ export interface UiState {
   contextMenu: ContextMenuState | null;
   dialog: Dialog | null;
   toast: string | null;
+  /** Latest status-bar hint (from the newest snapshot or pointer result). */
+  hint: string;
   /** Bumped to ask the canvas for a new frame. */
   renderTick: number;
 }
@@ -41,6 +45,7 @@ const initial: UiState = {
   contextMenu: null,
   dialog: null,
   toast: null,
+  hint: "",
   renderTick: 0,
 };
 

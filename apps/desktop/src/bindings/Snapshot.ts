@@ -12,7 +12,15 @@ import type { Units } from "./Units";
 /**
  * Everything the UI needs to render its chrome. Returned by every state-changing command.
  */
-export type Snapshot = { project: ProjectInfo | null, mode: Mode, tool: string, units: Units, theme: ThemeName, grid: GridInfo, layers: Array<LayerInfo>, selection: Array<ObjectSummary>, gpu_adapter: string | null, gpu_error: string | null, debug_overlay: boolean, recent: Array<RecentProject>, 
+export type Snapshot = { project: ProjectInfo | null, mode: Mode, tool: string, 
+/**
+ * Argument of the active tool (symbol id for placement tools, text for label tools).
+ */
+tool_arg: string | null, 
+/**
+ * The clipboard holds something to paste.
+ */
+can_paste: boolean, units: Units, theme: ThemeName, grid: GridInfo, layers: Array<LayerInfo>, selection: Array<ObjectSummary>, gpu_adapter: string | null, gpu_error: string | null, debug_overlay: boolean, recent: Array<RecentProject>, 
 /**
  * An autosave from a crashed session is waiting for a decision.
  */
@@ -24,4 +32,8 @@ command_log: Array<string>,
 /**
  * Model objects shown in the current mode (schematic objects, or PCB tracks + vias).
  */
-object_count: number, zoom_percent: number, };
+object_count: number, zoom_percent: number, 
+/**
+ * What the active tool expects next (status bar).
+ */
+hint: string, };

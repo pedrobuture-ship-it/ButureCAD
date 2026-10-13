@@ -6,6 +6,7 @@ import { useActions } from "./hooks";
 export function StatusBar() {
   const snap = useUi((s) => s.snapshot);
   const ptr = useUi((s) => s.pointer);
+  const hint = useUi((s) => s.hint);
   const actions = useActions();
   if (!snap) return <footer className="statusbar" />;
   const u = snap.units;
@@ -50,8 +51,8 @@ export function StatusBar() {
       <span className="sb-item" title="Active layer">
         Layer: {layerText}
       </span>
-      <span className="sb-item grow muted" title={ptr?.hint}>
-        {ptr?.hover ? `▸ ${ptr.hover}` : (ptr?.hint ?? MODE_TITLES[snap.mode])}
+      <span className="sb-item grow muted" title={hint}>
+        {ptr?.hover ? `▸ ${ptr.hover}` : hint || MODE_TITLES[snap.mode]}
       </span>
       <span className="sb-item muted" title={snap.gpu_error ?? "GPU adapter"}>
         {snap.gpu_error

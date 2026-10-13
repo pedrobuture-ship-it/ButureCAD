@@ -21,6 +21,7 @@ export function applySnapshot(s: Snapshot): void {
   const wantsRecovery = s.recovery_pending && cur.dialog?.kind !== "recovery";
   store.set({
     snapshot: s,
+    hint: s.hint,
     renderTick: cur.renderTick + 1,
     dialog: wantsRecovery ? { kind: "recovery" } : cur.dialog,
   });
@@ -115,5 +116,20 @@ export function createActions(): Actions {
     toggleDebugOverlay: () => void call(api.setDebugOverlay(!snap()?.debug_overlay)),
     openPalette: () => store.set({ paletteOpen: true }),
     showAbout: () => store.set({ dialog: { kind: "about" } }),
+    selectTool: (id) => {
+      if (id === "place_component" || id === "power") {
+        store.set({ dialog: { kind: "symbol-picker", power: id === "power" } });
+      } else if (id === "net_label" || id === "global_label") {
+        store.set({ dialog: { kind: "label-name", global: id === "global_label" } });
+      } else {
+        void call(api.editorCommand(`tool:${id}`));
+      }
+    },
+    editor: (name) => void call(api.editorCommand(name)),
+    startMove: () => {
+      // With a selection, M carries it with the pointer; without one it arms the Move tool.
+      const hasSel = (snap()?.selection.length ?? 0) > 0;
+      void call(api.editorCommand(hasSel ? "start_move" : "tool:move"));
+    },
   };
 }

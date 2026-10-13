@@ -99,3 +99,9 @@ Proprietary, all rights reserved (see `LICENSE`). Crates use `LicenseRef-Proprie
 - **Verification.** `tests/ipc.rs` drives the real commands through Tauri's mock runtime;
   `apps/desktop/e2e` drives the built frontend in headless Chromium against the real Rust commands
   and real GPU renderer (dev tool, not run in CI).
+
+## Schematic editor
+
+See `docs/schematic-editor.md`. Pure operations (`buturecad_schematic::edit`) → `Change` sets →
+`SchematicEditCommand` in the Command Engine. The desktop `editor.rs` owns the tool state machine
+(placement ghosts, wire drawing, live move preview that mutates only the scene, never the model).

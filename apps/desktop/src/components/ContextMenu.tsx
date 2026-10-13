@@ -6,6 +6,16 @@ import { useActions, useCommands } from "./hooks";
 
 /** Right-click menu for the canvas. Items come from the registry, so only real commands appear. */
 const ITEMS = [
+  "edit.rotate",
+  "edit.mirrorX",
+  "edit.mirrorY",
+  "edit.duplicate",
+  "edit.delete",
+  "-",
+  "edit.copy",
+  "edit.cut",
+  "edit.paste",
+  "-",
   "edit.selectAll",
   "edit.cancel",
   "-",

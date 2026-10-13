@@ -12,6 +12,9 @@ use buturecad_renderer::{
     Selection, SnapSettings, Theme, View,
 };
 use buturecad_schematic::{Connectivity, Id, Object};
+
+mod editor;
+use editor::EditorState;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -26,6 +29,14 @@ pub struct OpenProject {
     pub session: ProjectSession,
     pub engine: CommandEngine,
     pub root: PathBuf,
+}
+
+/// What a pointer event changed.
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct Outcome {
+    pub redraw: bool,
+    pub selection_changed: bool,
+    pub model_changed: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -50,7 +61,7 @@ pub struct Workspace {
     pub grid: GridSettings,
     pub snap: SnapSettings,
     pub debug: bool,
-    pub tool: String,
+    pub(crate) editor: EditorState,
 
     sch_scene: SchematicScene,
     pcb_scene: sb::PcbScene,
@@ -65,6 +76,10 @@ pub struct Workspace {
     canvas: (f64, f64),
     cursor: Point,
     snap_label: &'static str,
+    /// The last snap landed on an object's connection point (pin, wire end, junction…).
+    pub(crate) snap_on_object: bool,
+    /// Screen position of the last pointer event.
+    pub(crate) last_pointer: (f64, f64),
 
     gpu: Option<GpuRenderer>,
     gpu_error: Option<String>,
@@ -86,7 +101,7 @@ impl Workspace {
             grid: GridSettings::new(DEFAULT_GRID_NM),
             snap: SnapSettings::default(),
             debug: false,
-            tool: "select".into(),
+            editor: EditorState::default(),
             sch_scene: SchematicScene::default(),
             pcb_scene: sb::PcbScene::default(),
             built_for: None,
@@ -100,6 +115,8 @@ impl Workspace {
             canvas: (800.0, 600.0),
             cursor: Point::ORIGIN,
             snap_label: "none",
+            snap_on_object: false,
+            last_pointer: (0.0, 0.0),
             gpu: None,
             gpu_error: None,
             messages: Vec::new(),
@@ -179,7 +196,7 @@ impl Workspace {
         self.hover = None;
         self.gesture = Gesture::None;
         self.command_log.clear();
-        self.tool = "select".into();
+        self.editor = EditorState::default();
     }
 
     pub fn new_project(&mut self, root: &Path, name: &str) -> Result<(), String> {
@@ -473,10 +490,6 @@ impl Workspace {
         if self.scene().is_some() && !self.fitted.contains(&self.mode) {
             self.fit_view();
         }
-        let mut redraw = false;
-        let mut selection_changed = false;
-        let model_changed = false;
-
         // Cursor position & snap.
         if let Some(scene) = self.scene() {
             let view = self
@@ -487,6 +500,8 @@ impl Workspace {
             let s =
                 buturecad_renderer::snap(scene, &view, &self.snap, self.grid.spacing, ev.x, ev.y);
             self.cursor = s.point;
+            self.snap_on_object = matches!(s.kind, buturecad_renderer::SnapKind::Object(_));
+            self.last_pointer = (ev.x, ev.y);
             self.snap_label = match s.kind {
                 buturecad_renderer::SnapKind::None => "none",
                 buturecad_renderer::SnapKind::Grid => "grid",
@@ -494,94 +509,19 @@ impl Workspace {
             };
         }
 
-        match ev.kind {
-            PointerKind::Wheel => {
-                let factor = (-ev.delta * 0.0015).exp();
-                self.view_mut().zoom_at(ev.x, ev.y, factor);
-                redraw = true;
+        let mut out = Outcome::default();
+        if !self.pointer_common(ev, &mut out) {
+            if self.mode == Mode::Schematic {
+                self.pointer_schematic(ev, &mut out);
+            } else {
+                self.pointer_select(ev, &mut out);
             }
-            PointerKind::Leave => {
-                if self.hover.take().is_some() {
-                    redraw = true;
-                }
-            }
-            PointerKind::Move => match self.gesture {
-                Gesture::Pan { last } => {
-                    self.view_mut().pan_pixels(ev.x - last.0, ev.y - last.1);
-                    self.gesture = Gesture::Pan { last: (ev.x, ev.y) };
-                    redraw = true;
-                }
-                Gesture::Box {
-                    start, additive, ..
-                } => {
-                    self.gesture = Gesture::Box {
-                        start,
-                        end: (ev.x, ev.y),
-                        additive,
-                    };
-                    redraw = true;
-                }
-                Gesture::None => {
-                    let new_hover = self.pick_owner(ev.x, ev.y);
-                    if new_hover != self.hover {
-                        self.hover = new_hover;
-                    }
-                    redraw = true;
-                }
-            },
-            PointerKind::Down => match ev.button {
-                1 => self.gesture = Gesture::Pan { last: (ev.x, ev.y) },
-                0 | 2 => {
-                    let hit = self.pick_owner(ev.x, ev.y);
-                    let additive = ev.shift || ev.ctrl;
-                    match hit {
-                        Some(owner) => {
-                            let sel = self.selection.entry(self.mode).or_default();
-                            if additive && ev.button == 0 {
-                                if !sel.remove(&owner) {
-                                    sel.insert(owner);
-                                }
-                            } else if !sel.contains(&owner) {
-                                sel.clear();
-                                sel.insert(owner);
-                            }
-                            selection_changed = true;
-                            redraw = true;
-                        }
-                        None if ev.button == 0 => {
-                            self.gesture = Gesture::Box {
-                                start: (ev.x, ev.y),
-                                end: (ev.x, ev.y),
-                                additive,
-                            };
-                        }
-                        None => {}
-                    }
-                }
-                _ => {}
-            },
-            PointerKind::Up => {
-                match std::mem::replace(&mut self.gesture, Gesture::None) {
-                    Gesture::Box {
-                        start,
-                        end,
-                        additive,
-                    } => {
-                        let moved = (end.0 - start.0).abs() > DRAG_THRESHOLD_PX
-                            || (end.1 - start.1).abs() > DRAG_THRESHOLD_PX;
-                        if moved {
-                            self.apply_box_selection(start, end, additive);
-                        } else if !additive {
-                            self.selection.entry(self.mode).or_default().clear();
-                        }
-                        selection_changed = true;
-                    }
-                    Gesture::Pan { .. } | Gesture::None => {}
-                }
-                redraw = true;
-            }
-            PointerKind::DoubleClick => {}
         }
+        let Outcome {
+            redraw,
+            selection_changed,
+            model_changed,
+        } = out;
 
         PointerResult {
             redraw,
@@ -596,9 +536,152 @@ impl Workspace {
         }
     }
 
+    /// Events every mode handles the same way: zoom, pan, leaving the canvas. Returns whether the
+    /// event was consumed.
+    fn pointer_common(&mut self, ev: PointerEvent, out: &mut Outcome) -> bool {
+        match ev.kind {
+            PointerKind::Wheel => {
+                let factor = (-ev.delta * 0.0015).exp();
+                self.view_mut().zoom_at(ev.x, ev.y, factor);
+                out.redraw = true;
+                true
+            }
+            PointerKind::Leave => {
+                if self.hover.take().is_some() {
+                    out.redraw = true;
+                }
+                true
+            }
+            PointerKind::Down if ev.button == 1 => {
+                self.gesture = Gesture::Pan { last: (ev.x, ev.y) };
+                true
+            }
+            PointerKind::Move => match self.gesture {
+                Gesture::Pan { last } => {
+                    self.view_mut().pan_pixels(ev.x - last.0, ev.y - last.1);
+                    self.gesture = Gesture::Pan { last: (ev.x, ev.y) };
+                    out.redraw = true;
+                    true
+                }
+                _ => false,
+            },
+            PointerKind::Up if matches!(self.gesture, Gesture::Pan { .. }) => {
+                self.gesture = Gesture::None;
+                out.redraw = true;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Selection-only pointer behaviour (PCB mode, and the base of the schematic Select tool).
+    fn pointer_select(&mut self, ev: PointerEvent, out: &mut Outcome) {
+        match ev.kind {
+            PointerKind::Move => match self.gesture {
+                Gesture::Box {
+                    start, additive, ..
+                } => {
+                    self.gesture = Gesture::Box {
+                        start,
+                        end: (ev.x, ev.y),
+                        additive,
+                    };
+                    out.redraw = true;
+                }
+                _ => {
+                    self.hover = self.pick_owner(ev.x, ev.y);
+                    out.redraw = true;
+                }
+            },
+            PointerKind::Down if ev.button == 0 || ev.button == 2 => {
+                let hit = self.pick_owner(ev.x, ev.y);
+                let additive = ev.shift || ev.ctrl;
+                match hit {
+                    Some(owner) => {
+                        self.select_owner(owner, additive && ev.button == 0);
+                        out.selection_changed = true;
+                        out.redraw = true;
+                    }
+                    None if ev.button == 0 => self.begin_box(ev.x, ev.y, additive),
+                    None => {}
+                }
+            }
+            PointerKind::Up => {
+                if self.finish_box() {
+                    out.selection_changed = true;
+                }
+                out.redraw = true;
+            }
+            _ => {}
+        }
+    }
+
+    /// Click-selection rules: toggle when additive, otherwise select only (unless already selected,
+    /// so a drag can start on any member of a multi-selection).
+    pub(crate) fn select_owner(&mut self, owner: Id, additive: bool) {
+        let sel = self.selection.entry(self.mode).or_default();
+        if additive {
+            if !sel.remove(&owner) {
+                sel.insert(owner);
+            }
+        } else if !sel.contains(&owner) {
+            sel.clear();
+            sel.insert(owner);
+        }
+    }
+
+    pub(crate) fn begin_box(&mut self, x: f64, y: f64, additive: bool) {
+        self.gesture = Gesture::Box {
+            start: (x, y),
+            end: (x, y),
+            additive,
+        };
+    }
+
+    /// Ends a rubber-band selection; returns whether the selection may have changed.
+    pub(crate) fn finish_box(&mut self) -> bool {
+        match std::mem::replace(&mut self.gesture, Gesture::None) {
+            Gesture::Box {
+                start,
+                end,
+                additive,
+            } => {
+                let moved = (end.0 - start.0).abs() > DRAG_THRESHOLD_PX
+                    || (end.1 - start.1).abs() > DRAG_THRESHOLD_PX;
+                if moved {
+                    self.apply_box_selection(start, end, additive);
+                } else if !additive {
+                    self.selection.entry(self.mode).or_default().clear();
+                }
+                true
+            }
+            other => {
+                self.gesture = other;
+                false
+            }
+        }
+    }
+
+    pub(crate) fn update_box(&mut self, x: f64, y: f64) -> bool {
+        if let Gesture::Box {
+            start, additive, ..
+        } = self.gesture
+        {
+            self.gesture = Gesture::Box {
+                start,
+                end: (x, y),
+                additive,
+            };
+            true
+        } else {
+            false
+        }
+    }
+
     fn hint(&self) -> String {
         match self.mode {
-            Mode::Schematic | Mode::Pcb => {
+            Mode::Schematic => self.tool_hint(),
+            Mode::Pcb => {
                 "Select: click or drag a box. Middle button or Space+drag pans, wheel zooms.".into()
             }
             _ => String::new(),
@@ -810,7 +893,9 @@ impl Workspace {
         Snapshot {
             project,
             mode: self.mode,
-            tool: self.tool.clone(),
+            tool: self.editor.tool.id().to_owned(),
+            tool_arg: self.editor.tool.arg(),
+            can_paste: self.editor.clipboard.is_some(),
             units: self.units,
             theme: self.theme,
             grid: GridInfo {
@@ -830,6 +915,7 @@ impl Workspace {
             command_log: self.command_log.clone(),
             object_count: self.model_object_count(),
             zoom_percent: self.zoom_percent(),
+            hint: self.hint(),
         }
     }
 
@@ -876,6 +962,7 @@ impl Workspace {
             Gesture::Box { start, end, .. } => Some((start, end)),
             _ => None,
         };
+        let preview = self.preview_shapes();
         let Some(gpu) = self.gpu.as_mut() else {
             return Err(self.gpu_error.clone().unwrap_or_else(|| "no GPU".into()));
         };
@@ -895,7 +982,7 @@ impl Workspace {
             theme: &theme,
             selection: &selection,
             box_select: box_rect,
-            preview: &[],
+            preview: &preview,
             debug: self.debug,
         };
         let frame = gpu.render(&req).map_err(|e| e.to_string())?;

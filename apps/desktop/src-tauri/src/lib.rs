@@ -7,8 +7,6 @@ pub mod summary;
 pub mod ui_types;
 pub mod workspace;
 
-mod editor;
-
 use commands::AppState;
 use std::sync::Mutex;
 use tauri::Manager;
@@ -41,6 +39,8 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::editor_command,
         commands::pointer,
         commands::render_frame,
+        commands::library_symbols,
+        commands::property_set,
     ])
 }
 

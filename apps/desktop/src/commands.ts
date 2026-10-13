@@ -37,6 +37,11 @@ export interface Actions {
   toggleDebugOverlay(): void;
   openPalette(): void;
   showAbout(): void;
+  /** Activates a tool; tools that need an argument open their picker/prompt first. */
+  selectTool(id: string): void;
+  /** Runs a named Rust editor command (rotate, delete, paste, …). */
+  editor(name: string): void;
+  startMove(): void;
 }
 
 export interface AppCommand {
@@ -51,6 +56,17 @@ export interface AppCommand {
 
 const hasProject = (s: UiState): true | string =>
   s.snapshot?.project ? true : "Open or create a project first";
+
+const inSchematic = (s: UiState): true | string => {
+  if (!s.snapshot?.project) return "Open or create a project first";
+  return s.snapshot.mode === "schematic" ? true : "Switch to the Schematic view";
+};
+
+const hasSelection = (s: UiState): true | string => {
+  const a = inSchematic(s);
+  if (a !== true) return a;
+  return (s.snapshot?.selection.length ?? 0) > 0 ? true : "Select something first";
+};
 
 const hasCanvas = (s: UiState): true | string => {
   if (!s.snapshot?.project) return "Open or create a project first";
@@ -145,6 +161,164 @@ export function buildCommands(): AppCommand[] {
       shortcut: "Escape",
       available: hasCanvas,
       run: (a) => a.cancel(),
+    },
+
+    {
+      id: "tool.select",
+      title: "Select Tool",
+      category: "Tools",
+      shortcut: "V",
+      available: hasCanvas,
+      run: (a) => a.selectTool("select"),
+    },
+    {
+      id: "tool.place_component",
+      title: "Place Component…",
+      category: "Tools",
+      shortcut: "A",
+      available: inSchematic,
+      run: (a) => a.selectTool("place_component"),
+    },
+    {
+      id: "tool.wire",
+      title: "Draw Wire",
+      category: "Tools",
+      shortcut: "W",
+      available: inSchematic,
+      run: (a) => a.selectTool("wire"),
+    },
+    {
+      id: "tool.bus",
+      title: "Draw Bus",
+      category: "Tools",
+      shortcut: "B",
+      available: inSchematic,
+      run: (a) => a.selectTool("bus"),
+    },
+    {
+      id: "tool.junction",
+      title: "Place Junction",
+      category: "Tools",
+      shortcut: "J",
+      available: inSchematic,
+      run: (a) => a.selectTool("junction"),
+    },
+    {
+      id: "tool.net_label",
+      title: "Place Net Label…",
+      category: "Tools",
+      shortcut: "L",
+      available: inSchematic,
+      run: (a) => a.selectTool("net_label"),
+    },
+    {
+      id: "tool.global_label",
+      title: "Place Global Label…",
+      category: "Tools",
+      shortcut: "Ctrl+L",
+      available: inSchematic,
+      run: (a) => a.selectTool("global_label"),
+    },
+    {
+      id: "tool.power",
+      title: "Place Power Symbol…",
+      category: "Tools",
+      shortcut: "P",
+      available: inSchematic,
+      run: (a) => a.selectTool("power"),
+    },
+    {
+      id: "tool.move",
+      title: "Move Selection",
+      category: "Tools",
+      shortcut: "M",
+      available: inSchematic,
+      run: (a) => a.startMove(),
+    },
+    {
+      id: "tool.drag",
+      title: "Drag Tool",
+      category: "Tools",
+      shortcut: "G",
+      available: inSchematic,
+      run: (a) => a.selectTool("drag"),
+    },
+
+    {
+      id: "edit.rotate",
+      title: "Rotate",
+      category: "Edit",
+      shortcut: "R",
+      available: inSchematic,
+      run: (a) => a.editor("rotate"),
+    },
+    {
+      id: "edit.mirrorX",
+      title: "Mirror Left-Right",
+      category: "Edit",
+      shortcut: "X",
+      available: inSchematic,
+      run: (a) => a.editor("mirror_x"),
+    },
+    {
+      id: "edit.mirrorY",
+      title: "Mirror Top-Bottom",
+      category: "Edit",
+      shortcut: "Y",
+      available: inSchematic,
+      run: (a) => a.editor("mirror_y"),
+    },
+    {
+      id: "edit.delete",
+      title: "Delete",
+      category: "Edit",
+      shortcut: "Delete",
+      available: hasSelection,
+      run: (a) => a.editor("delete"),
+    },
+    {
+      id: "edit.duplicate",
+      title: "Duplicate",
+      category: "Edit",
+      shortcut: "Ctrl+D",
+      available: hasSelection,
+      run: (a) => a.editor("duplicate"),
+    },
+    {
+      id: "edit.copy",
+      title: "Copy",
+      category: "Edit",
+      shortcut: "Ctrl+C",
+      available: hasSelection,
+      run: (a) => a.editor("copy"),
+    },
+    {
+      id: "edit.cut",
+      title: "Cut",
+      category: "Edit",
+      shortcut: "Ctrl+X",
+      available: hasSelection,
+      run: (a) => a.editor("cut"),
+    },
+    {
+      id: "edit.paste",
+      title: "Paste",
+      category: "Edit",
+      shortcut: "Ctrl+V",
+      available: (s) => {
+        const a = inSchematic(s);
+        if (a !== true) return a;
+        return s.snapshot?.can_paste ? true : "The clipboard is empty";
+      },
+      run: (a) => a.editor("paste"),
+    },
+    {
+      id: "edit.flipElbow",
+      title: "Flip Wire Elbow",
+      category: "Edit",
+      shortcut: "Space",
+      available: inSchematic,
+      run: (a) => a.editor("flip_elbow"),
     },
 
     {

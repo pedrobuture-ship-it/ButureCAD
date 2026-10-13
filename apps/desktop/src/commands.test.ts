@@ -19,6 +19,8 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     },
     mode: "schematic",
     tool: "select",
+    tool_arg: null,
+    can_paste: false,
     units: "mm",
     theme: "dark",
     grid: { spacing_nm: 1_270_000, visible: true, snap_grid: true, snap_objects: true },
@@ -33,6 +35,7 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     command_log: [],
     object_count: 0,
     zoom_percent: 100,
+    hint: "",
     ...over,
   };
 }

@@ -107,7 +107,7 @@ export function CanvasView() {
           alt: e.altKey,
           delta,
         });
-        store.set({ pointer: res });
+        store.set({ pointer: res, hint: res.hint });
         if (res.selection_changed || res.model_changed) await refreshSnapshot();
         else if (res.redraw) void draw();
       } catch (err) {
