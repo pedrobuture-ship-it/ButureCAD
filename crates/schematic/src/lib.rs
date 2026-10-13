@@ -18,3 +18,4 @@ pub mod schematic;
 pub use connectivity::{Connectivity, Issue, Net, NetId, PinRef};
 pub use model::*;
 pub use schematic::{Change, PlacedPin, Schematic, SchematicError};
+pub mod edit;
