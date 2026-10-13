@@ -625,7 +625,7 @@ fn edits_survive_save_and_reopen() {
 
 fn pin_net(ws: &mut Workspace, pin: &str) -> String {
     let snap = ws.snapshot();
-    let sel = snap.selection.first().expect("one part selected");
+    let sel = snap.selection.first().unwrap();
     sel.properties
         .iter()
         .find(|p| p.key == format!("pin_{pin}"))
