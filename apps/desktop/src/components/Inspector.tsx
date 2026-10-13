@@ -119,7 +119,8 @@ export function Inspector() {
               <strong>{sel[0].title}</strong>
               <span className="muted">
                 {" "}
-                · {sel[0].kind} #{sel[0].id}
+                · {sel[0].kind}
+                {snap.mode === "schematic" || snap.mode === "pcb" ? ` #${sel[0].id}` : ""}
               </span>
             </div>
             <dl className="props">

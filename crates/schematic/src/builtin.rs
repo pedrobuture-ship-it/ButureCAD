@@ -1,7 +1,8 @@
 //! Bootstrap symbol library ("Buture:"), embedded in code.
 //!
 //! **Temporary by design:** this exists so the schematic editor can place real symbols before the
-//! library system lands (roadmap stage 31). It is small on purpose; do not grow it. Geometry
+//! library system lands (roadmap stage 31). It is small on purpose; do not grow it (the power flag
+//! was added because ERC needs one, see `docs/erc.md`). Geometry
 //! follows a 1.27 mm (50 mil) grid with 2.54 mm (100 mil) pin pitch, in symbol-local coordinates.
 
 use crate::model::*;

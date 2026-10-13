@@ -314,27 +314,30 @@ pub fn object_shapes(sch: &Schematic, obj: &Object) -> Vec<(LayerId, Shape)> {
             if let Some(sym) = sch.symbol(&c.lib_id) {
                 out.extend(symbol_shapes(sym, &c.placement, c.unit, c.representation));
             }
-            // Reference and value sit to the right of the symbol, clear of its pins and wires.
-            let bb = sch.object_bounds(obj);
-            let x = bb.max.x + 600_000;
-            let cy = bb.center().y;
-            out.push((
-                L_TEXT,
-                Shape::Text {
-                    origin: Point::new(x, cy + 300_000),
-                    height: TEXT_H,
-                    text: c.reference.clone(),
-                },
-            ));
-            if !c.value.is_empty() {
+            // Virtual parts (`#FLG1`, power flags) carry no printed reference or value.
+            if !c.reference.starts_with('#') {
+                // Reference and value sit to the right of the symbol, clear of its pins and wires.
+                let bb = sch.object_bounds(obj);
+                let x = bb.max.x + 600_000;
+                let cy = bb.center().y;
                 out.push((
                     L_TEXT,
                     Shape::Text {
-                        origin: Point::new(x, cy - TEXT_H - 300_000),
+                        origin: Point::new(x, cy + 300_000),
                         height: TEXT_H,
-                        text: c.value.clone(),
+                        text: c.reference.clone(),
                     },
                 ));
+                if !c.value.is_empty() {
+                    out.push((
+                        L_TEXT,
+                        Shape::Text {
+                            origin: Point::new(x, cy - TEXT_H - 300_000),
+                            height: TEXT_H,
+                            text: c.value.clone(),
+                        },
+                    ));
+                }
             }
         }
         Object::PowerSymbol(p) => {
