@@ -80,3 +80,22 @@ Proprietary, all rights reserved (see `LICENSE`). Crates use `LicenseRef-Proprie
 - **Limits:** text is a basic ASCII bitmap font; strokes overlap with simple joins (opaque colours
   only, translucent strokes would double-blend); arcs/text use bounding boxes for crossing
   selection; no GPU instancing yet; no direct swapchain presentation.
+
+## Desktop shell (`apps/desktop`)
+
+- **Rust owns state.** `Workspace` (open project + `CommandEngine`, views, selection, scenes, GPU
+  renderer) is Tauri-independent and tested headlessly. `commands.rs` is a thin IPC layer; every
+  state-changing command returns a `Snapshot` the UI renders. Types are exported to TypeScript by
+  `ts-rs` (`src/bindings/`, checked in CI), so the contract cannot drift.
+- **Canvas.** React only hosts a `<canvas>`. Pointer input is forwarded to Rust (`pointer`), which
+  handles pan/zoom/hover/selection/box selection and picking; `render_frame` returns RGBA bytes
+  that React paints with `putImageData`. No per-object DOM.
+- **Scene building** (`scene_builder.rs`) turns the schematic/PCB model into renderer shapes
+  (shape id = owner id << 12 | n), keeping model crates free of rendering concerns.
+- **Single command registry** (`commands.ts`): menus, toolbar, command palette and shortcuts are
+  generated from it. Unavailable commands stay visible, disabled with the reason. Tools and modes
+  that are not implemented are shown disabled/labelled with the roadmap stage; ERC/DRC panels say
+  "not implemented" instead of showing fake results.
+- **Verification.** `tests/ipc.rs` drives the real commands through Tauri's mock runtime;
+  `apps/desktop/e2e` drives the built frontend in headless Chromium against the real Rust commands
+  and real GPU renderer (dev tool, not run in CI).

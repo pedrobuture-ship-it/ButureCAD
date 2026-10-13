@@ -386,7 +386,11 @@ impl GpuRenderer {
         let mut dynamic = MeshBuilder::new(centre, req.view.scale);
         let push_highlight = |b: &mut MeshBuilder, id, colour| {
             if let Some(item) = req.scene.get(id) {
-                if req.scene.is_visible(item.layer) {
+                let drawn = req
+                    .scene
+                    .layer(item.layer)
+                    .is_some_and(|l| l.visible && !l.hit_only);
+                if drawn {
                     b.shape(&item.shape, colour);
                 }
             }

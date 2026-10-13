@@ -23,11 +23,7 @@ fn scene_with_square(layer_visible: bool) -> Scene {
     let mut s = Scene::new();
     s.set_layer(
         LayerId(1),
-        Layer {
-            name: "L".into(),
-            color: Rgba::rgb(200, 30, 30),
-            visible: layer_visible,
-        },
+        Layer::new("L", Rgba::rgb(200, 30, 30)).with_visible(layer_visible),
     );
     let r = Rectangle::new(
         Point::new(-5_000_000, -5_000_000),

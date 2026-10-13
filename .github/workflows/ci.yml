@@ -12,6 +12,8 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      - name: TypeScript contracts are up to date
+        run: git diff --exit-code apps/desktop/src/bindings
   frontend:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: apps/desktop } }

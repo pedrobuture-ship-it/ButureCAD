@@ -1,28 +1,74 @@
-//! Tauri shell. Contains no EDA logic: every command delegates to the Rust core.
+//! ButureCAD desktop shell (Tauri 2). Contains no EDA logic: it owns the application state
+//! (`workspace`), translates it to scenes (`scene_builder`) and exposes it over typed IPC.
 
-use buturecad_eda_core as core;
-use serde::Serialize;
+pub mod commands;
+pub mod scene_builder;
+pub mod summary;
+pub mod ui_types;
+pub mod workspace;
 
-/// Typed contract mirrored by `src/api.ts`.
-#[derive(Serialize)]
-struct CoreInfo {
-    name: &'static str,
-    version: &'static str,
-}
+mod editor;
 
-#[tauri::command]
-fn core_info() -> CoreInfo {
-    CoreInfo {
-        name: core::NAME,
-        version: core::VERSION,
-    }
+use commands::AppState;
+use std::sync::Mutex;
+use tauri::Manager;
+
+/// Registers every IPC command. Runtime-generic so the same set serves the real app and the
+/// mock runtime used by the IPC tests and the e2e bridge.
+pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder.invoke_handler(tauri::generate_handler![
+        commands::core_info,
+        commands::get_snapshot,
+        commands::project_new,
+        commands::project_open,
+        commands::project_save,
+        commands::project_save_as,
+        commands::project_close,
+        commands::project_recovery,
+        commands::project_rename,
+        commands::autosave_tick,
+        commands::undo,
+        commands::redo,
+        commands::set_mode,
+        commands::set_theme,
+        commands::set_units,
+        commands::set_grid,
+        commands::set_debug_overlay,
+        commands::set_pcb_layer_visible,
+        commands::set_active_layer,
+        commands::view_fit,
+        commands::view_zoom,
+        commands::editor_command,
+        commands::pointer,
+        commands::render_frame,
+    ])
 }
 
 pub fn run() {
-    if let Err(err) = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![core_info])
-        .run(tauri::generate_context!())
-    {
+    let builder = with_commands(
+        tauri::Builder::default()
+            .plugin(tauri_plugin_dialog::init())
+            .setup(|app| {
+                let recent = app
+                    .path()
+                    .app_config_dir()
+                    .ok()
+                    .map(|d| d.join("recent-projects.json"));
+                let mut ws = workspace::Workspace::new(recent);
+                // `buturecad /path/to/project` opens that project at startup.
+                if let Some(path) = std::env::args().nth(1) {
+                    if let Err(e) = ws.open_project(std::path::Path::new(&path)) {
+                        ws.log(
+                            ui_types::MessageLevel::Error,
+                            format!("Could not open {path}: {e}"),
+                        );
+                    }
+                }
+                app.manage(AppState(Mutex::new(ws)));
+                Ok(())
+            }),
+    );
+    if let Err(err) = builder.run(tauri::generate_context!()) {
         eprintln!("ButureCAD failed to start: {err}");
         std::process::exit(1);
     }

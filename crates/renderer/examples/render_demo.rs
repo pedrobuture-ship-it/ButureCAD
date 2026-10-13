@@ -13,30 +13,9 @@ fn main() {
         }
     };
     let mut scene = Scene::new();
-    scene.set_layer(
-        LayerId(1),
-        Layer {
-            name: "Bottom".into(),
-            color: Rgba::rgb(60, 110, 230),
-            visible: true,
-        },
-    );
-    scene.set_layer(
-        LayerId(2),
-        Layer {
-            name: "Top".into(),
-            color: Rgba::rgb(230, 60, 60),
-            visible: true,
-        },
-    );
-    scene.set_layer(
-        LayerId(3),
-        Layer {
-            name: "Silk".into(),
-            color: Rgba::rgb(240, 240, 240),
-            visible: true,
-        },
-    );
+    scene.set_layer(LayerId(1), Layer::new("Bottom", Rgba::rgb(60, 110, 230)));
+    scene.set_layer(LayerId(2), Layer::new("Top", Rgba::rgb(230, 60, 60)));
+    scene.set_layer(LayerId(3), Layer::new("Silk", Rgba::rgb(240, 240, 240)));
     let mm = 1_000_000;
     let pt = |x: i64, y: i64| Point::new(x * mm, y * mm);
     let mut id = 0;

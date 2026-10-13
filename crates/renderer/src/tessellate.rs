@@ -369,7 +369,7 @@ pub fn triangulate(v: &[Point]) -> Vec<[usize; 3]> {
 pub fn tessellate_scene(scene: &Scene, scale: f64, origin: (f64, f64)) -> Mesh {
     let mut b = MeshBuilder::new(origin, scale);
     for (layer_id, layer) in scene.layers() {
-        if !layer.visible {
+        if !layer.visible || layer.hit_only {
             continue;
         }
         for (_, item) in scene.items().filter(|(_, i)| i.layer == layer_id) {
@@ -500,29 +500,11 @@ mod tests {
     #[test]
     fn scene_tessellation_respects_visibility_and_layer_order() {
         let mut s = Scene::new();
-        s.set_layer(
-            LayerId(1),
-            Layer {
-                name: "bottom".into(),
-                color: Rgba::rgb(10, 0, 0),
-                visible: true,
-            },
-        );
-        s.set_layer(
-            LayerId(2),
-            Layer {
-                name: "top".into(),
-                color: Rgba::rgb(20, 0, 0),
-                visible: true,
-            },
-        );
+        s.set_layer(LayerId(1), Layer::new("bottom", Rgba::rgb(10, 0, 0)));
+        s.set_layer(LayerId(2), Layer::new("top", Rgba::rgb(20, 0, 0)));
         s.set_layer(
             LayerId(3),
-            Layer {
-                name: "hidden".into(),
-                color: Rgba::rgb(30, 0, 0),
-                visible: false,
-            },
+            Layer::new("hidden", Rgba::rgb(30, 0, 0)).with_visible(false),
         );
         let r = Rectangle::new(Point::ORIGIN, Point::new(10, 10)).unwrap();
         for (id, layer) in [(1, 2), (2, 1), (3, 3)] {

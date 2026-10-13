@@ -275,14 +275,7 @@ mod tests {
 
     fn scene() -> Scene {
         let mut s = Scene::new();
-        s.set_layer(
-            L,
-            Layer {
-                name: "L".into(),
-                color: Rgba::rgb(1, 2, 3),
-                visible: true,
-            },
-        );
+        s.set_layer(L, Layer::new("L", Rgba::rgb(1, 2, 3)));
         s
     }
     fn item(shape: Shape) -> Item {

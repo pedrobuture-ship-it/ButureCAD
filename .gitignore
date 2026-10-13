@@ -9,3 +9,4 @@ apps/desktop/src-tauri/gen/
 # Local state
 .buture/
 render_demo.ppm
+apps/desktop/e2e/out/

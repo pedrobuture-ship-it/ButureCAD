@@ -6,6 +6,15 @@ use buturecad_geometry::{
     Vector,
 };
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Revisions are drawn from one global counter, so two different scenes never report the same
+/// revision (a GPU cache keyed by revision must not mistake a rebuilt scene for the old one).
+static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
+
+fn next_revision() -> u64 {
+    NEXT_REVISION.fetch_add(1, Ordering::Relaxed)
+}
 
 /// Opaque RGBA colour, sRGB values as in CSS.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,6 +41,35 @@ pub struct Layer {
     pub name: String,
     pub color: Rgba,
     pub visible: bool,
+    /// Pickable but never drawn (e.g. invisible hit areas for filled click targets).
+    pub hit_only: bool,
+    /// Whether object snapping considers this layer's characteristic points.
+    pub snappable: bool,
+}
+
+impl Layer {
+    pub fn new(name: impl Into<String>, color: Rgba) -> Self {
+        Self {
+            name: name.into(),
+            color,
+            visible: true,
+            hit_only: false,
+            snappable: true,
+        }
+    }
+    pub fn with_visible(mut self, visible: bool) -> Self {
+        self.visible = visible;
+        self
+    }
+    pub fn hit_only(mut self) -> Self {
+        self.hit_only = true;
+        self.snappable = false;
+        self
+    }
+    pub fn not_snappable(mut self) -> Self {
+        self.snappable = false;
+        self
+    }
 }
 
 /// Drawable geometry. Widths are in nm; a width of 0 is drawn as a 1 px hairline.
@@ -102,13 +140,24 @@ pub struct Item {
 
 /// Retained scene. Mutations bump [`Scene::revision`], which the GPU backend uses to know when
 /// cached meshes are stale.
-#[derive(Default)]
 pub struct Scene {
     layers: BTreeMap<LayerId, Layer>,
     items: BTreeMap<ObjectId, Item>,
     index: SpatialIndex<ObjectId>,
     boxes: BTreeMap<ObjectId, BoundingBox>,
     revision: u64,
+}
+
+impl Default for Scene {
+    fn default() -> Self {
+        Self {
+            layers: BTreeMap::new(),
+            items: BTreeMap::new(),
+            index: SpatialIndex::new(),
+            boxes: BTreeMap::new(),
+            revision: next_revision(),
+        }
+    }
 }
 
 impl Scene {
@@ -128,7 +177,7 @@ impl Scene {
 
     pub fn set_layer(&mut self, id: LayerId, layer: Layer) {
         self.layers.insert(id, layer);
-        self.revision += 1;
+        self.revision = next_revision();
     }
     pub fn layer(&self, id: LayerId) -> Option<&Layer> {
         self.layers.get(&id)
@@ -140,7 +189,7 @@ impl Scene {
         if let Some(l) = self.layers.get_mut(&id) {
             if l.visible != visible {
                 l.visible = visible;
-                self.revision += 1;
+                self.revision = next_revision();
             }
         }
     }
@@ -155,7 +204,7 @@ impl Scene {
         self.index.insert(bb, id);
         self.boxes.insert(id, bb);
         self.items.insert(id, item);
-        self.revision += 1;
+        self.revision = next_revision();
     }
 
     pub fn remove(&mut self, id: ObjectId) -> Option<Item> {
@@ -163,7 +212,7 @@ impl Scene {
         if let Some(bb) = self.boxes.remove(&id) {
             self.index.remove(&bb, id);
         }
-        self.revision += 1;
+        self.revision = next_revision();
         Some(item)
     }
 
@@ -171,7 +220,7 @@ impl Scene {
         self.items.clear();
         self.boxes.clear();
         self.index = SpatialIndex::new();
-        self.revision += 1;
+        self.revision = next_revision();
     }
 
     pub fn get(&self, id: ObjectId) -> Option<&Item> {

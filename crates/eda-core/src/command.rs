@@ -33,7 +33,7 @@ pub enum CommandError {
 /// * `revert` is only called after a successful `apply`, in strict LIFO order, and restores the
 ///   exact previous state (including ids).
 /// * `apply` may be called again after `revert` (redo) and must reproduce the same result.
-pub trait Command: std::fmt::Debug {
+pub trait Command: std::fmt::Debug + Send {
     /// Short human-readable description for history menus and AI change review.
     fn label(&self) -> String;
     fn apply(&mut self, project: &mut Project) -> Result<(), CommandError>;

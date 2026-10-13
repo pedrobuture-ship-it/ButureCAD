@@ -60,7 +60,7 @@ pub struct PcbDoc {
 }
 
 /// A design object that can be created and deleted through generic commands.
-pub trait Entity: Clone + std::fmt::Debug + 'static {
+pub trait Entity: Clone + std::fmt::Debug + Send + 'static {
     /// Human-readable kind, used in labels and errors.
     const KIND: &'static str;
     fn validate(&self) -> Result<(), ModelError>;

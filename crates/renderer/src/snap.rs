@@ -71,6 +71,9 @@ pub fn snap(
         let mut best: Option<(f64, Point, ObjectId)> = None;
         for id in scene.query(&area) {
             let Some(item) = scene.get(id) else { continue };
+            if !scene.layer(item.layer).is_some_and(|l| l.snappable) {
+                continue;
+            }
             for p in snap_points(&item.shape) {
                 let d = raw.distance(p);
                 if d <= reach && best.is_none_or(|(bd, _, bid)| d < bd || (d == bd && id < bid)) {
@@ -105,14 +108,7 @@ mod tests {
 
     fn setup() -> (Scene, View) {
         let mut s = Scene::new();
-        s.set_layer(
-            LayerId(1),
-            Layer {
-                name: "L".into(),
-                color: Rgba::rgb(0, 0, 0),
-                visible: true,
-            },
-        );
+        s.set_layer(LayerId(1), Layer::new("L", Rgba::rgb(0, 0, 0)));
         let seg = Segment::new(Point::new(1234, 5678), Point::new(100_000, 5678));
         s.insert(
             ObjectId(7),

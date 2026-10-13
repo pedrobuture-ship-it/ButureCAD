@@ -19,3 +19,7 @@ Run `cargo deny`/license audit before release (not yet configured).
 | wgpu 30 (renderer) | GPU rendering (Vulkan/Metal/DX12) | MIT OR Apache-2.0 |
 | pollster (renderer) | block on wgpu async setup | Apache-2.0 OR MIT |
 | bytemuck (renderer) | vertex buffer casting | Zlib OR Apache-2.0 OR MIT |
+| ts-rs (desktop) | generate TypeScript contracts from Rust types | MIT |
+| tauri-plugin-dialog (desktop) | native folder pickers | MIT OR Apache-2.0 |
+| lucide-react (desktop UI) | icons | ISC |
+| @tauri-apps/plugin-dialog, @tauri-apps/api | JS side of the Tauri bridge | MIT OR Apache-2.0 |

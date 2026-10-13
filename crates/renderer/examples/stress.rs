@@ -7,14 +7,7 @@ use std::time::Instant;
 
 fn main() {
     let mut scene = Scene::new();
-    scene.set_layer(
-        LayerId(1),
-        Layer {
-            name: "Top".into(),
-            color: Rgba::rgb(220, 60, 60),
-            visible: true,
-        },
-    );
+    scene.set_layer(LayerId(1), Layer::new("Top", Rgba::rgb(220, 60, 60)));
     let t = Instant::now();
     let n = 200_000u64;
     for i in 0..n {
