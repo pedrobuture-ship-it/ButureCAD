@@ -17,6 +17,8 @@
 
 - ERC (roadmap 11): 21 rules on the connectivity graph (unconnected/undriven pins, pin-type matrix, duplicate references, dangling wires, missing data, hierarchy/name conflicts…), severities, clickable findings that select and centre the offending objects, documented waivers stored in the project (schema 3, undoable, reason required), power flag symbol. See `docs/erc.md`.
 
+- Footprint Editor (roadmap 12): SMD/through-hole/NPTH/custom pads, circle/rect/oval/rounded-rect/custom shapes, silkscreen/fabrication/courtyard/mask/paste graphics, reference/value text, 3D model references (stored only); parametric DIP/SOIC/QFN/BGA/header generators; footprint libraries (`*.bfplib.json`); PCB document schema 2. See `docs/footprint-editor.md`.
+
 # Partial
 - PCB model is a minimal skeleton (tracks, vias) hosting the commands.
 - Built-in symbol library is a small bootstrap set (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC); real libraries are user-made files. No component records, search index or providers yet (stages 31–33).
@@ -24,7 +26,7 @@
 - Only the root sheet is editable; hierarchical sheets have no UI tools yet.
 - Wire re-routing is not a general router: dense layouts can leave no valid style (reported as a warning).
 - PCB editing tools are not implemented (PCB view is read-only).
-- Footprint Editor and 3D Viewer tabs are placeholders labelled as not implemented; the DRC panel likewise.
+- The 3D Viewer tab is a placeholder labelled as not implemented; the DRC panel likewise.
 - Desktop UI is a static shell; navigation items are disabled.
 
 # Broken

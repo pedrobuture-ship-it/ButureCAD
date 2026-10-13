@@ -11,7 +11,7 @@ use crate::scene_builder::{self as sb, ThemeKind};
 use buturecad_eda_core::commands::{SchematicEditCommand, SetSymbolCommand};
 use buturecad_geometry::{Arc, Circle, Rectangle, Segment, Vector};
 use buturecad_libraries::{qualify, split_lib_id, LibraryDir};
-use buturecad_renderer::{Item as SceneItem, Layer, LayerId, Rgba, Shape};
+use buturecad_renderer::{Item as SceneItem, LayerId, Rgba, Shape};
 use buturecad_schematic::symbol_edit::{self as se, Item};
 use buturecad_schematic::{
     builtin, Change, Direction, Graphic, Object, Pin, PinType, Placement, Symbol, SymbolGraphic,
@@ -20,7 +20,6 @@ use buturecad_schematic::{
 
 /// Item ids: graphics are `1 + index`, pins are `PIN_BASE + index`.
 pub(crate) const PIN_BASE: u64 = 1 << 24;
-const L_ORIGIN: LayerId = LayerId(2);
 const PIN_TEXT_H: i64 = 1_000_000;
 const DEFAULT_PIN_LENGTH: i64 = 2_540_000;
 
@@ -151,6 +150,28 @@ impl SymbolEditor {
 // Scene
 // ---------------------------------------------------------------------------------------------
 
+/// The origin cross. Drawn as an overlay (not as scene items) so it can never be picked or get
+/// in the way of the item sitting on the origin.
+pub(crate) fn origin_marks(theme: ThemeName, arm: i64) -> Vec<(Shape, Rgba)> {
+    let grey = match theme {
+        ThemeName::Dark => Rgba::rgb(110, 110, 120),
+        ThemeName::Light => Rgba::rgb(150, 150, 160),
+    };
+    let line = |a: Point, b: Point| {
+        (
+            Shape::Line {
+                segment: Segment::new(a, b),
+                width: 30_000,
+            },
+            grey,
+        )
+    };
+    vec![
+        line(Point::new(-arm, 0), Point::new(arm, 0)),
+        line(Point::new(0, -arm), Point::new(0, arm)),
+    ]
+}
+
 fn text_width(text: &str, h: i64) -> i64 {
     text.chars().count() as i64 * 6 * (h / 7)
 }
@@ -249,12 +270,6 @@ fn build_scene(
     for (id, layer) in sb::schematic_layers(theme) {
         scene.set_layer(id, layer);
     }
-    let grey = if theme == ThemeKind::Dark {
-        Rgba::rgb(110, 110, 120)
-    } else {
-        Rgba::rgb(150, 150, 160)
-    };
-    scene.set_layer(L_ORIGIN, Layer::new("Origin", grey).not_snappable());
     let mut owners: BTreeMap<Id, Vec<ObjectId>> = BTreeMap::new();
     let mut add = |scene: &mut Scene, owner: Id, shapes: Vec<(LayerId, Shape)>| {
         let mut ids = Vec::new();
@@ -272,27 +287,6 @@ fn build_scene(
         }
         owners.insert(owner, ids);
     };
-    let arm = 2_540_000;
-    add(
-        &mut scene,
-        Id(0),
-        vec![
-            (
-                L_ORIGIN,
-                Shape::Line {
-                    segment: Segment::new(Point::new(-arm, 0), Point::new(arm, 0)),
-                    width: 30_000,
-                },
-            ),
-            (
-                L_ORIGIN,
-                Shape::Line {
-                    segment: Segment::new(Point::new(0, -arm), Point::new(0, arm)),
-                    width: 30_000,
-                },
-            ),
-        ],
-    );
     for (i, g) in sym.graphics.iter().enumerate() {
         if g.is_visible_in(unit, repr) {
             add(
@@ -1508,7 +1502,7 @@ impl Workspace {
         };
         let at = self.cursor;
         let pts = &self.symed.pts;
-        let mut out: Vec<(Shape, Rgba)> = Vec::new();
+        let mut out: Vec<(Shape, Rgba)> = origin_marks(self.theme, 2_540_000);
         let line = |a: Point, b: Point| Shape::Line {
             segment: Segment::new(a, b),
             width: 150_000,

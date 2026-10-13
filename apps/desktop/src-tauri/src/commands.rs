@@ -301,3 +301,40 @@ pub fn erc_waive(
 pub fn erc_unwaive(state: State<'_, AppState>, fingerprint: String) -> Result<Snapshot, String> {
     state.act(|ws| ws.erc_unwaive(&fingerprint))
 }
+
+/// Footprint Editor lifecycle, view and generator commands
+/// (see `Workspace::footprint_editor_command`).
+#[tauri::command]
+pub fn footprint_editor_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.footprint_editor_command(&name, arg.as_deref()))
+}
+
+/// Sets a footprint-level field (name, description, mounting, 3D model reference…).
+#[tauri::command]
+pub fn footprint_editor_set(
+    state: State<'_, AppState>,
+    key: String,
+    value: String,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.footprint_editor_set(&key, &value))
+}
+
+#[tauri::command]
+pub fn footprint_libraries(state: State<'_, AppState>) -> Result<Vec<LibraryInfo>, String> {
+    state.with(|ws| Ok(ws.footprint_libraries()))
+}
+
+#[tauri::command]
+pub fn library_footprints(state: State<'_, AppState>) -> Result<Vec<FootprintInfo>, String> {
+    state.with(|ws| Ok(ws.library_footprints()))
+}
+
+/// The footprint generators and their parameters (static; no project needed).
+#[tauri::command]
+pub fn footprint_generators() -> Vec<GeneratorInfo> {
+    crate::workspace::generator_infos()
+}

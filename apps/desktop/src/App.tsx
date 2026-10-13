@@ -13,6 +13,7 @@ import { useActions, useCommands } from "./components/hooks";
 import { Inspector } from "./components/Inspector";
 import { MenuBar } from "./components/MenuBar";
 import { NotImplemented } from "./components/NotImplemented";
+import { FootprintEditorBar, FootprintEditorHome } from "./components/FootprintEditor";
 import { SymbolEditorBar, SymbolEditorHome } from "./components/SymbolEditor";
 import { StartScreen } from "./components/StartScreen";
 import { StatusBar } from "./components/StatusBar";
@@ -114,7 +115,10 @@ export function App() {
 
   const mode = snap?.mode ?? "schematic";
   const hasCanvasMode =
-    mode === "schematic" || mode === "pcb" || (mode === "symbol_editor" && !!snap?.symbol_editor);
+    mode === "schematic" ||
+    mode === "pcb" ||
+    (mode === "symbol_editor" && !!snap?.symbol_editor) ||
+    (mode === "footprint_editor" && !!snap?.footprint_editor);
 
   return (
     <div className={inspectorOpen ? "app" : "app no-inspector"}>
@@ -129,9 +133,12 @@ export function App() {
               <StartScreen />
             ) : mode === "symbol_editor" && !snap.symbol_editor ? (
               <SymbolEditorHome />
+            ) : mode === "footprint_editor" && !snap.footprint_editor ? (
+              <FootprintEditorHome />
             ) : hasCanvasMode ? (
               <>
                 {mode === "symbol_editor" && <SymbolEditorBar />}
+                {mode === "footprint_editor" && <FootprintEditorBar />}
                 <CanvasView />
               </>
             ) : (

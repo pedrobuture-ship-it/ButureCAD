@@ -20,7 +20,10 @@ pub enum Mode {
 impl Mode {
     /// Modes that have a 2D canvas backed by real data today.
     pub fn has_canvas(self) -> bool {
-        matches!(self, Mode::Schematic | Mode::Pcb | Mode::SymbolEditor)
+        matches!(
+            self,
+            Mode::Schematic | Mode::Pcb | Mode::SymbolEditor | Mode::FootprintEditor
+        )
     }
 }
 
@@ -163,6 +166,8 @@ pub struct Snapshot {
     pub symbol_editor: Option<SymbolEditorInfo>,
     /// The last ERC run, if any.
     pub erc: Option<ErcInfo>,
+    /// Present while the Footprint Editor has a footprint open.
+    pub footprint_editor: Option<FootprintEditorInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -276,6 +281,64 @@ pub struct ErcInfo {
     pub violations: Vec<ViolationInfo>,
     /// Findings not listed because the list is capped.
     pub truncated: u32,
+}
+
+/// A footprint offered by the Footprint Editor's open dialog.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct FootprintInfo {
+    pub lib_id: String,
+    pub name: String,
+    pub library: String,
+    /// `project` (embedded in the project), `project-library` or `user-library`.
+    pub source: String,
+    pub description: String,
+    pub pad_count: u32,
+    pub tags: String,
+}
+
+/// One parameter of a footprint generator.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct GeneratorParamInfo {
+    pub key: String,
+    pub label: String,
+    pub default: String,
+    /// `integer`, `millimetres` or `flag`.
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct GeneratorInfo {
+    pub family: String,
+    pub title: String,
+    pub params: Vec<GeneratorParamInfo>,
+}
+
+/// The editable fields of one 3D model reference.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct ModelInfo {
+    pub index: u32,
+    pub fields: Vec<PropertyInfo>,
+}
+
+/// State of the Footprint Editor for the footprint being edited.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct FootprintEditorInfo {
+    pub name: String,
+    /// Layer new graphics are drawn on (`silkscreen`, `fabrication`, …).
+    pub layer: String,
+    pub pad_count: u32,
+    /// Type / shape / size / drill applied to the next pad placed.
+    pub pad_template: Vec<PropertyInfo>,
+    pub fields: Vec<PropertyInfo>,
+    /// 3D model references (stored only; nothing renders them yet).
+    pub models: Vec<ModelInfo>,
+    pub warnings: Vec<String>,
+    pub generators: Vec<GeneratorInfo>,
 }
 
 /// State of the Symbol Editor for the symbol being edited.

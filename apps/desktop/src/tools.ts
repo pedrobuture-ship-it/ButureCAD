@@ -38,6 +38,18 @@ export const SYMBOL_TOOLS: ToolDef[] = [
   tool("text", "Text", "Type", "T"),
 ];
 
+export const FOOTPRINT_TOOLS: ToolDef[] = [
+  select,
+  tool("pad_smd", "SMD Pad", "RectangleHorizontal", "S"),
+  tool("pad_through", "Through-hole Pad", "CircleDot", "H"),
+  tool("npth", "Non-plated Hole", "Crosshair", "N"),
+  tool("line", "Line", "Slash", "L"),
+  tool("rect", "Rectangle", "Square", "B"),
+  tool("circle", "Circle", "Circle", "C"),
+  tool("arc", "Arc", "Spline", "A"),
+  tool("text", "Text", "Type", "T"),
+];
+
 export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
   schematic: [
     select,
@@ -56,6 +68,7 @@ export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
     tool("duplicate", "Duplicate", "Copy", "Ctrl+D"),
   ],
   symbol_editor: SYMBOL_TOOLS,
+  footprint_editor: FOOTPRINT_TOOLS,
   pcb: [
     select,
     {
@@ -87,6 +100,5 @@ export const MODE_TITLES: Record<Mode, string> = {
 
 /** Roadmap stage that will implement a mode that has no canvas yet. */
 export const MODE_PLANNED: Partial<Record<Mode, string>> = {
-  footprint_editor: "roadmap stage 12 (Footprint Editor)",
   viewer3d: "roadmap stage 27 (PCB 3D)",
 };

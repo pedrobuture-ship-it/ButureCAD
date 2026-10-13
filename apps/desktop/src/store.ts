@@ -14,6 +14,11 @@ export type Dialog =
   | { kind: "symbol-save" }
   | { kind: "symbol-text" }
   | { kind: "erc-waive"; fingerprint: string; message: string }
+  | { kind: "footprint-new" }
+  | { kind: "footprint-open" }
+  | { kind: "footprint-save" }
+  | { kind: "footprint-generate" }
+  | { kind: "footprint-text" }
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }

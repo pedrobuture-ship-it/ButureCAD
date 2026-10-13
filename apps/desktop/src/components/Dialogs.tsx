@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { call, pickFolder, toast } from "../actions";
+import type { FootprintInfo } from "../bindings/FootprintInfo";
+import type { GeneratorInfo } from "../bindings/GeneratorInfo";
 import type { LibraryInfo } from "../bindings/LibraryInfo";
 import type { SymbolInfo } from "../bindings/SymbolInfo";
 import type { CoreInfo } from "../bindings/CoreInfo";
@@ -497,6 +499,261 @@ function ErcWaiveDialog({ fingerprint, message }: { fingerprint: string; message
   );
 }
 
+function FootprintNewDialog() {
+  const [library, setLibrary] = useState("User");
+  const [name, setName] = useState("NewFootprint");
+  const valid = library.trim() !== "" && name.trim() !== "" && !/[:/\\]/.test(library + name);
+  const submit = async () => {
+    if (!valid) return;
+    close();
+    await call(api.footprintEditorCommand("new", `${library.trim()}:${name.trim()}`));
+  };
+  return (
+    <Modal title="New footprint" onClose={close}>
+      <label className="field">
+        <span>Library name (the footprint is saved to this library later)</span>
+        <input autoFocus value={library} onChange={(e) => setLibrary(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>Footprint name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+        />
+      </label>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!valid} onClick={() => void submit()}>
+          Create
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function FootprintOpenDialog() {
+  const [items, setItems] = useState<FootprintInfo[]>([]);
+  const [query, setQuery] = useState("");
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    api
+      .libraryFootprints()
+      .then(setItems)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const q = query.trim().toLowerCase();
+  const shown = items.filter(
+    (f) => q === "" || `${f.lib_id} ${f.description} ${f.tags}`.toLowerCase().includes(q),
+  );
+  const pick = async (f: FootprintInfo | undefined) => {
+    if (!f) return;
+    close();
+    await call(api.footprintEditorCommand("open", f.lib_id));
+  };
+  return (
+    <Modal title="Open a footprint" onClose={close}>
+      <input
+        autoFocus
+        value={query}
+        placeholder="Search libraries and the project…"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIndex(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") setIndex((i) => Math.min(shown.length - 1, i + 1));
+          else if (e.key === "ArrowUp") setIndex((i) => Math.max(0, i - 1));
+          else if (e.key === "Enter") void pick(shown[index]);
+        }}
+      />
+      <ul className="symbol-list" role="listbox">
+        {shown.length === 0 && <li className="muted">No matching footprint</li>}
+        {shown.map((f, i) => (
+          <li
+            key={f.lib_id}
+            role="option"
+            aria-selected={i === index}
+            className={i === index ? "sel" : ""}
+            onMouseEnter={() => setIndex(i)}
+            onClick={() => void pick(f)}
+          >
+            <strong>{f.lib_id}</strong>
+            <span className="muted">
+              {f.source} · {f.pad_count} pad{f.pad_count === 1 ? "" : "s"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="muted">
+        Opening a library footprint copies it into the project; edits stay in the project until you
+        save them back to a library.
+      </p>
+    </Modal>
+  );
+}
+
+function FootprintSaveDialog() {
+  const current = store.getState().snapshot?.footprint_editor?.name ?? "";
+  const [scope, setScope] = useState("project");
+  const [library, setLibrary] = useState(
+    current.includes(":") ? (current.split(":")[0] ?? "User") : "User",
+  );
+  const [libs, setLibs] = useState<LibraryInfo[]>([]);
+  useEffect(() => {
+    api
+      .footprintLibraries()
+      .then(setLibs)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const valid = library.trim() !== "" && !/[:/\\]/.test(library);
+  const submit = async () => {
+    if (!valid) return;
+    close();
+    await call(api.footprintEditorCommand("save_to_library", `${scope}:${library.trim()}`));
+  };
+  return (
+    <Modal title="Save footprint to library" onClose={close}>
+      <label className="field">
+        <span>Where</span>
+        <select value={scope} onChange={(e) => setScope(e.target.value)}>
+          <option value="project">
+            This project (libraries/ folder, travels with the project)
+          </option>
+          <option value="user">My user libraries (shared by all projects)</option>
+        </select>
+      </label>
+      <label className="field">
+        <span>Library</span>
+        <input
+          autoFocus
+          list="fp-save-libs"
+          value={library}
+          onChange={(e) => setLibrary(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+        />
+        <datalist id="fp-save-libs">
+          {libs
+            .filter((l) => l.scope === scope)
+            .map((l) => (
+              <option key={l.name} value={l.name} />
+            ))}
+        </datalist>
+      </label>
+      <p className="muted">
+        A footprint with the same name in that library is replaced. If the library differs from the
+        footprint&apos;s current one, the footprint is renamed in this project too.
+      </p>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!valid} onClick={() => void submit()}>
+          Save
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function FootprintGenerateDialog() {
+  const [specs, setSpecs] = useState<GeneratorInfo[]>([]);
+  const [family, setFamily] = useState("soic");
+  const [values, setValues] = useState<Record<string, string>>({});
+  useEffect(() => {
+    api
+      .footprintGenerators()
+      .then(setSpecs)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const spec = specs.find((s) => s.family === family);
+  const value = (key: string, def: string) => values[`${family}.${key}`] ?? def;
+  const submit = async () => {
+    if (!spec) return;
+    const args = spec.params.map((p) => `${p.key}=${value(p.key, p.default)}`).join("|");
+    close();
+    await call(api.footprintEditorCommand("generate", `${family}|${args}`));
+  };
+  return (
+    <Modal title="Generate a footprint" onClose={close}>
+      <label className="field">
+        <span>Package</span>
+        <select
+          autoFocus
+          value={family}
+          onChange={(e) => setFamily(e.target.value)}
+          aria-label="Package family"
+        >
+          {specs.map((s) => (
+            <option key={s.family} value={s.family}>
+              {s.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      {spec?.params.map((p) =>
+        p.kind === "flag" ? (
+          <label key={p.key} className="field">
+            <span>{p.label}</span>
+            <select
+              value={value(p.key, p.default)}
+              onChange={(e) => setValues({ ...values, [`${family}.${p.key}`]: e.target.value })}
+            >
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </label>
+        ) : (
+          <label key={p.key} className="field">
+            <span>{p.label}</span>
+            <input
+              value={value(p.key, p.default)}
+              onChange={(e) => setValues({ ...values, [`${family}.${p.key}`]: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && void submit()}
+            />
+          </label>
+        ),
+      )}
+      <p className="muted">
+        The generator creates real pads, silkscreen, fabrication and courtyard geometry from the
+        nominal package dimensions. Check them against the part&apos;s datasheet before use.
+      </p>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!spec} onClick={() => void submit()}>
+          Generate
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function FootprintTextDialog() {
+  const [text, setText] = useState("TEXT");
+  const submit = async () => {
+    if (!text.trim()) return;
+    close();
+    await call(api.editorCommand(`tool:text:${text.trim()}`));
+  };
+  return (
+    <Modal title="Text" onClose={close}>
+      <label className="field">
+        <span>Text to place (on the layer chosen in the bar)</span>
+        <input
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+        />
+      </label>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!text.trim()} onClick={() => void submit()}>
+          Place…
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function AboutDialog() {
   const [info, setInfo] = useState<CoreInfo | null>(null);
   useEffect(() => {
@@ -548,6 +805,16 @@ export function Dialogs() {
       return <SymbolSaveDialog />;
     case "symbol-text":
       return <SymbolTextDialog />;
+    case "footprint-new":
+      return <FootprintNewDialog />;
+    case "footprint-open":
+      return <FootprintOpenDialog />;
+    case "footprint-save":
+      return <FootprintSaveDialog />;
+    case "footprint-generate":
+      return <FootprintGenerateDialog />;
+    case "footprint-text":
+      return <FootprintTextDialog />;
     case "erc-waive":
       return <ErcWaiveDialog fingerprint={dialog.fingerprint} message={dialog.message} />;
   }

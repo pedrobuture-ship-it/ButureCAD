@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 buturecad-geometry = { path = "../geometry" }
 buturecad-schematic = { path = "../schematic" }
+buturecad-pcb = { path = "../pcb" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 

@@ -8,7 +8,8 @@
 import type { Mode } from "./bindings/Mode";
 import type { UiState } from "./store";
 
-export type Category = "File" | "Edit" | "View" | "Mode" | "Tools" | "Symbol" | "Help";
+export type Category =
+  "File" | "Edit" | "View" | "Mode" | "Tools" | "Symbol" | "Footprint" | "Help";
 
 /** What a command can do. Implemented by `actions.ts`; faked in tests. */
 export interface Actions {
@@ -46,6 +47,11 @@ export interface Actions {
   symbolSaveToLibrary(): void;
   symbolCommand(name: string, arg?: string): void;
   runErc(): void;
+  footprintNew(): void;
+  footprintOpen(): void;
+  footprintGenerate(): void;
+  footprintSaveToLibrary(): void;
+  footprintCommand(name: string, arg?: string): void;
   startMove(): void;
 }
 
@@ -73,9 +79,18 @@ const inSymbolEditor = (s: UiState): true | string => {
   return s.snapshot.symbol_editor ? true : "Open or create a symbol first";
 };
 
-/** Editing commands that work on the schematic and on the symbol being edited. */
-const inEditor = (s: UiState): true | string =>
-  s.snapshot?.mode === "symbol_editor" ? inSymbolEditor(s) : inSchematic(s);
+const inFootprintEditor = (s: UiState): true | string => {
+  if (!s.snapshot?.project) return "Open or create a project first";
+  if (s.snapshot.mode !== "footprint_editor") return "Switch to the Footprint Editor";
+  return s.snapshot.footprint_editor ? true : "Open, create or generate a footprint first";
+};
+
+/** Editing commands that work in the schematic and in the symbol and footprint editors. */
+const inEditor = (s: UiState): true | string => {
+  if (s.snapshot?.mode === "symbol_editor") return inSymbolEditor(s);
+  if (s.snapshot?.mode === "footprint_editor") return inFootprintEditor(s);
+  return inSchematic(s);
+};
 
 const hasSelection = (s: UiState): true | string => {
   const a = inEditor(s);
@@ -85,13 +100,17 @@ const hasSelection = (s: UiState): true | string => {
 
 /** Like `hasSelection`, for commands the Symbol Editor does not implement. */
 const hasSchematicSelection = (s: UiState): true | string =>
-  s.snapshot?.mode === "symbol_editor" ? "Not available in the Symbol Editor" : hasSelection(s);
+  s.snapshot?.mode === "symbol_editor" || s.snapshot?.mode === "footprint_editor"
+    ? "Not available in the symbol and footprint editors"
+    : hasSelection(s);
 
 const hasCanvas = (s: UiState): true | string => {
   if (!s.snapshot?.project) return "Open or create a project first";
   const m = s.snapshot.mode;
   if (m === "symbol_editor")
     return s.snapshot.symbol_editor ? true : "Open or create a symbol first";
+  if (m === "footprint_editor")
+    return s.snapshot.footprint_editor ? true : "Open, create or generate a footprint first";
   return m === "schematic" || m === "pcb" ? true : "This mode has no canvas yet";
 };
 
@@ -106,6 +125,27 @@ function symbolToolCommands(): AppCommand[] {
   });
   return [
     t("pin", "Place Pin", "P"),
+    t("line", "Draw Line", "L"),
+    t("rect", "Draw Rectangle", "B"),
+    t("circle", "Draw Circle", "C"),
+    t("arc", "Draw Arc", "A"),
+    t("text", "Place Text…", "T"),
+  ];
+}
+
+function footprintToolCommands(): AppCommand[] {
+  const t = (id: string, title: string, shortcut: string): AppCommand => ({
+    id: `fptool.${id}`,
+    title: `Footprint Editor: ${title}`,
+    category: "Tools",
+    shortcut,
+    available: inFootprintEditor,
+    run: (a) => a.selectTool(id),
+  });
+  return [
+    t("pad_smd", "Place SMD Pad", "S"),
+    t("pad_through", "Place Through-hole Pad", "H"),
+    t("npth", "Place Non-plated Hole", "N"),
     t("line", "Draw Line", "L"),
     t("rect", "Draw Rectangle", "B"),
     t("circle", "Draw Circle", "C"),
@@ -464,6 +504,42 @@ export function buildCommands(): AppCommand[] {
     },
 
     ...symbolToolCommands(),
+    ...footprintToolCommands(),
+    {
+      id: "footprint.new",
+      title: "New Footprint…",
+      category: "Footprint",
+      available: hasProject,
+      run: (a) => a.footprintNew(),
+    },
+    {
+      id: "footprint.open",
+      title: "Open Footprint…",
+      category: "Footprint",
+      available: hasProject,
+      run: (a) => a.footprintOpen(),
+    },
+    {
+      id: "footprint.generate",
+      title: "Generate Footprint (DIP, SOIC, QFN, BGA, header)…",
+      category: "Footprint",
+      available: hasProject,
+      run: (a) => a.footprintGenerate(),
+    },
+    {
+      id: "footprint.save",
+      title: "Save Footprint to Library…",
+      category: "Footprint",
+      available: inFootprintEditor,
+      run: (a) => a.footprintSaveToLibrary(),
+    },
+    {
+      id: "footprint.courtyard",
+      title: "Footprint: Courtyard from Pads",
+      category: "Footprint",
+      available: inFootprintEditor,
+      run: (a) => a.footprintCommand("auto_courtyard"),
+    },
     {
       id: "tools.erc",
       title: "Run Electrical Rules Check",

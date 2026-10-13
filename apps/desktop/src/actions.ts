@@ -117,6 +117,11 @@ export function createActions(): Actions {
     openPalette: () => store.set({ paletteOpen: true }),
     showAbout: () => store.set({ dialog: { kind: "about" } }),
     selectTool: (id) => {
+      if (snap()?.mode === "footprint_editor") {
+        if (id === "text") store.set({ dialog: { kind: "footprint-text" } });
+        else void call(api.editorCommand(`tool:${id}`));
+        return;
+      }
       if (snap()?.mode === "symbol_editor") {
         if (id === "text") store.set({ dialog: { kind: "symbol-text" } });
         else void call(api.editorCommand(`tool:${id}`));
@@ -134,6 +139,11 @@ export function createActions(): Actions {
     symbolNew: () => store.set({ dialog: { kind: "symbol-new" } }),
     symbolOpen: () => store.set({ dialog: { kind: "symbol-open" } }),
     symbolSaveToLibrary: () => store.set({ dialog: { kind: "symbol-save" } }),
+    footprintNew: () => store.set({ dialog: { kind: "footprint-new" } }),
+    footprintOpen: () => store.set({ dialog: { kind: "footprint-open" } }),
+    footprintGenerate: () => store.set({ dialog: { kind: "footprint-generate" } }),
+    footprintSaveToLibrary: () => store.set({ dialog: { kind: "footprint-save" } }),
+    footprintCommand: (name, arg) => void call(api.footprintEditorCommand(name, arg)),
     runErc: () => {
       store.set({ bottomTab: "erc", bottomOpen: true });
       void call(api.ercRun());

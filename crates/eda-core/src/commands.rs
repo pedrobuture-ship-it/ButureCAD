@@ -1,9 +1,10 @@
 //! Concrete commands.
 
 use crate::command::{Command, CommandError};
-use crate::model::{Entity, Id, Track, Via};
+use crate::model::{Entity, Id, ModelError, Track, Via};
 use crate::Project;
 use buturecad_geometry::{Point, Segment};
+use buturecad_pcb::Footprint;
 use buturecad_schematic::{
     Change, Component, Object, Placement, Schematic, SchematicError, Symbol, Waiver, Wire,
 };
@@ -243,6 +244,77 @@ impl Command for SetSymbolCommand {
     }
     fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
         Self::set(project, &self.name, &self.before)
+    }
+}
+
+/// Creates, replaces or deletes one footprint definition in the project (the Footprint Editor's
+/// unit of work). `before` / `after` are the complete states; `None` means absent.
+#[derive(Debug)]
+pub struct SetFootprintCommand {
+    name: String,
+    before: Option<Footprint>,
+    after: Option<Footprint>,
+    label: Option<String>,
+}
+
+impl SetFootprintCommand {
+    pub fn new(
+        name: impl Into<String>,
+        before: Option<Footprint>,
+        after: Option<Footprint>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            before,
+            after,
+            label: None,
+        }
+    }
+
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    fn set(project: &mut Project, name: &str, state: &Option<Footprint>) {
+        match state {
+            Some(fp) => {
+                project.pcb.footprints.insert(name.to_owned(), fp.clone());
+            }
+            None => {
+                project.pcb.footprints.remove(name);
+            }
+        }
+    }
+}
+
+impl Command for SetFootprintCommand {
+    fn label(&self) -> String {
+        if let Some(l) = &self.label {
+            return l.clone();
+        }
+        match (&self.before, &self.after) {
+            (None, Some(_)) => format!("Create footprint {}", self.name),
+            (Some(_), None) => format!("Delete footprint {}", self.name),
+            _ => format!("Edit footprint {}", self.name),
+        }
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        if project.pcb.footprints.get(&self.name) != self.before.as_ref() {
+            return Err(ModelError::FootprintChanged(self.name.clone()).into());
+        }
+        if let Some(a) = &self.after {
+            buturecad_pcb::validate(a).map_err(|e| ModelError::BadFootprint(e.to_string()))?;
+            if a.name != self.name {
+                return Err(ModelError::FootprintChanged(a.name.clone()).into());
+            }
+        }
+        Self::set(project, &self.name, &self.after);
+        Ok(())
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        Self::set(project, &self.name, &self.before);
+        Ok(())
     }
 }
 

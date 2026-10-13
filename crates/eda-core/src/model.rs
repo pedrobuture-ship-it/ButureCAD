@@ -6,6 +6,7 @@
 //! crate; the command infrastructure does not change when they do.
 
 use buturecad_geometry::{Coord, Point, Segment};
+use buturecad_pcb::Footprint;
 pub use buturecad_schematic::Id;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -26,6 +27,10 @@ pub enum ModelError {
     BadViaSize,
     #[error("coordinate is outside the supported range")]
     OutOfRange,
+    #[error("footprint {0:?} does not match the state the command was built from (stale edit)")]
+    FootprintChanged(String),
+    #[error("invalid footprint: {0}")]
+    BadFootprint(String),
 }
 
 fn check_point(p: Point) -> Result<(), ModelError> {
@@ -57,6 +62,9 @@ pub struct Via {
 pub struct PcbDoc {
     pub tracks: BTreeMap<Id, Track>,
     pub vias: BTreeMap<Id, Via>,
+    /// Footprint definitions embedded in the project (like the schematic's symbol table), keyed
+    /// by `Library:Name`. Placing footprints on the board arrives with the PCB core stage.
+    pub footprints: BTreeMap<String, Footprint>,
 }
 
 /// A design object that can be created and deleted through generic commands.

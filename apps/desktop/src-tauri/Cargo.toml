@@ -20,6 +20,7 @@ buturecad-eda-core = { path = "../../../crates/eda-core" }
 buturecad-geometry = { path = "../../../crates/geometry" }
 buturecad-io = { path = "../../../crates/io" }
 buturecad-libraries = { path = "../../../crates/libraries" }
+buturecad-pcb = { path = "../../../crates/pcb" }
 buturecad-renderer = { path = "../../../crates/renderer" }
 buturecad-rules = { path = "../../../crates/rules" }
 buturecad-schematic = { path = "../../../crates/schematic" }

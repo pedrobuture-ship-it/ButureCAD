@@ -38,6 +38,7 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     hint: "",
     symbol_editor: null,
     erc: null,
+    footprint_editor: null,
     ...over,
   };
 }
@@ -61,7 +62,9 @@ describe("command registry", () => {
     // Symbol Editor tools reuse letters of schematic tools; the Symbol Editor describe block
     // below checks that the two are never available at the same time.
     const shortcuts = commands.flatMap((c) =>
-      c.shortcut && !c.id.startsWith("symtool.") ? [c.shortcut.toLowerCase()] : [],
+      c.shortcut && !c.id.startsWith("symtool.") && !c.id.startsWith("fptool.")
+        ? [c.shortcut.toLowerCase()]
+        : [],
     );
     expect(new Set(shortcuts).size).toBe(shortcuts.length);
   });
@@ -153,6 +156,20 @@ describe("Symbol Editor commands", () => {
       },
       ...over,
     });
+  const withFootprint = () =>
+    snapshot({
+      mode: "footprint_editor",
+      footprint_editor: {
+        name: "User:F",
+        layer: "silkscreen",
+        pad_count: 0,
+        pad_template: [],
+        fields: [],
+        models: [],
+        warnings: [],
+        generators: [],
+      },
+    });
   const state = (snap: Snapshot): UiState => ({ ...store.getState(), snapshot: snap });
   const byId = (id: string) => {
     const c = commands.find((x) => x.id === id);
@@ -169,12 +186,14 @@ describe("Symbol Editor commands", () => {
   });
 
   it("shares keys with other modes without ever being available together", () => {
-    for (const sym of commands.filter((c) => c.id.startsWith("symtool."))) {
+    for (const sym of commands.filter(
+      (c) => c.id.startsWith("symtool.") || c.id.startsWith("fptool."),
+    )) {
       const clashes = commands.filter(
         (c) => c !== sym && c.shortcut?.toLowerCase() === sym.shortcut?.toLowerCase(),
       );
       for (const other of clashes) {
-        for (const snap of [snapshot(), withSymbol()]) {
+        for (const snap of [snapshot(), withSymbol(), withFootprint()]) {
           const both =
             availability(sym, state(snap)) === true && availability(other, state(snap)) === true;
           expect(both, `${sym.id} vs ${other.id} in ${snap.mode}`).toBe(false);
@@ -190,5 +209,17 @@ describe("Symbol Editor commands", () => {
     expect(availability(byId("edit.rotate"), st)).toBe(true);
     expect(availability(byId("edit.delete"), st)).toBe(true);
     expect(availability(byId("edit.duplicate"), st)).not.toBe(true);
+  });
+
+  it("footprint tools need an open footprint in the Footprint Editor", () => {
+    const pad = byId("fptool.pad_smd");
+    expect(availability(pad, state(snapshot()))).not.toBe(true);
+    expect(availability(pad, state(withSymbol()))).not.toBe(true);
+    expect(availability(pad, state(withFootprint()))).toBe(true);
+    // Rotate / delete work in the Footprint Editor too.
+    const sel = [{ id: 1, kind: "pad", title: "p", properties: [] }];
+    expect(availability(byId("edit.rotate"), state({ ...withFootprint(), selection: sel }))).toBe(
+      true,
+    );
   });
 });

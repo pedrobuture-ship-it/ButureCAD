@@ -16,8 +16,11 @@ use std::cell::RefCell;
 
 mod editor;
 mod erc;
+mod footprint_editor;
 mod symbol_editor;
 use editor::EditorState;
+pub use footprint_editor::generator_infos;
+use footprint_editor::FootprintEditor;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use symbol_editor::SymbolEditor;
@@ -73,6 +76,7 @@ pub struct Workspace {
     pub debug: bool,
     pub(crate) editor: EditorState,
     pub(crate) symed: SymbolEditor,
+    pub(crate) fped: FootprintEditor,
     conn: RefCell<Option<ConnCache>>,
     erc: erc::ErcState,
     /// Per-user library folder (symbols and footprints shared between projects).
@@ -118,6 +122,7 @@ impl Workspace {
             debug: false,
             editor: EditorState::default(),
             symed: SymbolEditor::default(),
+            fped: FootprintEditor::default(),
             conn: RefCell::new(None),
             erc: erc::ErcState::default(),
             user_libs: None,
@@ -223,6 +228,7 @@ impl Workspace {
         self.command_log.clear();
         self.editor = EditorState::default();
         self.symed = SymbolEditor::default();
+        self.fped = FootprintEditor::default();
         *self.conn.get_mut() = None;
         self.erc = erc::ErcState::default();
     }
@@ -386,6 +392,7 @@ impl Workspace {
             });
         }
         self.symed_prune_selection();
+        self.fped_prune_selection();
         if self.hover.is_some_and(|h| !self.owner_exists(h)) {
             self.hover = None;
         }
@@ -395,6 +402,9 @@ impl Workspace {
         let Some(open) = &self.open else { return false };
         if self.mode == Mode::SymbolEditor {
             return self.symed_describe(id).is_some();
+        }
+        if self.mode == Mode::FootprintEditor {
+            return self.fped_describe(id).is_some();
         }
         let p = open.engine.project();
         p.schematic().object(id).is_some()
@@ -487,6 +497,7 @@ impl Workspace {
     /// Rebuilds scenes when the model, theme or layer visibility changed.
     pub(crate) fn ensure_scene(&mut self) {
         self.symed_ensure_scene();
+        self.fped_ensure_scene();
         let Some(open) = &self.open else { return };
         let key = (
             open.engine.revision(),
@@ -509,6 +520,7 @@ impl Workspace {
             Mode::Schematic => Some(&self.sch_scene.scene),
             Mode::Pcb => Some(&self.pcb_scene.scene),
             Mode::SymbolEditor if self.symed.lib_id.is_some() => Some(&self.symed.scene),
+            Mode::FootprintEditor if self.fped.name.is_some() => Some(&self.fped.scene),
             _ => None,
         }
     }
@@ -534,6 +546,10 @@ impl Workspace {
                 .into_iter()
                 .flat_map(|o| self.symed.shapes_of(o).to_vec())
                 .collect(),
+            Mode::FootprintEditor => owners
+                .into_iter()
+                .flat_map(|o| self.fped.shapes_of(o).to_vec())
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -551,7 +567,7 @@ impl Workspace {
     pub fn fit_view(&mut self) {
         self.ensure_scene();
         let mut bounds: Option<BoundingBox> = self.scene().and_then(|s| s.bounds());
-        if self.mode == Mode::SymbolEditor {
+        if matches!(self.mode, Mode::SymbolEditor | Mode::FootprintEditor) {
             // A small or empty symbol must not fill the screen: always show a 20 mm window.
             let window = BoundingBox::new(
                 Point::new(-10_000_000, -10_000_000),
@@ -610,6 +626,8 @@ impl Workspace {
                 self.pointer_schematic(ev, &mut out);
             } else if self.mode == Mode::SymbolEditor {
                 self.pointer_symbol(ev, &mut out);
+            } else if self.mode == Mode::FootprintEditor {
+                self.pointer_footprint(ev, &mut out);
             } else {
                 self.pointer_select(ev, &mut out);
             }
@@ -782,6 +800,7 @@ impl Workspace {
                 "Select: click or drag a box. Middle button or Space+drag pans, wheel zooms.".into()
             }
             Mode::SymbolEditor => self.symed_hint(),
+            Mode::FootprintEditor => self.fped_hint(),
             _ => String::new(),
         }
     }
@@ -843,6 +862,10 @@ impl Workspace {
             self.symed_select_all();
             return;
         }
+        if self.mode == Mode::FootprintEditor {
+            self.fped_select_all();
+            return;
+        }
         self.ensure_scene();
         let Some(open) = &self.open else { return };
         let project = open.engine.project();
@@ -875,6 +898,7 @@ impl Workspace {
         let p = open.engine.project();
         match self.mode {
             Mode::SymbolEditor => self.symed_describe(id),
+            Mode::FootprintEditor => self.fped_describe(id),
             Mode::Schematic => {
                 let (_, obj) = p.schematic().object(id)?;
                 Some(match obj {
@@ -918,6 +942,9 @@ impl Workspace {
         };
         if self.mode == Mode::SymbolEditor {
             return self.symed_summaries();
+        }
+        if self.mode == Mode::FootprintEditor {
+            return self.fped_summaries();
         }
         let project = open.engine.project();
         let ids: Vec<Id> = self
@@ -977,6 +1004,7 @@ impl Workspace {
                     toggleable: false,
                 })
                 .collect(),
+            (Some(_), Mode::FootprintEditor) if self.fped.name.is_some() => self.fped_layer_infos(),
             _ => Vec::new(),
         }
     }
@@ -990,6 +1018,9 @@ impl Workspace {
             Mode::SymbolEditor => self
                 .symed_symbol()
                 .map_or(0, |s| (s.pins.len() + s.graphics.len()) as u64),
+            Mode::FootprintEditor => self.fped_footprint().map_or(0, |f| {
+                (f.pads.len() + f.graphics.len() + f.texts.len()) as u64
+            }),
             _ => 0,
         }
     }
@@ -1010,11 +1041,15 @@ impl Workspace {
             mode: self.mode,
             tool: if self.mode == Mode::SymbolEditor {
                 self.symed.tool.id().to_owned()
+            } else if self.mode == Mode::FootprintEditor {
+                self.fped.tool.id().to_owned()
             } else {
                 self.editor.tool.id().to_owned()
             },
             tool_arg: if self.mode == Mode::SymbolEditor {
                 self.symed.tool.arg()
+            } else if self.mode == Mode::FootprintEditor {
+                self.fped.tool.arg()
             } else {
                 self.editor.tool.arg()
             },
@@ -1041,6 +1076,7 @@ impl Workspace {
             hint: self.hint(),
             symbol_editor: self.symbol_editor_info(),
             erc: self.erc_info(),
+            footprint_editor: self.footprint_editor_info(),
         }
     }
 
@@ -1099,6 +1135,7 @@ impl Workspace {
             Mode::Schematic => &self.sch_scene.scene,
             Mode::Pcb => &self.pcb_scene.scene,
             Mode::SymbolEditor if self.symed.lib_id.is_some() => &self.symed.scene,
+            Mode::FootprintEditor if self.fped.name.is_some() => &self.fped.scene,
             _ => return Err("this mode has no canvas".into()),
         };
         let req = FrameRequest {

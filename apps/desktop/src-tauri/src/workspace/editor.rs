@@ -280,6 +280,9 @@ impl Workspace {
         if self.mode == Mode::SymbolEditor {
             return self.symed_preview_shapes();
         }
+        if self.mode == Mode::FootprintEditor {
+            return self.fped_preview_shapes();
+        }
         if self.mode != Mode::Schematic || self.open.is_none() {
             return Vec::new();
         }
@@ -428,6 +431,9 @@ impl Workspace {
     pub fn editor_command(&mut self, name: &str) -> Result<(), String> {
         if self.mode == Mode::SymbolEditor {
             return self.symed_editor_command(name);
+        }
+        if self.mode == Mode::FootprintEditor {
+            return self.fped_editor_command(name);
         }
         if let Some(rest) = name.strip_prefix("tool:") {
             let (id, arg) = match rest.split_once(':') {
@@ -740,6 +746,9 @@ impl Workspace {
     pub fn set_property(&mut self, id: u64, key: &str, value: &str) -> Result<(), String> {
         if self.mode == Mode::SymbolEditor {
             return self.symed_set_item_property(id, key, value);
+        }
+        if self.mode == Mode::FootprintEditor {
+            return self.fped_set_item_property(id, key, value);
         }
         self.require_schematic()?;
         let sch = self.sch().ok_or("no project is open")?;

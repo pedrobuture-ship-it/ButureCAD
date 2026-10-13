@@ -43,7 +43,9 @@ properties. Files are rewritten as v2 on the next save.
 
 ## `pcb/main.bpcb.json` (`buturecad.pcb`)
 
-`tracks` (`layer`, `segment`, `width`) and `vias` (`position`, `diameter`, `drill`).
+Schema 2: `tracks` (`layer`, `segment`, `width`), `vias` (`position`, `diameter`, `drill`) and
+`footprints` (`Library:Name` → footprint, see `docs/footprint-editor.md`). Migration 1 → 2 adds an
+empty `footprints` map.
 
 ## Rules
 

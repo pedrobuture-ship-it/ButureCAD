@@ -1,8 +1,10 @@
 //! A folder of library files.
 
 use crate::error::{LibraryError, Result};
+use crate::footprint_lib::{FootprintLibrary, FOOTPRINT_LIB_EXT};
 use crate::symbol_lib::{SymbolLibrary, SYMBOL_LIB_EXT};
 use buturecad_io::atomic::atomic_write;
+use buturecad_pcb::Footprint;
 use buturecad_schematic::Symbol;
 use std::path::{Path, PathBuf};
 
@@ -160,5 +162,92 @@ impl LibraryDir {
         let mut lib = self.load_symbol_library(library)?;
         lib.remove(name)?;
         self.save_symbol_library(&lib)
+    }
+
+    // -- footprint libraries -------------------------------------------------------------------
+
+    fn footprint_path(&self, name: &str) -> Result<PathBuf> {
+        validate_library_name(name)?;
+        Ok(self.root.join(format!("{name}.{FOOTPRINT_LIB_EXT}")))
+    }
+
+    /// Footprint libraries in this folder, sorted by name. A missing folder is an empty list.
+    pub fn list_footprint_libraries(&self) -> Vec<LibrarySummary> {
+        let Ok(entries) = std::fs::read_dir(&self.root) else {
+            return Vec::new();
+        };
+        let suffix = format!(".{FOOTPRINT_LIB_EXT}");
+        let mut out: Vec<LibrarySummary> = entries
+            .filter_map(|e| e.ok())
+            .filter_map(|e| {
+                let file = e.file_name().to_string_lossy().into_owned();
+                let name = file.strip_suffix(&suffix)?.to_owned();
+                (!file.starts_with('.')).then_some((name, e.path()))
+            })
+            .map(|(name, path)| {
+                match Self::read(&path).and_then(|b| FootprintLibrary::from_bytes(&path, &b)) {
+                    Ok(lib) => LibrarySummary {
+                        name,
+                        path,
+                        item_count: lib.len(),
+                        error: None,
+                    },
+                    Err(e) => LibrarySummary {
+                        name,
+                        path,
+                        item_count: 0,
+                        error: Some(e.to_string()),
+                    },
+                }
+            })
+            .collect();
+        out.sort_by(|a, b| a.name.cmp(&b.name));
+        out
+    }
+
+    pub fn load_footprint_library(&self, name: &str) -> Result<FootprintLibrary> {
+        let path = self.footprint_path(name)?;
+        if !path.exists() {
+            return Err(LibraryError::NoSuchLibrary(name.to_owned()));
+        }
+        let lib = FootprintLibrary::from_bytes(&path, &Self::read(&path)?)?;
+        if lib.name != name {
+            return Err(LibraryError::Invalid {
+                path,
+                reason: format!("file declares library “{}”", lib.name),
+            });
+        }
+        Ok(lib)
+    }
+
+    /// Writes a footprint library atomically.
+    pub fn save_footprint_library(&self, lib: &FootprintLibrary) -> Result<()> {
+        let path = self.footprint_path(&lib.name)?;
+        std::fs::create_dir_all(&self.root).map_err(|source| LibraryError::Fs {
+            context: "cannot create library folder",
+            path: self.root.clone(),
+            source,
+        })?;
+        Ok(atomic_write(&path, &lib.to_bytes()?)?)
+    }
+
+    /// Adds or replaces `footprint` in `library`, creating the library when absent. Returns the
+    /// library-qualified id.
+    pub fn save_footprint(&self, library: &str, footprint: Footprint) -> Result<String> {
+        let mut lib = match self.load_footprint_library(library) {
+            Ok(l) => l,
+            Err(LibraryError::NoSuchLibrary(_)) => FootprintLibrary::new(library)?,
+            Err(e) => return Err(e),
+        };
+        lib.insert(footprint.clone())?;
+        self.save_footprint_library(&lib)?;
+        let short = footprint.name.rsplit(':').next().unwrap_or(&footprint.name);
+        Ok(crate::symbol_lib::qualify(library, short))
+    }
+
+    pub fn delete_footprint(&self, library: &str, name: &str) -> Result<()> {
+        let mut lib = self.load_footprint_library(library)?;
+        lib.remove(name)?;
+        self.save_footprint_library(&lib)
     }
 }

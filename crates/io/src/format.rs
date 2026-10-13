@@ -4,6 +4,7 @@
 
 use crate::error::{IoError, Result};
 use buturecad_eda_core::model::{Id, PcbDoc, Track, Via};
+use buturecad_pcb::Footprint;
 use buturecad_schematic::{Schematic, Sheet, Symbol, Waiver};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -21,8 +22,8 @@ pub const CURRENT_SCHEMA: u32 = 1;
 /// [`migrate_schematic_v1_to_v2`]); v3 adds symbol units, alternate representations and metadata
 /// plus the ERC waiver list (see [`migrate_schematic_v2_to_v3`]).
 pub const SCHEMATIC_SCHEMA: u32 = 3;
-/// Schema version of the PCB document.
-pub const PCB_SCHEMA: u32 = 1;
+/// Schema version of the PCB document. v2 adds the embedded footprint definitions.
+pub const PCB_SCHEMA: u32 = 2;
 
 /// A migration step rewriting a document from version `from` to `from + 1`.
 pub type MigrationFn = fn(&mut Value) -> std::result::Result<(), String>;
@@ -47,6 +48,14 @@ impl Migrations {
         Self {
             first_version: 1,
             steps: vec![migrate_schematic_v1_to_v2, migrate_schematic_v2_to_v3],
+        }
+    }
+
+    /// Registry for the PCB document: v1 → v2.
+    pub fn pcb() -> Self {
+        Self {
+            first_version: 1,
+            steps: vec![migrate_pcb_v1_to_v2],
         }
     }
 
@@ -273,6 +282,14 @@ pub fn parse_schematic_with(
     Ok(sch)
 }
 
+/// PCB 1 → 2: adds the (empty) footprint table.
+pub fn migrate_pcb_v1_to_v2(doc: &mut Value) -> std::result::Result<(), String> {
+    let obj = doc.as_object_mut().ok_or("document is not an object")?;
+    obj.entry("footprints")
+        .or_insert_with(|| Value::Object(Default::default()));
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PcbV1 {
@@ -280,6 +297,8 @@ struct PcbV1 {
     schema_version: u32,
     tracks: BTreeMap<Id, Track>,
     vias: BTreeMap<Id, Via>,
+    #[serde(default)]
+    footprints: BTreeMap<String, Footprint>,
 }
 
 pub fn serialize_pcb(doc: &PcbDoc) -> Vec<u8> {
@@ -288,13 +307,28 @@ pub fn serialize_pcb(doc: &PcbDoc) -> Vec<u8> {
         schema_version: PCB_SCHEMA,
         tracks: doc.tracks.clone(),
         vias: doc.vias.clone(),
+        footprints: doc.footprints.clone(),
     })
 }
 
 pub fn parse_pcb(path: &Path, bytes: &[u8]) -> Result<PcbDoc> {
-    let f: PcbV1 = parse_migrated(path, bytes, PCB_TAG, &Migrations::builtin())?;
+    let f: PcbV1 = parse_migrated(path, bytes, PCB_TAG, &Migrations::pcb())?;
+    for (name, fp) in &f.footprints {
+        let invalid = |reason: String| IoError::InvalidDocument {
+            path: path.into(),
+            reason,
+        };
+        buturecad_pcb::validate(fp).map_err(|e| invalid(format!("footprint {name}: {e}")))?;
+        if &fp.name != name {
+            return Err(invalid(format!(
+                "footprint stored as {name} is named {}",
+                fp.name
+            )));
+        }
+    }
     Ok(PcbDoc {
         tracks: f.tracks,
         vias: f.vias,
+        footprints: f.footprints,
     })
 }

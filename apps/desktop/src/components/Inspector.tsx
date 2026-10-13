@@ -5,6 +5,7 @@ import type { LayerInfo } from "../bindings/LayerInfo";
 import type { Snapshot } from "../bindings/Snapshot";
 import { useUi } from "../store";
 import { MODE_TITLES } from "../tools";
+import { FootprintFields, FP_LAYER_IDS } from "./FootprintEditor";
 import { FieldEditor, SymbolFields } from "./SymbolEditor";
 
 /** An editable property: commits on Enter or blur, and only when the value changed. */
@@ -49,17 +50,36 @@ function LayerRow({ layer, mode }: { layer: LayerInfo; mode: Snapshot["mode"] })
           type="checkbox"
           checked={layer.visible}
           disabled={!layer.toggleable}
-          onChange={(e) => void call(api.setPcbLayerVisible(layer.id, e.target.checked))}
+          onChange={(e) =>
+            void call(
+              mode === "footprint_editor"
+                ? api.footprintEditorCommand(
+                    "layer_visible",
+                    `${FP_LAYER_IDS[layer.id] ?? ""}:${e.target.checked ? 1 : 0}`,
+                  )
+                : api.setPcbLayerVisible(layer.id, e.target.checked),
+            )
+          }
         />
         <span className="swatch" style={{ background: layer.color }} />
         <span className="layer-name">{layer.name}</span>
       </label>
-      {mode === "pcb" && (
+      {(mode === "pcb" || mode === "footprint_editor") && (
         <button
           className="link"
           disabled={layer.active}
-          title="Make this the active layer (routing tools will use it)"
-          onClick={() => void call(api.setActiveLayer(layer.id))}
+          title={
+            mode === "pcb"
+              ? "Make this the active layer (routing tools will use it)"
+              : "Draw new graphics on this layer"
+          }
+          onClick={() =>
+            void call(
+              mode === "footprint_editor"
+                ? api.footprintEditorCommand("layer", FP_LAYER_IDS[layer.id])
+                : api.setActiveLayer(layer.id),
+            )
+          }
         >
           {layer.active ? "active" : "set active"}
         </button>
@@ -140,9 +160,12 @@ export function Inspector() {
         )}
       </section>
       {snap.mode === "symbol_editor" && <SymbolFields />}
+      {snap.mode === "footprint_editor" && <FootprintFields />}
       {snap.layers.length > 0 && (
         <section>
-          <h3>{snap.mode === "pcb" ? "Layers" : "Object classes"}</h3>
+          <h3>
+            {snap.mode === "pcb" || snap.mode === "footprint_editor" ? "Layers" : "Object classes"}
+          </h3>
           <ul className="layers">
             {snap.layers.map((l) => (
               <LayerRow key={l.id} layer={l} mode={snap.mode} />

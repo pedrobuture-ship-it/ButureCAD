@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CoreInfo } from "./bindings/CoreInfo";
+import type { FootprintInfo } from "./bindings/FootprintInfo";
+import type { GeneratorInfo } from "./bindings/GeneratorInfo";
 import type { LibraryInfo } from "./bindings/LibraryInfo";
 import type { Mode } from "./bindings/Mode";
 import type { PointerEvent as CanvasPointerEvent } from "./bindings/PointerEvent";
@@ -53,6 +55,13 @@ export const api = {
   symbolEditorSet: (key: string, value: string) =>
     invoke<Snapshot>("symbol_editor_set", { key, value }),
   symbolLibraries: () => invoke<LibraryInfo[]>("symbol_libraries"),
+  footprintEditorCommand: (name: string, arg?: string) =>
+    invoke<Snapshot>("footprint_editor_command", { name, arg: arg ?? null }),
+  footprintEditorSet: (key: string, value: string) =>
+    invoke<Snapshot>("footprint_editor_set", { key, value }),
+  footprintLibraries: () => invoke<LibraryInfo[]>("footprint_libraries"),
+  footprintGenerators: () => invoke<GeneratorInfo[]>("footprint_generators"),
+  libraryFootprints: () => invoke<FootprintInfo[]>("library_footprints"),
   ercRun: () => invoke<Snapshot>("erc_run"),
   ercFocus: (index: number) => invoke<Snapshot>("erc_focus", { index }),
   ercWaive: (fingerprint: string, reason: string) =>

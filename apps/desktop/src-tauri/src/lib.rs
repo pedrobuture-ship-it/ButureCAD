@@ -48,6 +48,11 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::erc_focus,
         commands::erc_waive,
         commands::erc_unwaive,
+        commands::footprint_editor_command,
+        commands::footprint_editor_set,
+        commands::footprint_libraries,
+        commands::library_footprints,
+        commands::footprint_generators,
     ])
 }
 
