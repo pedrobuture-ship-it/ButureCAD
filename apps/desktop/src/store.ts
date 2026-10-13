@@ -13,6 +13,7 @@ export type Dialog =
   | { kind: "symbol-open" }
   | { kind: "symbol-save" }
   | { kind: "symbol-text" }
+  | { kind: "erc-waive"; fingerprint: string; message: string }
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }

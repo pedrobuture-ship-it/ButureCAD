@@ -24,6 +24,7 @@ const check = (name, ok, extra = "") => { results.push(ok); console.log(`${ok ? 
 
 const b = await launch();
 const text = (sel) => b.eval(`document.querySelector(${JSON.stringify(sel)})?.innerText ?? ""`);
+const clickSym = (name) => b.eval(`[...document.querySelectorAll(".symbol-list li")].find((x) => x.querySelector("strong")?.textContent === ${JSON.stringify(name)})?.click()`);
 const clickText = (sel, label) => b.eval(`[...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.textContent.includes(${JSON.stringify(label)}))?.click()`);
 
 try {
@@ -51,7 +52,7 @@ try {
   // Place two resistors.
   await b.key("a"); await b.wait(400);
   check("the component picker opens with A", await b.eval(`!!document.querySelector(".symbol-list")`));
-  await clickText(".symbol-list li", "R");
+  await clickSym("R");
   await b.wait(300);
   await b.click(...at(0, 0)); await b.wait(250);
   await b.click(...at(12, 0)); await b.wait(250);
@@ -59,11 +60,11 @@ try {
 
   // A ground symbol on R1's lower pin, then a supply on R2's upper pin.
   await b.key("p"); await b.wait(300);
-  await clickText(".symbol-list li", "GND"); await b.wait(300);
+  await clickSym("GND"); await b.wait(300);
   await b.click(...at(0, -3)); await b.wait(250);
   await b.key("Escape"); await b.wait(150);
   await b.key("p"); await b.wait(300);
-  await clickText(".symbol-list li", "+3V3"); await b.wait(300);
+  await clickSym("+3V3"); await b.wait(300);
   await b.click(...at(12, 3)); await b.wait(250);
   await b.key("Escape"); await b.wait(150);
 

@@ -53,6 +53,11 @@ export const api = {
   symbolEditorSet: (key: string, value: string) =>
     invoke<Snapshot>("symbol_editor_set", { key, value }),
   symbolLibraries: () => invoke<LibraryInfo[]>("symbol_libraries"),
+  ercRun: () => invoke<Snapshot>("erc_run"),
+  ercFocus: (index: number) => invoke<Snapshot>("erc_focus", { index }),
+  ercWaive: (fingerprint: string, reason: string) =>
+    invoke<Snapshot>("erc_waive", { fingerprint, reason }),
+  ercUnwaive: (fingerprint: string) => invoke<Snapshot>("erc_unwaive", { fingerprint }),
   pointer: (event: CanvasPointerEvent) => invoke<PointerResult>("pointer", { event }),
   /** Raw frame: `width u32 LE`, `height u32 LE`, RGBA8 pixels. */
   renderFrame: (width: number, height: number) =>

@@ -422,6 +422,20 @@ impl Object {
     }
 }
 
+/// A documented exception to an ERC finding. It is matched by the finding's stable
+/// `fingerprint` (derived from references, pin numbers and net names, never from object ids), so
+/// it survives edits that renumber objects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Waiver {
+    pub fingerprint: String,
+    /// Rule code the finding belonged to (`unconnected_pin`, …); informational.
+    pub rule: String,
+    /// Human description of what was waived, captured when the waiver was made.
+    pub subject: String,
+    /// Why the finding is acceptable. Required and never empty.
+    pub reason: String,
+}
+
 /// One drawing sheet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Sheet {

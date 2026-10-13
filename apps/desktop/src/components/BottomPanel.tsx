@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { store, useUi, type BottomTab } from "../store";
+import { ErcPanel } from "./ErcPanel";
 
 const TABS: { id: BottomTab; label: string }[] = [
   { id: "erc", label: "ERC" },
@@ -41,6 +42,11 @@ export function BottomPanel() {
             onClick={() => store.set({ bottomTab: t.id, bottomOpen: true })}
           >
             {t.label}
+            {t.id === "erc" && snap?.erc && snap.erc.errors + snap.erc.warnings > 0 && (
+              <span className={snap.erc.errors > 0 ? "count err" : "count"}>
+                {snap.erc.errors + snap.erc.warnings}
+              </span>
+            )}
             {t.id === "messages" && messages.length > 0 && (
               <span className="count">{messages.length}</span>
             )}
@@ -57,9 +63,7 @@ export function BottomPanel() {
       </div>
       {open && (
         <div className="bottom-body" ref={bodyRef}>
-          {tab === "erc" && (
-            <NotImplemented what="Electrical Rules Check" stage="roadmap stage 11" />
-          )}
+          {tab === "erc" && <ErcPanel />}
           {tab === "drc" && <NotImplemented what="Design Rules Check" stage="roadmap stage 19" />}
           {tab === "messages" && (
             <ul className="log">

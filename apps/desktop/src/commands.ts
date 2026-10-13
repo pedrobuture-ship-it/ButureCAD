@@ -45,6 +45,7 @@ export interface Actions {
   symbolOpen(): void;
   symbolSaveToLibrary(): void;
   symbolCommand(name: string, arg?: string): void;
+  runErc(): void;
   startMove(): void;
 }
 
@@ -463,6 +464,14 @@ export function buildCommands(): AppCommand[] {
     },
 
     ...symbolToolCommands(),
+    {
+      id: "tools.erc",
+      title: "Run Electrical Rules Check",
+      category: "Tools",
+      shortcut: "Ctrl+Shift+E",
+      available: hasProject,
+      run: (a) => a.runErc(),
+    },
     {
       id: "symbol.new",
       title: "New Symbol…",

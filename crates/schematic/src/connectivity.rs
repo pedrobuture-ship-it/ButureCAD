@@ -103,6 +103,7 @@ pub struct Connectivity {
     buses: Vec<BusInfo>,
     issues: Vec<Issue>,
     dangling: Vec<DanglingEnd>,
+    sheets: Vec<Id>,
 }
 
 impl Connectivity {
@@ -130,6 +131,10 @@ impl Connectivity {
     }
     pub fn issues(&self) -> &[Issue] {
         &self.issues
+    }
+    /// Sheets reachable from the root, breadth first (the sheets the nets were built from).
+    pub fn reachable_sheets(&self) -> &[Id] {
+        &self.sheets
     }
     /// Wire ends that attach to nothing, in sheet and object order.
     pub fn dangling_ends(&self) -> &[DanglingEnd] {
@@ -960,5 +965,6 @@ fn compose(sch: &Schematic, graphs: &BTreeMap<Id, SheetGraph>) -> Connectivity {
         buses,
         issues,
         dangling,
+        sheets: order,
     }
 }

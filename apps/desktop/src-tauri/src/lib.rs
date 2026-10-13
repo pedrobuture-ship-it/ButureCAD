@@ -44,6 +44,10 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::symbol_editor_command,
         commands::symbol_editor_set,
         commands::symbol_libraries,
+        commands::erc_run,
+        commands::erc_focus,
+        commands::erc_waive,
+        commands::erc_unwaive,
     ])
 }
 

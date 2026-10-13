@@ -40,6 +40,8 @@ pub enum SchematicError {
     BadUnit { symbol: String, unit: u8, count: u8 },
     #[error("symbol {symbol:?} has no alternate representation")]
     NoAlternate { symbol: String },
+    #[error("invalid ERC waiver: {0}")]
+    BadWaiver(String),
 }
 
 /// A pin of a component resolved to sheet coordinates.
@@ -97,11 +99,16 @@ pub struct Schematic {
     root: Id,
     /// object id → sheet id
     index: BTreeMap<Id, Id>,
+    /// Documented ERC exceptions, by fingerprint.
+    waivers: BTreeMap<String, Waiver>,
 }
 
 impl PartialEq for Schematic {
     fn eq(&self, o: &Self) -> bool {
-        self.symbols == o.symbols && self.sheets == o.sheets && self.root == o.root
+        self.symbols == o.symbols
+            && self.sheets == o.sheets
+            && self.root == o.root
+            && self.waivers == o.waivers
     }
 }
 
@@ -121,6 +128,7 @@ impl Schematic {
             sheets,
             root,
             index: BTreeMap::new(),
+            waivers: BTreeMap::new(),
         }
     }
 
@@ -135,6 +143,7 @@ impl Schematic {
             sheets,
             root,
             index: BTreeMap::new(),
+            waivers: BTreeMap::new(),
         };
         let mut seen: BTreeSet<Id> = s.sheets.keys().copied().collect();
         if seen.len() != s.sheets.len() || !s.sheets.contains_key(&root) {
@@ -154,6 +163,39 @@ impl Schematic {
 
     pub fn root(&self) -> Id {
         self.root
+    }
+
+    /// Documented ERC exceptions, sorted by fingerprint.
+    pub fn waivers(&self) -> impl Iterator<Item = &Waiver> {
+        self.waivers.values()
+    }
+
+    pub fn waiver(&self, fingerprint: &str) -> Option<&Waiver> {
+        self.waivers.get(fingerprint)
+    }
+
+    /// Replaces all waivers. Every waiver needs a fingerprint and a non-empty reason;
+    /// fingerprints must be unique.
+    pub fn set_waivers(&mut self, waivers: Vec<Waiver>) -> Result<(), SchematicError> {
+        let mut map = BTreeMap::new();
+        for w in waivers {
+            if w.fingerprint.trim().is_empty() {
+                return Err(SchematicError::BadWaiver("the fingerprint is empty".into()));
+            }
+            if w.reason.trim().is_empty() {
+                return Err(SchematicError::BadWaiver(format!(
+                    "waiver for {:?} needs a documented reason",
+                    w.fingerprint
+                )));
+            }
+            if map.insert(w.fingerprint.clone(), w).is_some() {
+                return Err(SchematicError::BadWaiver(
+                    "two waivers share a fingerprint".into(),
+                ));
+            }
+        }
+        self.waivers = map;
+        Ok(())
     }
     pub fn symbols(&self) -> &BTreeMap<String, Symbol> {
         &self.symbols

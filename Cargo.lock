@@ -276,6 +276,7 @@ dependencies = [
  "buturecad-io",
  "buturecad-libraries",
  "buturecad-renderer",
+ "buturecad-rules",
  "buturecad-schematic",
  "serde",
  "serde_json",
@@ -364,6 +365,10 @@ version = "0.1.0"
 [[package]]
 name = "buturecad-rules"
 version = "0.1.0"
+dependencies = [
+ "buturecad-geometry",
+ "buturecad-schematic",
+]
 
 [[package]]
 name = "buturecad-schematic"

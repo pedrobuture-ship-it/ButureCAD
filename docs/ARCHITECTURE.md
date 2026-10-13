@@ -17,7 +17,8 @@ Desktop GUI (Tauri + React)   buturecad-cli (planned)
 | `io` | Project format, atomic save | foundation |
 | `schematic` | Schematic model, symbols, logical connectivity, change sets | core model done |
 | `libraries` | Symbol library folders (one JSON file per library) | symbols done |
-| `pcb`, `router`, `rules`, `manufacturing`, `simulation`, `viewer3d`, `renderer`, `scripting`, `plugin-runtime`, `agent-api` | reserved slots | not implemented |
+| `rules` | ERC (DRC planned) | ERC done |
+| `pcb`, `router`, `manufacturing`, `simulation`, `viewer3d`, `renderer`, `scripting`, `plugin-runtime`, `agent-api` | reserved slots | not implemented |
 | `apps/desktop` | Tauri 2 shell + React UI | shell only |
 
 ## Rules

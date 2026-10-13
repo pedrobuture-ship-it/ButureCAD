@@ -161,6 +161,8 @@ pub struct Snapshot {
     pub hint: String,
     /// Present while the Symbol Editor has a symbol open.
     pub symbol_editor: Option<SymbolEditorInfo>,
+    /// The last ERC run, if any.
+    pub erc: Option<ErcInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -238,6 +240,42 @@ pub struct LibraryInfo {
     pub scope: String,
     pub item_count: u32,
     pub error: Option<String>,
+}
+
+/// One ERC finding as the UI shows it.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct ViolationInfo {
+    /// Position in the report; pass it to `erc_focus`.
+    pub index: u32,
+    /// Machine name of the rule (`unconnected_pin`, …).
+    pub rule: String,
+    pub title: String,
+    /// `error`, `warning` or `info`.
+    pub severity: String,
+    pub message: String,
+    pub sheet: String,
+    /// Selecting objects and centring the view is possible (the finding has objects or a place
+    /// on the visible sheet).
+    pub can_focus: bool,
+    pub fingerprint: String,
+    /// The documented reason when the finding is waived.
+    pub waived: Option<String>,
+}
+
+/// The result of the last ERC run.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct ErcInfo {
+    /// The model changed after the run: the list may be out of date.
+    pub stale: bool,
+    pub errors: u32,
+    pub warnings: u32,
+    pub infos: u32,
+    pub waived: u32,
+    pub violations: Vec<ViolationInfo>,
+    /// Findings not listed because the list is capped.
+    pub truncated: u32,
 }
 
 /// State of the Symbol Editor for the symbol being edited.

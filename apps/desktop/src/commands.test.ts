@@ -37,6 +37,7 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     zoom_percent: 100,
     hint: "",
     symbol_editor: null,
+    erc: null,
     ...over,
   };
 }

@@ -469,6 +469,34 @@ function SymbolTextDialog() {
   );
 }
 
+function ErcWaiveDialog({ fingerprint, message }: { fingerprint: string; message: string }) {
+  const [reason, setReason] = useState("");
+  const submit = async () => {
+    if (!reason.trim()) return;
+    close();
+    await call(api.ercWaive(fingerprint, reason.trim()));
+  };
+  return (
+    <Modal title="Waive an ERC finding" onClose={close}>
+      <p>{message}</p>
+      <label className="field">
+        <span>Why is this acceptable? (stored in the project; required)</span>
+        <textarea autoFocus rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <p className="muted">
+        The finding stays in the list, marked as waived with this reason, and is not counted. If the
+        circuit changes so that it no longer applies, the waiver is flagged as stale.
+      </p>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!reason.trim()} onClick={() => void submit()}>
+          Waive
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function AboutDialog() {
   const [info, setInfo] = useState<CoreInfo | null>(null);
   useEffect(() => {
@@ -520,5 +548,7 @@ export function Dialogs() {
       return <SymbolSaveDialog />;
     case "symbol-text":
       return <SymbolTextDialog />;
+    case "erc-waive":
+      return <ErcWaiveDialog fingerprint={dialog.fingerprint} message={dialog.message} />;
   }
 }

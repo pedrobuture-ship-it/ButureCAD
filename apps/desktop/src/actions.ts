@@ -134,6 +134,10 @@ export function createActions(): Actions {
     symbolNew: () => store.set({ dialog: { kind: "symbol-new" } }),
     symbolOpen: () => store.set({ dialog: { kind: "symbol-open" } }),
     symbolSaveToLibrary: () => store.set({ dialog: { kind: "symbol-save" } }),
+    runErc: () => {
+      store.set({ bottomTab: "erc", bottomOpen: true });
+      void call(api.ercRun());
+    },
     symbolCommand: (name, arg) => void call(api.symbolEditorCommand(name, arg)),
     startMove: () => {
       // With a selection, M carries it with the pointer; without one it arms the Move tool.

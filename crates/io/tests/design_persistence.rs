@@ -7,7 +7,7 @@ use buturecad_geometry::{Point, Segment};
 use buturecad_io::format::{migrate_schematic_v1_to_v2, serialize_pcb, serialize_schematic};
 use buturecad_io::session::{MANIFEST_NAME, PCB_FILE, SCHEMATIC_FILE};
 use buturecad_io::{engine, IoError, ProjectSession};
-use buturecad_schematic::{builtin, Component, Object, Placement};
+use buturecad_schematic::{builtin, Component, Object, Placement, Waiver};
 use std::fs;
 
 fn comp(r: &str, lib: &str) -> Component {
@@ -101,7 +101,7 @@ fn saved_files_are_deterministic_and_human_readable() {
     let text = String::from_utf8(first).unwrap();
     assert!(
         text.contains("\"reference\": \"C1\"")
-            && text.contains("\"schema_version\": 2")
+            && text.contains("\"schema_version\": 3")
             && text.ends_with("}\n")
     );
 }
@@ -232,7 +232,7 @@ fn schema_v1_schematic_is_migrated_on_open_and_rewritten_as_v2() {
     assert_eq!(e.new_id(), Id(4));
     engine::save(&opened.session, &mut e).unwrap();
     let text = fs::read_to_string(dir.path().join(SCHEMATIC_FILE)).unwrap();
-    assert!(text.contains("\"schema_version\": 2"));
+    assert!(text.contains("\"schema_version\": 3"));
     assert_eq!(
         ProjectSession::open(dir.path()).unwrap().project,
         e.into_project()
@@ -295,4 +295,54 @@ fn backups_include_documents() {
     assert_eq!(backups.len(), 2);
     let latest = fs::read_to_string(backups[1].join(SCHEMATIC_FILE)).unwrap();
     assert!(latest.contains("C1") && !latest.contains("R1"));
+}
+
+#[test]
+fn schema_2_files_load_and_waivers_round_trip_through_save_and_undo() {
+    let dir = tempfile::tempdir().unwrap();
+    let (session, project) = ProjectSession::create(dir.path(), "Board").unwrap();
+    // A schema-2 file as written before units and waivers existed.
+    fs::write(
+        dir.path().join(SCHEMATIC_FILE),
+        r#"{"format":"buturecad.schematic","schema_version":2,"root":0,"symbols":{},"sheets":{"0":{"name":"Root","objects":{}}}}"#,
+    )
+    .unwrap();
+    drop((session, project));
+    let opened = ProjectSession::open(dir.path()).unwrap();
+    assert_eq!(opened.project.schematic().waivers().count(), 0);
+
+    let waiver = Waiver {
+        fingerprint: "unconnected_pin|J1|2".into(),
+        rule: "unconnected_pin".into(),
+        subject: "J1 pin 2".into(),
+        reason: "reserved for the programming header".into(),
+    };
+    let mut e = CommandEngine::new(opened.project);
+    e.execute(SetWaiversCommand::new(
+        "Waive",
+        vec![],
+        vec![waiver.clone()],
+    ))
+    .unwrap();
+    engine::save(&opened.session, &mut e).unwrap();
+    let text = fs::read_to_string(dir.path().join(SCHEMATIC_FILE)).unwrap();
+    assert!(
+        text.contains("\"schema_version\": 3")
+            && text.contains("reserved for the programming header")
+    );
+    let reopened = ProjectSession::open(dir.path()).unwrap().project;
+    assert_eq!(
+        reopened.schematic().waiver(&waiver.fingerprint),
+        Some(&waiver)
+    );
+
+    // Undo removes it again; a waiver without a reason is refused and changes nothing.
+    e.undo().unwrap();
+    assert_eq!(e.project().schematic().waivers().count(), 0);
+    let mut empty_reason = waiver.clone();
+    empty_reason.reason = "  ".into();
+    assert!(e
+        .execute(SetWaiversCommand::new("Waive", vec![], vec![empty_reason]))
+        .is_err());
+    assert_eq!(e.project().schematic().waivers().count(), 0);
 }

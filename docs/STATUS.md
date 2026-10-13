@@ -15,6 +15,8 @@
 
 - Connectivity engine (roadmap 10): `ConnectivityEngine` keeps per-sheet graphs and merges them; small edits rebuild only the touched sheets (property-tested against full rebuilds); nets know whether they are power/global; dangling wire ends (and ends touching a wire body without a junction) are reported; hierarchical names are aliases (nearest the root wins). The desktop inspector uses the incremental path. See `docs/schematic-connectivity.md`.
 
+- ERC (roadmap 11): 21 rules on the connectivity graph (unconnected/undriven pins, pin-type matrix, duplicate references, dangling wires, missing data, hierarchy/name conflicts…), severities, clickable findings that select and centre the offending objects, documented waivers stored in the project (schema 3, undoable, reason required), power flag symbol. See `docs/erc.md`.
+
 # Partial
 - PCB model is a minimal skeleton (tracks, vias) hosting the commands.
 - Built-in symbol library is a small bootstrap set (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC); real libraries are user-made files. No component records, search index or providers yet (stages 31–33).
@@ -22,7 +24,7 @@
 - Only the root sheet is editable; hierarchical sheets have no UI tools yet.
 - Wire re-routing is not a general router: dense layouts can leave no valid style (reported as a warning).
 - PCB editing tools are not implemented (PCB view is read-only).
-- Footprint Editor and 3D Viewer tabs are placeholders labelled as not implemented; ERC/DRC panels likewise.
+- Footprint Editor and 3D Viewer tabs are placeholders labelled as not implemented; the DRC panel likewise.
 - Desktop UI is a static shell; navigation items are disabled.
 
 # Broken

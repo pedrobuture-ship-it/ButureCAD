@@ -4,7 +4,7 @@
 
 use crate::error::{IoError, Result};
 use buturecad_eda_core::model::{Id, PcbDoc, Track, Via};
-use buturecad_schematic::{Schematic, Sheet, Symbol};
+use buturecad_schematic::{Schematic, Sheet, Symbol, Waiver};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,8 +17,10 @@ pub const PCB_TAG: &str = "buturecad.pcb";
 /// Schema version of `project.buture` written by this build.
 pub const CURRENT_SCHEMA: u32 = 1;
 /// Schema version of the schematic document. v1 was the pre-release skeleton (components + wires
-/// without symbols or sheets); v2 is the full schematic model. See [`migrate_schematic_v1_to_v2`].
-pub const SCHEMATIC_SCHEMA: u32 = 2;
+/// without symbols or sheets); v2 is the full schematic model (see
+/// [`migrate_schematic_v1_to_v2`]); v3 adds symbol units, alternate representations and metadata
+/// plus the ERC waiver list (see [`migrate_schematic_v2_to_v3`]).
+pub const SCHEMATIC_SCHEMA: u32 = 3;
 /// Schema version of the PCB document.
 pub const PCB_SCHEMA: u32 = 1;
 
@@ -40,11 +42,11 @@ impl Migrations {
         }
     }
 
-    /// Registry for the schematic document: v1 → v2.
+    /// Registry for the schematic document: v1 → v2 → v3.
     pub fn schematic() -> Self {
         Self {
             first_version: 1,
-            steps: vec![migrate_schematic_v1_to_v2],
+            steps: vec![migrate_schematic_v1_to_v2, migrate_schematic_v2_to_v3],
         }
     }
 
@@ -218,23 +220,37 @@ pub fn migrate_schematic_v1_to_v2(doc: &mut Value) -> std::result::Result<(), St
     Ok(())
 }
 
+/// Schema 2 → 3. Nothing in the stored data has to change: symbol units, representations and
+/// metadata and component units all default when absent, and the waiver list starts empty. The
+/// step exists so older builds refuse a v3 file instead of silently dropping what they do not
+/// know.
+pub fn migrate_schematic_v2_to_v3(doc: &mut Value) -> std::result::Result<(), String> {
+    let obj = doc.as_object_mut().ok_or("document is not an object")?;
+    obj.entry("erc_waivers")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SchematicV2 {
+struct SchematicDoc {
     format: String,
     schema_version: u32,
     root: Id,
     symbols: BTreeMap<String, Symbol>,
     sheets: BTreeMap<Id, Sheet>,
+    #[serde(default)]
+    erc_waivers: Vec<Waiver>,
 }
 
 pub fn serialize_schematic(doc: &Schematic) -> Vec<u8> {
-    to_bytes(&SchematicV2 {
+    to_bytes(&SchematicDoc {
         format: SCHEMATIC_TAG.into(),
         schema_version: SCHEMATIC_SCHEMA,
         root: doc.root(),
         symbols: doc.symbols().clone(),
         sheets: doc.sheets().clone(),
+        erc_waivers: doc.waivers().cloned().collect(),
     })
 }
 
@@ -247,11 +263,14 @@ pub fn parse_schematic_with(
     bytes: &[u8],
     migrations: &Migrations,
 ) -> Result<Schematic> {
-    let f: SchematicV2 = parse_migrated(path, bytes, SCHEMATIC_TAG, migrations)?;
-    Schematic::from_parts(f.root, f.symbols, f.sheets).map_err(|source| IoError::InvalidDocument {
+    let f: SchematicDoc = parse_migrated(path, bytes, SCHEMATIC_TAG, migrations)?;
+    let invalid = |source: buturecad_schematic::SchematicError| IoError::InvalidDocument {
         path: path.into(),
         reason: source.to_string(),
-    })
+    };
+    let mut sch = Schematic::from_parts(f.root, f.symbols, f.sheets).map_err(invalid)?;
+    sch.set_waivers(f.erc_waivers).map_err(invalid)?;
+    Ok(sch)
 }
 
 #[derive(Debug, Serialize, Deserialize)]

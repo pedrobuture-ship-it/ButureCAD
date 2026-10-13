@@ -271,6 +271,41 @@ fn supply(name: &str, net: &str) -> Symbol {
     }
 }
 
+/// A power flag: tells ERC that the net it touches is fed from outside the schematic (a
+/// connector, a battery, a bench supply). Its pin is a power *output*.
+fn power_flag() -> Symbol {
+    Symbol {
+        name: "Buture:PWR_FLAG".into(),
+        reference_prefix: "#FLG".into(),
+        default_value: "PWR_FLAG".into(),
+        is_power: false,
+        pins: vec![pin(
+            "1",
+            "pwr",
+            PinType::PowerOutput,
+            (0.0, 0.0),
+            Direction::Up,
+            0.0,
+        )],
+        graphics: vec![
+            line((0.0, 0.0), (0.0, 1.27)),
+            line((0.0, 1.27), (1.27, 2.54)),
+            line((1.27, 2.54), (0.0, 3.81)),
+            line((0.0, 3.81), (-1.27, 2.54)),
+            line((-1.27, 2.54), (0.0, 1.27)),
+            text((1.9, 2.0), "PWR_FLAG"),
+        ]
+        .into_iter()
+        .map(Into::into)
+        .collect(),
+        unit_count: 1,
+        meta: SymbolMeta {
+            description: "Marks a net as supplied from outside the schematic (satisfies the ERC \"power input not driven\" check)".into(),
+            ..SymbolMeta::default()
+        },
+    }
+}
+
 /// All built-in symbols.
 pub fn symbols() -> Vec<Symbol> {
     let mut v = vec![
@@ -286,6 +321,7 @@ pub fn symbols() -> Vec<Symbol> {
     v.push(supply("+3V3", "+3V3"));
     v.push(supply("+5V", "+5V"));
     v.push(supply("VCC", "VCC"));
+    v.push(power_flag());
     v
 }
 

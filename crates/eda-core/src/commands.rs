@@ -5,7 +5,7 @@ use crate::model::{Entity, Id, Track, Via};
 use crate::Project;
 use buturecad_geometry::{Point, Segment};
 use buturecad_schematic::{
-    Change, Component, Object, Placement, Schematic, SchematicError, Symbol, Wire,
+    Change, Component, Object, Placement, Schematic, SchematicError, Symbol, Waiver, Wire,
 };
 
 /// Creates an entity. The id is allocated on first apply and reused on redo.
@@ -243,6 +243,42 @@ impl Command for SetSymbolCommand {
     }
     fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
         Self::set(project, &self.name, &self.before)
+    }
+}
+
+/// Replaces the ERC waiver list (add, edit or remove a documented exception).
+#[derive(Debug)]
+pub struct SetWaiversCommand {
+    before: Vec<Waiver>,
+    after: Vec<Waiver>,
+    label: String,
+}
+
+impl SetWaiversCommand {
+    pub fn new(label: impl Into<String>, before: Vec<Waiver>, after: Vec<Waiver>) -> Self {
+        Self {
+            before,
+            after,
+            label: label.into(),
+        }
+    }
+}
+
+impl Command for SetWaiversCommand {
+    fn label(&self) -> String {
+        self.label.clone()
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        project
+            .schematic
+            .set_waivers(self.after.clone())
+            .map_err(Into::into)
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        project
+            .schematic
+            .set_waivers(self.before.clone())
+            .map_err(Into::into)
     }
 }
 

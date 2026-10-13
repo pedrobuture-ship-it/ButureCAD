@@ -297,6 +297,7 @@ impl Workspace {
             mirror: self.editor.pending_mirror,
         };
         let mut out: Vec<(Shape, Rgba)> = Vec::new();
+        out.extend(self.erc_marker_shapes(colour));
         let mut push = |shapes: Vec<(buturecad_renderer::LayerId, Shape)>| {
             out.extend(
                 shapes
@@ -438,7 +439,10 @@ impl Workspace {
         match name {
             "select_all" => self.select_all(),
             "clear_selection" => self.clear_selection(),
-            "cancel" => self.cancel(),
+            "cancel" => {
+                self.erc_clear_marker();
+                self.cancel()
+            }
             "flip_elbow" => self.editor.horizontal_first = !self.editor.horizontal_first,
             "rotate" => self.rotate_selection_or_pending(),
             "mirror_x" => self.mirror_selection_or_pending(true),

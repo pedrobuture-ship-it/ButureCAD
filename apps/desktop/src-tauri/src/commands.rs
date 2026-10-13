@@ -274,3 +274,30 @@ pub fn symbol_editor_set(
 pub fn symbol_libraries(state: State<'_, AppState>) -> Result<Vec<LibraryInfo>, String> {
     state.with(|ws| Ok(ws.symbol_libraries()))
 }
+
+/// Runs the Electrical Rules Check on the open project.
+#[tauri::command]
+pub fn erc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
+    state.act(|ws| ws.erc_run())
+}
+
+/// Selects the finding's objects and centres the schematic view on it.
+#[tauri::command]
+pub fn erc_focus(state: State<'_, AppState>, index: u32) -> Result<Snapshot, String> {
+    state.act(|ws| ws.erc_focus(index as usize))
+}
+
+/// Documents an exception for an ERC finding (a reason is required).
+#[tauri::command]
+pub fn erc_waive(
+    state: State<'_, AppState>,
+    fingerprint: String,
+    reason: String,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.erc_waive(&fingerprint, &reason))
+}
+
+#[tauri::command]
+pub fn erc_unwaive(state: State<'_, AppState>, fingerprint: String) -> Result<Snapshot, String> {
+    state.act(|ws| ws.erc_unwaive(&fingerprint))
+}

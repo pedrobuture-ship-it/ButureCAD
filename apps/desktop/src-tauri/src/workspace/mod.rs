@@ -15,6 +15,7 @@ use buturecad_schematic::{Connectivity, ConnectivityEngine, Id, Object};
 use std::cell::RefCell;
 
 mod editor;
+mod erc;
 mod symbol_editor;
 use editor::EditorState;
 use std::collections::{BTreeMap, BTreeSet};
@@ -73,6 +74,7 @@ pub struct Workspace {
     pub(crate) editor: EditorState,
     pub(crate) symed: SymbolEditor,
     conn: RefCell<Option<ConnCache>>,
+    erc: erc::ErcState,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
 
@@ -117,6 +119,7 @@ impl Workspace {
             editor: EditorState::default(),
             symed: SymbolEditor::default(),
             conn: RefCell::new(None),
+            erc: erc::ErcState::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
             pcb_scene: sb::PcbScene::default(),
@@ -221,6 +224,7 @@ impl Workspace {
         self.editor = EditorState::default();
         self.symed = SymbolEditor::default();
         *self.conn.get_mut() = None;
+        self.erc = erc::ErcState::default();
     }
 
     pub fn new_project(&mut self, root: &Path, name: &str) -> Result<(), String> {
@@ -324,6 +328,7 @@ impl Workspace {
         }
         self.open = None;
         *self.conn.get_mut() = None;
+        self.erc = erc::ErcState::default();
         self.recovery = None;
         self.built_for = None;
         self.selection.clear();
@@ -596,6 +601,9 @@ impl Workspace {
             };
         }
 
+        if ev.kind == PointerKind::Down {
+            self.erc_clear_marker();
+        }
         let mut out = Outcome::default();
         if !self.pointer_common(ev, &mut out) {
             if self.mode == Mode::Schematic {
@@ -1032,6 +1040,7 @@ impl Workspace {
             zoom_percent: self.zoom_percent(),
             hint: self.hint(),
             symbol_editor: self.symbol_editor_info(),
+            erc: self.erc_info(),
         }
     }
 

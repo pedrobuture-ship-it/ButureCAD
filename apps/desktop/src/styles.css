@@ -709,3 +709,98 @@ kbd {
   gap: 8px;
   align-items: center;
 }
+
+/* ERC */
+.erc-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 6px;
+}
+.erc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.erc-chip.sev-error {
+  color: var(--danger);
+}
+.erc-chip.sev-warning {
+  color: var(--warn);
+}
+.erc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.erc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.erc-main {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 3px 4px;
+  color: inherit;
+  cursor: pointer;
+}
+.erc-main:hover:not(:disabled) {
+  background: var(--hover);
+}
+.erc-main:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.erc-sev {
+  width: 56px;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.sev-error .erc-sev {
+  color: var(--danger);
+}
+.sev-warning .erc-sev {
+  color: var(--warn);
+}
+.sev-info .erc-sev {
+  color: var(--accent);
+}
+.erc-title {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.erc-msg {
+  flex: 1;
+}
+.erc-row.waived .erc-main {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.erc-waiver {
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.count.err {
+  background: var(--danger);
+  color: #fff;
+}
+textarea {
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px;
+  resize: vertical;
+}

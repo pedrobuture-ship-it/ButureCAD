@@ -4,13 +4,14 @@ Each document is deterministic pretty-printed JSON with a `format` tag and `sche
 Objects are stored in maps keyed by their stable numeric id (ascending); unknown fields are
 rejected. Coordinates are integer **nanometres** (see `crates/geometry`).
 
-## `schematic/main.bsch.json` (`buturecad.schematic`, schema 2)
+## `schematic/main.bsch.json` (`buturecad.schematic`, schema 3)
 
 ```json
 {
   "format": "buturecad.schematic",
-  "schema_version": 2,
+  "schema_version": 3,
   "root": 0,
+  "erc_waivers": [ { "fingerprint": "unconnected_pin|J1.2", "rule": "unconnected_pin", "subject": "...", "reason": "..." } ],
   "symbols": { "Buture:R": { "name": "Buture:R", "pins": [ ... ], "graphics": [ ... ] } },
   "sheets": {
     "0": { "name": "Root", "objects": {
@@ -30,6 +31,10 @@ All of these are optional on read (defaults keep older files valid).
 Object types: `component`, `wire`, `bus`, `junction`, `net_label`, `global_label`, `hier_label`,
 `power_symbol`, `no_connect`, `sheet`. The model is validated on load (unknown symbols, duplicate
 ids, hierarchy cycles, bad rotations, … are errors). See `docs/schematic-connectivity.md`.
+
+**Migration 2 → 3** (implemented): adds the empty `erc_waivers` list. Symbol units, alternate
+representations, metadata and component units default when absent, so nothing else changes; the
+bump makes older builds refuse the file instead of silently dropping data.
 
 **Migration 1 → 2** (implemented, tested with a verbatim v1 file): the pre-release skeleton stored
 `components` and `wires` directly. They become objects of a single root sheet (id `0`);
