@@ -422,7 +422,7 @@ fn three_d_model_references_and_footprints_persist_with_the_project() {
 
     ws.save().unwrap();
     let text = std::fs::read_to_string(dir.path().join("P/pcb/main.bpcb.json")).unwrap();
-    assert!(text.contains("\"schema_version\": 2") && text.contains("models/dip8.step"));
+    assert!(text.contains("\"schema_version\": 3") && text.contains("models/dip8.step"));
     ws.close_project().unwrap();
     ws.open_project(&dir.path().join("P")).unwrap();
     ws.set_mode(Mode::FootprintEditor);

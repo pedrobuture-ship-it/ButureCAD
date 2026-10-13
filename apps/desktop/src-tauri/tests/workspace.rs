@@ -49,12 +49,15 @@ fn workspace_with_design(dir: &std::path::Path) -> (Workspace, Vec<Id>) {
         layer: LayerId(0),
         segment: Segment::new(Point::ORIGIN, Point::new(5 * G, 0)),
         width: 250_000,
+        net: None,
     }))
     .unwrap();
     e.execute(CreateViaCommand::new(Via {
         position: Point::new(5 * G, 0),
         diameter: 600_000,
         drill: 300_000,
+        net: None,
+        kind: Default::default(),
     }))
     .unwrap();
     (ws, ids)

@@ -16,6 +16,8 @@ desktop app; limits are stated in the sections that follow.*
 - **Desktop shell:** menus, toolbar, tool palette, document tabs, inspector, bottom panel (ERC, Messages, Console), status bar, dark/light themes, command palette, shortcuts from one command registry, context menu, dirty guard, recent projects, crash-recovery prompt.
 - **Verification:** 375 Rust tests in 28 test binaries (unit, integration, property, IPC through Tauri's mock runtime), 21 frontend tests, and an end-to-end harness (`apps/desktop/e2e`: real Rust commands, real GPU renderer, headless Chromium, screenshots) with scenarios for the shell, schematic editing, Symbol Editor, ERC and Footprint Editor.
 
+- **PCB core** (roadmap 13): layer set and stackup (2–32 copper layers), placed footprints with exact flip/rotate transforms and pad geometry, nets, tracks/vias carrying nets, zones, keepouts, texts, graphics, via kinds modelled; generic atomic `PcbEditCommand`; PCB schema 3. See `docs/pcb-core.md`.
+
 # Partial
 
 - **PCB** is only the footprint model plus a skeleton (tracks, vias) hosting the commands. There is no board outline, no placed footprints, no nets, no PCB editing tools (the PCB view is read-only). Roadmap 13+.

@@ -706,6 +706,7 @@ mod tests {
                 layer: PcbLayer(0),
                 segment: Segment::new(Point::ORIGIN, Point::new(G, 0)),
                 width: 250_000,
+                net: None,
             },
         );
         pcb.vias.insert(
@@ -714,6 +715,8 @@ mod tests {
                 position: Point::new(G, 0),
                 diameter: 600_000,
                 drill: 300_000,
+                net: None,
+                kind: Default::default(),
             },
         );
         let mut ps = PcbScene::default();

@@ -1,4 +1,4 @@
-//! PCB model: footprints, pads, board outline, tracks, vias, zones.
+//! PCB model: footprints, board objects, layers.
 //!
 //! **Scope today (roadmap stage 12):** the *footprint* model ([`footprint`]), its editing
 //! operations ([`footprint_edit`]) and the parametric generators ([`generators`]). The board
@@ -8,8 +8,12 @@
 //! All coordinates are integer nanometres (+Y up) like the rest of the core. Footprints are
 //! defined for the **top** side; flipping to the bottom happens at placement.
 
+pub mod board;
 pub mod footprint;
 pub mod footprint_edit;
 pub mod generators;
+pub mod layer;
 
+pub use board::*;
 pub use footprint::*;
+pub use layer::{LayerId, Stackup};

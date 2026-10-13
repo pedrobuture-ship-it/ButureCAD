@@ -4,7 +4,9 @@
 
 use crate::error::{IoError, Result};
 use buturecad_eda_core::model::{Id, PcbDoc, Track, Via};
-use buturecad_pcb::Footprint;
+use buturecad_pcb::{
+    BoardGraphic, BoardText, Footprint, Keepout, Net, PlacedFootprint, Stackup, Zone,
+};
 use buturecad_schematic::{Schematic, Sheet, Symbol, Waiver};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -22,8 +24,9 @@ pub const CURRENT_SCHEMA: u32 = 1;
 /// [`migrate_schematic_v1_to_v2`]); v3 adds symbol units, alternate representations and metadata
 /// plus the ERC waiver list (see [`migrate_schematic_v2_to_v3`]).
 pub const SCHEMATIC_SCHEMA: u32 = 3;
-/// Schema version of the PCB document. v2 adds the embedded footprint definitions.
-pub const PCB_SCHEMA: u32 = 2;
+/// Schema version of the PCB document. v2 added embedded footprint definitions; v3 the board
+/// (stackup, placed footprints, nets, zones, keepouts, texts, graphics, track/via nets).
+pub const PCB_SCHEMA: u32 = 3;
 
 /// A migration step rewriting a document from version `from` to `from + 1`.
 pub type MigrationFn = fn(&mut Value) -> std::result::Result<(), String>;
@@ -51,11 +54,11 @@ impl Migrations {
         }
     }
 
-    /// Registry for the PCB document: v1 → v2.
+    /// Registry for the PCB document: v1 → v2 → v3.
     pub fn pcb() -> Self {
         Self {
             first_version: 1,
-            steps: vec![migrate_pcb_v1_to_v2],
+            steps: vec![migrate_pcb_v1_to_v2, migrate_pcb_v2_to_v3],
         }
     }
 
@@ -290,34 +293,63 @@ pub fn migrate_pcb_v1_to_v2(doc: &mut Value) -> std::result::Result<(), String> 
     Ok(())
 }
 
+/// PCB 2 → 3: every board field is optional on read (defaults: 2 copper layers, nothing placed),
+/// so nothing has to be rewritten; the bump makes older builds refuse the file.
+pub fn migrate_pcb_v2_to_v3(doc: &mut Value) -> std::result::Result<(), String> {
+    doc.as_object()
+        .map(|_| ())
+        .ok_or_else(|| "document is not an object".to_string())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct PcbV1 {
+struct PcbFile {
     format: String,
     schema_version: u32,
+    #[serde(default)]
+    stackup: Stackup,
     tracks: BTreeMap<Id, Track>,
     vias: BTreeMap<Id, Via>,
     #[serde(default)]
     footprints: BTreeMap<String, Footprint>,
+    #[serde(default)]
+    placed: BTreeMap<Id, PlacedFootprint>,
+    #[serde(default)]
+    nets: BTreeMap<Id, Net>,
+    #[serde(default)]
+    zones: BTreeMap<Id, Zone>,
+    #[serde(default)]
+    keepouts: BTreeMap<Id, Keepout>,
+    #[serde(default)]
+    texts: BTreeMap<Id, BoardText>,
+    #[serde(default)]
+    graphics: BTreeMap<Id, BoardGraphic>,
 }
 
 pub fn serialize_pcb(doc: &PcbDoc) -> Vec<u8> {
-    to_bytes(&PcbV1 {
+    to_bytes(&PcbFile {
         format: PCB_TAG.into(),
         schema_version: PCB_SCHEMA,
+        stackup: doc.stackup,
         tracks: doc.tracks.clone(),
         vias: doc.vias.clone(),
         footprints: doc.footprints.clone(),
+        placed: doc.placed.clone(),
+        nets: doc.nets.clone(),
+        zones: doc.zones.clone(),
+        keepouts: doc.keepouts.clone(),
+        texts: doc.texts.clone(),
+        graphics: doc.graphics.clone(),
     })
 }
 
 pub fn parse_pcb(path: &Path, bytes: &[u8]) -> Result<PcbDoc> {
-    let f: PcbV1 = parse_migrated(path, bytes, PCB_TAG, &Migrations::pcb())?;
+    let f: PcbFile = parse_migrated(path, bytes, PCB_TAG, &Migrations::pcb())?;
+    let invalid = |reason: String| IoError::InvalidDocument {
+        path: path.into(),
+        reason,
+    };
     for (name, fp) in &f.footprints {
-        let invalid = |reason: String| IoError::InvalidDocument {
-            path: path.into(),
-            reason,
-        };
         buturecad_pcb::validate(fp).map_err(|e| invalid(format!("footprint {name}: {e}")))?;
         if &fp.name != name {
             return Err(invalid(format!(
@@ -326,9 +358,35 @@ pub fn parse_pcb(path: &Path, bytes: &[u8]) -> Result<PcbDoc> {
             )));
         }
     }
-    Ok(PcbDoc {
+    if !f.stackup.is_valid() {
+        return Err(invalid(
+            "copper layer count must be an even number from 2 to 32".into(),
+        ));
+    }
+    let doc = PcbDoc {
+        stackup: f.stackup,
         tracks: f.tracks,
         vias: f.vias,
         footprints: f.footprints,
-    })
+        placed: f.placed,
+        nets: f.nets,
+        zones: f.zones,
+        keepouts: f.keepouts,
+        texts: f.texts,
+        graphics: f.graphics,
+    };
+    // Duplicate ids across kinds and every object's own invariants.
+    let mut seen = std::collections::BTreeSet::new();
+    for id in doc.ids() {
+        if !seen.insert(id) {
+            return Err(invalid(format!("object id {} is used twice", id.0)));
+        }
+    }
+    for id in doc.ids().collect::<Vec<_>>() {
+        if let Some(o) = doc.object(id) {
+            doc.validate_object(&o)
+                .map_err(|e| invalid(format!("object {}: {e}", id.0)))?;
+        }
+    }
+    Ok(doc)
 }

@@ -27,6 +27,7 @@ fn track(x: i64) -> Track {
         layer: LayerId(0),
         segment: Segment::new(Point::new(0, 0), Point::new(x, 0)),
         width: 200_000,
+        net: None,
     }
 }
 fn objects(e: &CommandEngine) -> usize {
@@ -93,6 +94,8 @@ fn wire_track_via_commands() {
         position: Point::new(5, 5),
         diameter: 600_000,
         drill: 300_000,
+        net: None,
+        kind: Default::default(),
     }))
     .unwrap();
     assert_eq!(
@@ -186,6 +189,8 @@ fn invalid_commands_fail_atomically_and_leave_no_history() {
             position: Point::ORIGIN,
             diameter: 300,
             drill: 300,
+            net: None,
+            kind: Default::default(),
         })),
         e.execute(DeleteViaCommand::new(Id(99))),
         e.execute(RenameProjectCommand::new("")),
@@ -515,6 +520,8 @@ fn run(e: &mut CommandEngine, op: &Op) {
                 position: Point::ORIGIN,
                 diameter: 600_000,
                 drill: 300_000,
+                net: None,
+                kind: Default::default(),
             }));
         }
         Op::Rename(n) => {

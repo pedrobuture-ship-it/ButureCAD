@@ -1,10 +1,10 @@
 //! Concrete commands.
 
 use crate::command::{Command, CommandError};
-use crate::model::{Entity, Id, ModelError, Track, Via};
+use crate::model::{Entity, Id, ModelError, PcbChange, Track, Via};
 use crate::Project;
 use buturecad_geometry::{Point, Segment};
-use buturecad_pcb::Footprint;
+use buturecad_pcb::{Footprint, Stackup};
 use buturecad_schematic::{
     Change, Component, Object, Placement, Schematic, SchematicError, Symbol, Waiver, Wire,
 };
@@ -244,6 +244,81 @@ impl Command for SetSymbolCommand {
     }
     fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
         Self::set(project, &self.name, &self.before)
+    }
+}
+
+/// Applies a set of reversible board-object changes as one atomic undo step (the PCB counterpart
+/// of [`SchematicEditCommand`]): placing, moving, flipping, routing, net updates…
+#[derive(Debug)]
+pub struct PcbEditCommand {
+    label: String,
+    changes: Vec<PcbChange>,
+}
+
+impl PcbEditCommand {
+    pub fn new(label: impl Into<String>, changes: Vec<PcbChange>) -> Self {
+        Self {
+            label: label.into(),
+            changes,
+        }
+    }
+    pub fn changes(&self) -> &[PcbChange] {
+        &self.changes
+    }
+}
+
+impl Command for PcbEditCommand {
+    fn label(&self) -> String {
+        self.label.clone()
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        Ok(project.pcb.apply_changes(&self.changes)?)
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        Ok(project.pcb.revert_changes(&self.changes)?)
+    }
+}
+
+/// Sets the number of copper layers (2, 4 … 32). Refused while tracks, vias or zones use a layer
+/// that would disappear.
+#[derive(Debug)]
+pub struct SetStackupCommand {
+    before: Stackup,
+    after: Stackup,
+}
+
+impl SetStackupCommand {
+    pub fn new(before: Stackup, after: Stackup) -> Self {
+        Self { before, after }
+    }
+}
+
+impl Command for SetStackupCommand {
+    fn label(&self) -> String {
+        format!("Set {} copper layers", self.after.copper_layers)
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        if !self.after.is_valid() {
+            return Err(ModelError::BadObject(
+                "copper layers must be an even number from 2 to 32".into(),
+            )
+            .into());
+        }
+        let pcb = &project.pcb;
+        let used = pcb
+            .tracks
+            .values()
+            .map(|t| t.layer)
+            .chain(pcb.zones.values().map(|z| z.layer));
+        if let Some(l) = used.into_iter().find(|l| !self.after.has_copper(*l)) {
+            return Err(ModelError::NoSuchLayer(l).into());
+        }
+        project.pcb.stackup = self.after;
+        Ok(())
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        project.pcb.stackup = self.before;
+        Ok(())
     }
 }
 

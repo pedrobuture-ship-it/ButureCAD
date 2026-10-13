@@ -49,12 +49,15 @@ fn build_design(e: &mut CommandEngine) {
         layer: LayerId(1),
         segment: Segment::new(Point::new(0, 0), Point::new(10_000_000, 0)),
         width: 250_000,
+        net: None,
     }))
     .unwrap();
     e.execute(CreateViaCommand::new(Via {
         position: Point::new(7, 7),
         diameter: 600_000,
         drill: 300_000,
+        net: None,
+        kind: Default::default(),
     }))
     .unwrap();
 }
@@ -345,4 +348,83 @@ fn schema_2_files_load_and_waivers_round_trip_through_save_and_undo() {
         .execute(SetWaiversCommand::new("Waive", vec![], vec![empty_reason]))
         .is_err());
     assert_eq!(e.project().schematic().waivers().count(), 0);
+}
+
+#[test]
+fn the_board_round_trips_and_older_pcb_files_still_load() {
+    use buturecad_eda_core::model::{PcbChange, PcbObject};
+    use buturecad_pcb::{generators::Dip, layer, Net, PlacedFootprint, Placement, Stackup};
+    let dir = tempfile::tempdir().unwrap();
+    let (session, project) = ProjectSession::create(dir.path(), "B").unwrap();
+    // A schema-2 PCB file as written before the board existed.
+    fs::write(
+        dir.path().join(PCB_FILE),
+        r#"{"format":"buturecad.pcb","schema_version":2,"tracks":{},"vias":{},"footprints":{}}"#,
+    )
+    .unwrap();
+    drop((session, project));
+    let opened = ProjectSession::open(dir.path()).unwrap();
+    assert_eq!(opened.project.pcb().stackup.copper_layers, 2);
+
+    let mut e = CommandEngine::new(opened.project);
+    let fp = Dip::standard(8).generate().unwrap();
+    let name = fp.name.clone();
+    e.execute(SetFootprintCommand::new(&name, None, Some(fp)))
+        .unwrap();
+    e.execute(SetStackupCommand::new(
+        Stackup { copper_layers: 2 },
+        Stackup { copper_layers: 4 },
+    ))
+    .unwrap();
+    let (net, f, t) = (e.new_id(), e.new_id(), e.new_id());
+    e.execute(PcbEditCommand::new(
+        "board",
+        vec![
+            PcbChange::create(net, PcbObject::Net(Net { name: "VCC".into() })),
+            PcbChange::create(
+                f,
+                PcbObject::Footprint(PlacedFootprint {
+                    footprint: name,
+                    reference: "U1".into(),
+                    value: "NE555".into(),
+                    placement: Placement {
+                        position: Point::new(10_000_000, 5_000_000),
+                        rotation: 1,
+                        flipped: true,
+                    },
+                    locked: true,
+                    link: None,
+                    pad_nets: [("8".to_string(), net)].into_iter().collect(),
+                }),
+            ),
+            PcbChange::create(
+                t,
+                PcbObject::Track(Track {
+                    layer: layer::inner_cu(1),
+                    segment: Segment::new(Point::ORIGIN, Point::new(1_000_000, 0)),
+                    width: 200_000,
+                    net: Some(net),
+                }),
+            ),
+        ],
+    ))
+    .unwrap();
+    engine::save(&opened.session, &mut e).unwrap();
+    let text = fs::read_to_string(dir.path().join(PCB_FILE)).unwrap();
+    assert!(text.contains("\"schema_version\": 3") && text.contains("NE555"));
+    let net_field = format!("\"net\": {}", net.0);
+    assert!(text.contains(&net_field));
+    assert_eq!(
+        ProjectSession::open(dir.path()).unwrap().project,
+        e.into_project()
+    );
+
+    // A hand-damaged board is refused, not half-loaded.
+    for bad in [
+        text.replace("\"copper_layers\": 4", "\"copper_layers\": 3"),
+        text.replace(&net_field, "\"net\": 999"),
+    ] {
+        fs::write(dir.path().join(PCB_FILE), bad).unwrap();
+        assert!(ProjectSession::open(dir.path()).is_err());
+    }
 }

@@ -67,9 +67,8 @@ impl Project {
             .sheets()
             .iter()
             .flat_map(|(sid, sheet)| std::iter::once(sid).chain(sheet.objects.keys()))
-            .chain(pcb.tracks.keys())
-            .chain(pcb.vias.keys())
             .map(|id| id.0)
+            .chain(pcb.ids().map(|id| id.0))
             .max()
             .unwrap_or(0);
         p.next_id = max.saturating_add(1).max(1);
@@ -154,6 +153,8 @@ mod tests {
                 position: Point::ORIGIN,
                 diameter: 600_000,
                 drill: 300_000,
+                net: None,
+                kind: Default::default(),
             },
         );
         let mut p = Project::from_parts("x", Schematic::new(ROOT_SHEET), pcb).unwrap();

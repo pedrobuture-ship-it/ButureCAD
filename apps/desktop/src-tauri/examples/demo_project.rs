@@ -112,18 +112,22 @@ fn main() {
         layer: LayerId(0),
         segment: Segment::new(pt(0, 0), pt(30, 0)),
         width: 300_000,
+        net: None,
     }))
     .unwrap();
     e.execute(CreateTrackCommand::new(Track {
         layer: LayerId(1),
         segment: Segment::new(pt(30, 0), pt(30, -20)),
         width: 300_000,
+        net: None,
     }))
     .unwrap();
     e.execute(CreateViaCommand::new(Via {
         position: pt(30, 0),
         diameter: 800_000,
         drill: 400_000,
+        net: None,
+        kind: Default::default(),
     }))
     .unwrap();
     engine::save(&session, &mut e).expect("save");
