@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/eda-core",
+    "crates/geometry",
+    "crates/renderer",
+    "crates/schematic",
+    "crates/pcb",
+    "crates/router",
+    "crates/rules",
+    "crates/libraries",
+    "crates/manufacturing",
+    "crates/simulation",
+    "crates/viewer3d",
+    "crates/io",
+    "crates/scripting",
+    "crates/plugin-runtime",
+    "crates/agent-api",
+    "apps/desktop/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "LicenseRef-Proprietary"
+publish = false
+authors = ["Pedro Buture"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
