@@ -12,3 +12,9 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+rstar = "0.12"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+proptest = "1"

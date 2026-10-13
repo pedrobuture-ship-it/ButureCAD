@@ -28,3 +28,15 @@ Desktop GUI (Tauri + React)   buturecad-cli (planned)
 ## Licensing
 
 Proprietary, all rights reserved (see `LICENSE`). Crates use `LicenseRef-Proprietary` and `publish = false`.
+
+## Geometry (`buturecad-geometry`)
+
+- Internal unit: 1 nm, `i64`; valid range ±2^30 nm (±1.07 m) so all predicates run in exact `i128`.
+- Axes: +X right, +Y up, angles counter-clockwise. mm/mil/inch only at the boundary.
+- Yes/no predicates (intersects, contains, collides, within-distance) are exact. Distances and
+  constructions (intersection points, rotation, offsets) are rounded to the nearest nm and are
+  documented per function; arbitrary-angle rotation must always be applied to the original geometry.
+- Spatial index: R-tree (STR bulk load + dynamic insert/remove) via `rstar`, chosen over a grid
+  (bad on mixed object sizes) and a BVH (rebuild cost under edits). Bounding-box queries only.
+- Known limits: polygons have no holes; polygon offset is mitered and rejects topology changes
+  instead of resolving them; arc/circle intersection points are numerical (f64).
