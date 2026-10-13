@@ -243,3 +243,43 @@ fn footprints_come_from_libraries_when_the_project_lacks_them() {
     );
     assert_eq!(doc.placed.len(), 2);
 }
+
+#[test]
+fn the_ratsnest_counts_unrouted_connections_and_can_be_hidden() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut ws = project(dir.path());
+    assert_eq!(ws.snapshot().pcb.unwrap().unrouted, 0, "no nets yet");
+    ws.pcb_update_preview().unwrap();
+    ws.pcb_update_apply().unwrap();
+    let info = ws.snapshot().pcb.unwrap();
+    assert_eq!(
+        (info.unrouted, info.ratsnest_visible),
+        (1, true),
+        "R1.2 to R2.1 is not routed"
+    );
+    ws.pcb_command("toggle_ratsnest", None).unwrap();
+    assert!(!ws.snapshot().pcb.unwrap().ratsnest_visible);
+    ws.pcb_command("toggle_ratsnest", None).unwrap();
+
+    // Moving a footprint keeps the connection count (and goes through the incremental path).
+    let id = ws
+        .open
+        .as_ref()
+        .unwrap()
+        .engine
+        .project()
+        .pcb()
+        .placed
+        .iter()
+        .find(|(_, f)| f.reference == "R1")
+        .map(|(i, _)| *i)
+        .unwrap();
+    ws.set_property(id.0, "x_mm", "25").unwrap();
+    assert_eq!(ws.snapshot().pcb.unwrap().unrouted, 1);
+    // Undo/redo of the whole update keeps the count in step with the board.
+    ws.undo().unwrap();
+    ws.undo().unwrap();
+    assert_eq!(ws.snapshot().pcb.unwrap().unrouted, 0);
+    ws.redo().unwrap();
+    assert_eq!(ws.snapshot().pcb.unwrap().unrouted, 1);
+}

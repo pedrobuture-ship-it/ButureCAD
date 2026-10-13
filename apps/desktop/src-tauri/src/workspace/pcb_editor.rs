@@ -8,6 +8,7 @@ use crate::pcb_scene::{self as ps, object_shapes};
 use buturecad_eda_core::commands::{PcbEditCommand, SetFootprintCommand, SetStackupCommand};
 use buturecad_eda_core::model::{PcbChange, PcbDoc, PcbObject};
 use buturecad_eda_core::pcb_ops::{self, Align, Distribute};
+use buturecad_eda_core::ratsnest::{self, RatLine, RatsnestEngine};
 use buturecad_eda_core::sync::PlanKind;
 use buturecad_geometry::{Rectangle, Segment, Vector};
 use buturecad_pcb::{layer, BoardGraphic, Footprint, FpShape, PlacedFootprint, Placement, Stackup};
@@ -65,6 +66,9 @@ pub(crate) struct PcbEditor {
     pending_fp: Option<Footprint>,
     /// Objects whose scene shapes differ from the model (live preview).
     touched: BTreeSet<Id>,
+    pub show_ratsnest: bool,
+    /// Ratsnest lines of the nets affected by the move in progress.
+    rat_preview: BTreeMap<Id, Vec<RatLine>>,
 }
 
 impl Default for PcbEditor {
@@ -77,6 +81,8 @@ impl Default for PcbEditor {
             pending_flipped: false,
             pending_fp: None,
             touched: BTreeSet::new(),
+            show_ratsnest: true,
+            rat_preview: BTreeMap::new(),
         }
     }
 }
@@ -150,17 +156,54 @@ impl Workspace {
         let Some(open) = self.open.as_mut() else {
             return false;
         };
+        let revision_before = open.engine.revision();
+        let dirty = ratsnest::affected_nets(&changes);
         let result = open.engine.execute(PcbEditCommand::new(label, changes));
         self.built_for = None;
         self.pcb_ed.touched.clear();
+        self.pcb_ed.rat_preview.clear();
         match result {
             Ok(()) => {
+                self.ratsnest_committed(revision_before, &dirty);
                 self.command_log.push(label.to_owned());
                 true
             }
             Err(e) => {
                 self.log(MessageLevel::Error, format!("{label} failed: {e}"));
                 false
+            }
+        }
+    }
+
+    /// Runs `f` on the ratsnest of the open board, computing or refreshing it if the board
+    /// changed in a way that was not tracked per net (undo, schematic update, placement…).
+    pub(crate) fn ratsnest<R>(&self, f: impl FnOnce(&RatsnestEngine) -> R) -> Option<R> {
+        let open = self.open.as_ref()?;
+        let revision = open.engine.revision();
+        let doc = open.engine.project().pcb();
+        let mut cache = self.rats.borrow_mut();
+        match cache.as_mut() {
+            Some((rev, e)) if *rev == revision => {}
+            Some((rev, e)) => {
+                e.refresh(doc);
+                *rev = revision;
+            }
+            None => *cache = Some((revision, RatsnestEngine::new(doc))),
+        }
+        cache.as_ref().map(|(_, e)| f(e))
+    }
+
+    /// Updates only the nets in `dirty` after a tracked change.
+    fn ratsnest_committed(&mut self, revision_before: u64, dirty: &BTreeSet<Id>) {
+        let Some(open) = self.open.as_ref() else {
+            return;
+        };
+        let revision = open.engine.revision();
+        let doc = open.engine.project().pcb();
+        if let Some((rev, e)) = self.rats.get_mut().as_mut() {
+            if *rev == revision_before {
+                e.update(doc, dirty);
+                *rev = revision;
             }
         }
     }
@@ -173,6 +216,7 @@ impl Workspace {
     }
 
     fn pcb_restore_scene(&mut self) {
+        self.pcb_ed.rat_preview.clear();
         let touched = std::mem::take(&mut self.pcb_ed.touched);
         let Some(open) = self.open.as_ref() else {
             return;
@@ -483,6 +527,8 @@ impl Workspace {
             footprints: doc.placed.len() as u32,
             nets: doc.nets.len() as u32,
             warnings,
+            ratsnest_visible: self.pcb_ed.show_ratsnest,
+            unrouted: self.ratsnest(|e| e.count() as u32).unwrap_or(0),
         })
     }
 
@@ -768,6 +814,10 @@ impl Workspace {
                 {
                     self.active_pcb_layer = 0;
                 }
+                Ok(())
+            }
+            "toggle_ratsnest" => {
+                self.pcb_ed.show_ratsnest = !self.pcb_ed.show_ratsnest;
                 Ok(())
             }
             "active_layer" => {
@@ -1087,7 +1137,7 @@ impl Workspace {
             ThemeName::Light => Theme::light().selection,
         };
         let at = self.cursor;
-        let mut out: Vec<(Shape, Rgba)> = Vec::new();
+        let mut out: Vec<(Shape, Rgba)> = self.ratsnest_shapes();
         match (&self.pcb_ed.tool, self.pcb_ed.pts.as_slice()) {
             (PcbTool::OutlineRect, [a]) => {
                 if let Ok(rect) = Rectangle::new(*a, at) {
@@ -1144,6 +1194,37 @@ impl Workspace {
             }
             _ => {}
         }
+        out
+    }
+
+    /// The flying wires as overlay shapes (never pickable). Nets being previewed use their live
+    /// lines instead of the cached ones.
+    fn ratsnest_shapes(&self) -> Vec<(Shape, Rgba)> {
+        if !self.pcb_ed.show_ratsnest {
+            return Vec::new();
+        }
+        let colour = match self.theme {
+            ThemeName::Dark => Rgba::rgb(240, 240, 120),
+            ThemeName::Light => Rgba::rgb(150, 120, 0),
+        };
+        let line = |l: &RatLine| {
+            (
+                Shape::Line {
+                    segment: Segment::new(l.a, l.b),
+                    width: 0,
+                },
+                colour,
+            )
+        };
+        let mut out: Vec<(Shape, Rgba)> = self
+            .ratsnest(|e| {
+                e.nets()
+                    .filter(|n| !self.pcb_ed.rat_preview.contains_key(n))
+                    .flat_map(|n| e.net_lines(n).iter().map(line).collect::<Vec<_>>())
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.extend(self.pcb_ed.rat_preview.values().flatten().map(line));
         out
     }
 

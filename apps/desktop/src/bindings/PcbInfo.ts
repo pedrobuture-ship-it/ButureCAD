@@ -3,4 +3,8 @@
 /**
  * Board-level state for the PCB view.
  */
-export type PcbInfo = { copper_layers: number, active_layer: string, footprints: number, nets: number, warnings: Array<string>, };
+export type PcbInfo = { copper_layers: number, active_layer: string, footprints: number, nets: number, warnings: Array<string>, ratsnest_visible: boolean, 
+/**
+ * Connections still to route (ratsnest lines).
+ */
+unrouted: number, };

@@ -175,7 +175,15 @@ describe("Symbol Editor commands", () => {
   const withPcb = () =>
     snapshot({
       mode: "pcb",
-      pcb: { copper_layers: 2, active_layer: "F.Cu", footprints: 0, nets: 0, warnings: [] },
+      pcb: {
+        copper_layers: 2,
+        active_layer: "F.Cu",
+        footprints: 0,
+        nets: 0,
+        warnings: [],
+        ratsnest_visible: true,
+        unrouted: 0,
+      },
     });
   const state = (snap: Snapshot): UiState => ({ ...store.getState(), snapshot: snap });
   const byId = (id: string) => {

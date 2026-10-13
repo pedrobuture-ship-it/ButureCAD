@@ -352,6 +352,9 @@ pub struct PcbInfo {
     pub footprints: u32,
     pub nets: u32,
     pub warnings: Vec<String>,
+    pub ratsnest_visible: bool,
+    /// Connections still to route (ratsnest lines).
+    pub unrouted: u32,
 }
 
 /// One line of the "Update PCB from Schematic" preview.

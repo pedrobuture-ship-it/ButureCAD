@@ -28,6 +28,14 @@ export function PcbBar() {
       >
         Update from schematic…
       </button>
+      <label title="Show or hide the flying wires of unrouted connections (Shift+R)">
+        <input
+          type="checkbox"
+          checked={info.ratsnest_visible}
+          onChange={() => void call(api.pcbCommand("toggle_ratsnest"))}
+        />
+        Ratsnest ({info.unrouted})
+      </label>
       <span className="muted">Active layer: {info.active_layer}</span>
       <span className="muted">
         {info.footprints} footprint{info.footprints === 1 ? "" : "s"} · {info.nets} net
