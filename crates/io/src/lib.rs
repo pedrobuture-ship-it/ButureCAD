@@ -1,4 +1,11 @@
 //! Project file I/O: format, atomic save, migrations, recovery.
 //!
-//! **Status: not implemented.** This crate is a reserved slot in the workspace
-//! (see `docs/ROADMAP.md`). It intentionally contains no functionality yet.
+//! Treats project files as untrusted input: malformed files yield [`IoError`], never a panic.
+
+pub mod atomic;
+pub mod error;
+pub mod format;
+pub mod session;
+
+pub use error::{IoError, Result};
+pub use session::{Opened, ProjectSession, Recovery};

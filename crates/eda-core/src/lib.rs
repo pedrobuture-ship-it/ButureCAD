@@ -2,6 +2,10 @@
 //!
 //! Must never depend on React, Tauri, a window system or any AI/network service.
 
+pub mod project;
+
+pub use project::{Project, ProjectError};
+
 /// Product name.
 pub const NAME: &str = "ButureCAD";
 
