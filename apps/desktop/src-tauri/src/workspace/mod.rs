@@ -14,9 +14,11 @@ use buturecad_renderer::{
 use buturecad_schematic::{Connectivity, Id, Object};
 
 mod editor;
+mod symbol_editor;
 use editor::EditorState;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use symbol_editor::SymbolEditor;
 
 pub const DEFAULT_GRID_NM: i64 = 1_270_000; // 50 mil
 /// 1 mm at 96 dpi is 3.7795 px; used to express zoom as a percentage.
@@ -62,6 +64,9 @@ pub struct Workspace {
     pub snap: SnapSettings,
     pub debug: bool,
     pub(crate) editor: EditorState,
+    pub(crate) symed: SymbolEditor,
+    /// Per-user library folder (symbols and footprints shared between projects).
+    pub(crate) user_libs: Option<PathBuf>,
 
     sch_scene: SchematicScene,
     pcb_scene: sb::PcbScene,
@@ -102,6 +107,8 @@ impl Workspace {
             snap: SnapSettings::default(),
             debug: false,
             editor: EditorState::default(),
+            symed: SymbolEditor::default(),
+            user_libs: None,
             sch_scene: SchematicScene::default(),
             pcb_scene: sb::PcbScene::default(),
             built_for: None,
@@ -127,6 +134,12 @@ impl Workspace {
         };
         ws.load_recent();
         ws
+    }
+
+    /// Sets the per-user library folder.
+    pub fn with_user_libraries(mut self, dir: PathBuf) -> Self {
+        self.user_libs = Some(dir);
+        self
     }
 
     /// Number of remembered recent projects (used by tests and the start screen).
@@ -197,6 +210,7 @@ impl Workspace {
         self.gesture = Gesture::None;
         self.command_log.clear();
         self.editor = EditorState::default();
+        self.symed = SymbolEditor::default();
     }
 
     pub fn new_project(&mut self, root: &Path, name: &str) -> Result<(), String> {
@@ -355,6 +369,7 @@ impl Workspace {
                 project.pcb().tracks.contains_key(id) || project.pcb().vias.contains_key(id)
             });
         }
+        self.symed_prune_selection();
         if self.hover.is_some_and(|h| !self.owner_exists(h)) {
             self.hover = None;
         }
@@ -362,6 +377,9 @@ impl Workspace {
 
     fn owner_exists(&self, id: Id) -> bool {
         let Some(open) = &self.open else { return false };
+        if self.mode == Mode::SymbolEditor {
+            return self.symed_describe(id).is_some();
+        }
         let p = open.engine.project();
         p.schematic().object(id).is_some()
             || p.pcb().tracks.contains_key(&id)
@@ -408,6 +426,7 @@ impl Workspace {
 
     /// Rebuilds scenes when the model, theme or layer visibility changed.
     pub(crate) fn ensure_scene(&mut self) {
+        self.symed_ensure_scene();
         let Some(open) = &self.open else { return };
         let key = (
             open.engine.revision(),
@@ -429,6 +448,7 @@ impl Workspace {
         match self.mode {
             Mode::Schematic => Some(&self.sch_scene.scene),
             Mode::Pcb => Some(&self.pcb_scene.scene),
+            Mode::SymbolEditor if self.symed.lib_id.is_some() => Some(&self.symed.scene),
             _ => None,
         }
     }
@@ -450,6 +470,10 @@ impl Workspace {
                     .filter(|s| scene.get(*s).is_some())
                     .collect()
             }
+            Mode::SymbolEditor => owners
+                .into_iter()
+                .flat_map(|o| self.symed.shapes_of(o).to_vec())
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -466,7 +490,15 @@ impl Workspace {
     /// Fits the view to the content (or resets it for an empty scene).
     pub fn fit_view(&mut self) {
         self.ensure_scene();
-        let bounds: Option<BoundingBox> = self.scene().and_then(|s| s.bounds());
+        let mut bounds: Option<BoundingBox> = self.scene().and_then(|s| s.bounds());
+        if self.mode == Mode::SymbolEditor {
+            // A small or empty symbol must not fill the screen: always show a 20 mm window.
+            let window = BoundingBox::new(
+                Point::new(-10_000_000, -10_000_000),
+                Point::new(10_000_000, 10_000_000),
+            );
+            bounds = Some(bounds.map_or(window, |b| b.union(&window)));
+        }
         let v = self.view_mut();
         match bounds {
             Some(b) => v.fit(&b, 40.0),
@@ -513,6 +545,8 @@ impl Workspace {
         if !self.pointer_common(ev, &mut out) {
             if self.mode == Mode::Schematic {
                 self.pointer_schematic(ev, &mut out);
+            } else if self.mode == Mode::SymbolEditor {
+                self.pointer_symbol(ev, &mut out);
             } else {
                 self.pointer_select(ev, &mut out);
             }
@@ -684,6 +718,7 @@ impl Workspace {
             Mode::Pcb => {
                 "Select: click or drag a box. Middle button or Space+drag pans, wheel zooms.".into()
             }
+            Mode::SymbolEditor => self.symed_hint(),
             _ => String::new(),
         }
     }
@@ -741,6 +776,10 @@ impl Workspace {
     }
 
     pub fn select_all(&mut self) {
+        if self.mode == Mode::SymbolEditor {
+            self.symed_select_all();
+            return;
+        }
         self.ensure_scene();
         let Some(open) = &self.open else { return };
         let project = open.engine.project();
@@ -772,6 +811,7 @@ impl Workspace {
         let open = self.open.as_ref()?;
         let p = open.engine.project();
         match self.mode {
+            Mode::SymbolEditor => self.symed_describe(id),
             Mode::Schematic => {
                 let (_, obj) = p.schematic().object(id)?;
                 Some(match obj {
@@ -813,6 +853,9 @@ impl Workspace {
         let Some(open) = &self.open else {
             return Vec::new();
         };
+        if self.mode == Mode::SymbolEditor {
+            return self.symed_summaries();
+        }
         let project = open.engine.project();
         let ids: Vec<Id> = self
             .selection
@@ -875,6 +918,9 @@ impl Workspace {
         match self.mode {
             Mode::Schematic => p.schematic().object_count() as u64,
             Mode::Pcb => (p.pcb().tracks.len() + p.pcb().vias.len()) as u64,
+            Mode::SymbolEditor => self
+                .symed_symbol()
+                .map_or(0, |s| (s.pins.len() + s.graphics.len()) as u64),
             _ => 0,
         }
     }
@@ -893,8 +939,16 @@ impl Workspace {
         Snapshot {
             project,
             mode: self.mode,
-            tool: self.editor.tool.id().to_owned(),
-            tool_arg: self.editor.tool.arg(),
+            tool: if self.mode == Mode::SymbolEditor {
+                self.symed.tool.id().to_owned()
+            } else {
+                self.editor.tool.id().to_owned()
+            },
+            tool_arg: if self.mode == Mode::SymbolEditor {
+                self.symed.tool.arg()
+            } else {
+                self.editor.tool.arg()
+            },
             can_paste: self.editor.clipboard.is_some(),
             units: self.units,
             theme: self.theme,
@@ -916,6 +970,7 @@ impl Workspace {
             object_count: self.model_object_count(),
             zoom_percent: self.zoom_percent(),
             hint: self.hint(),
+            symbol_editor: self.symbol_editor_info(),
         }
     }
 
@@ -973,6 +1028,7 @@ impl Workspace {
         let scene = match self.mode {
             Mode::Schematic => &self.sch_scene.scene,
             Mode::Pcb => &self.pcb_scene.scene,
+            Mode::SymbolEditor if self.symed.lib_id.is_some() => &self.symed.scene,
             _ => return Err("this mode has no canvas".into()),
         };
         let req = FrameRequest {

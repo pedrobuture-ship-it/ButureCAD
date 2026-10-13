@@ -49,6 +49,8 @@ fn pin(
         position: p(at.0, at.1),
         orientation,
         length: u(length),
+        unit: 0,
+        representation: 0,
     }
 }
 fn text(at: (f64, f64), s: &str) -> Graphic {
@@ -89,7 +91,9 @@ fn passive_two_pin(
                 pin_len,
             ),
         ],
-        graphics,
+        graphics: graphics.into_iter().map(Into::into).collect(),
+        unit_count: 1,
+        meta: SymbolMeta::default(),
     }
 }
 
@@ -164,7 +168,9 @@ fn diode() -> Symbol {
         default_value: "1N4148".into(),
         is_power: false,
         pins: diode_pins(),
-        graphics: diode_graphics(),
+        graphics: diode_graphics().into_iter().map(Into::into).collect(),
+        unit_count: 1,
+        meta: SymbolMeta::default(),
     }
 }
 
@@ -178,7 +184,9 @@ fn led() -> Symbol {
         default_value: "LED".into(),
         is_power: false,
         pins: diode_pins(),
-        graphics: g,
+        graphics: g.into_iter().map(Into::into).collect(),
+        unit_count: 1,
+        meta: SymbolMeta::default(),
     }
 }
 
@@ -202,7 +210,9 @@ fn connector(n: u32) -> Symbol {
         default_value: format!("Conn_01x{n:02}"),
         is_power: false,
         pins,
-        graphics: vec![rect((-2.54, -top - 1.27), (0.0, top + 1.27))],
+        graphics: vec![rect((-2.54, -top - 1.27), (0.0, top + 1.27)).into()],
+        unit_count: 1,
+        meta: SymbolMeta::default(),
     }
 }
 
@@ -225,7 +235,12 @@ fn ground() -> Symbol {
             line((-1.27, -1.27), (1.27, -1.27)),
             line((-0.762, -1.778), (0.762, -1.778)),
             line((-0.254, -2.286), (0.254, -2.286)),
-        ],
+        ]
+        .into_iter()
+        .map(Into::into)
+        .collect(),
+        unit_count: 1,
+        meta: SymbolMeta::default(),
     }
 }
 
@@ -247,7 +262,12 @@ fn supply(name: &str, net: &str) -> Symbol {
             line((0.0, 0.0), (0.0, 1.27)),
             line((-0.762, 1.27), (0.762, 1.27)),
             text((-1.2, 2.0), net),
-        ],
+        ]
+        .into_iter()
+        .map(Into::into)
+        .collect(),
+        unit_count: 1,
+        meta: SymbolMeta::default(),
     }
 }
 

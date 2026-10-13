@@ -117,6 +117,11 @@ export function createActions(): Actions {
     openPalette: () => store.set({ paletteOpen: true }),
     showAbout: () => store.set({ dialog: { kind: "about" } }),
     selectTool: (id) => {
+      if (snap()?.mode === "symbol_editor") {
+        if (id === "text") store.set({ dialog: { kind: "symbol-text" } });
+        else void call(api.editorCommand(`tool:${id}`));
+        return;
+      }
       if (id === "place_component" || id === "power") {
         store.set({ dialog: { kind: "symbol-picker", power: id === "power" } });
       } else if (id === "net_label" || id === "global_label") {
@@ -126,6 +131,10 @@ export function createActions(): Actions {
       }
     },
     editor: (name) => void call(api.editorCommand(name)),
+    symbolNew: () => store.set({ dialog: { kind: "symbol-new" } }),
+    symbolOpen: () => store.set({ dialog: { kind: "symbol-open" } }),
+    symbolSaveToLibrary: () => store.set({ dialog: { kind: "symbol-save" } }),
+    symbolCommand: (name, arg) => void call(api.symbolEditorCommand(name, arg)),
     startMove: () => {
       // With a selection, M carries it with the pointer; without one it arms the Move tool.
       const hasSel = (snap()?.selection.length ?? 0) > 0;

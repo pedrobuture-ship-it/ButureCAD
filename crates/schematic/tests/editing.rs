@@ -41,6 +41,8 @@ impl World {
             value: String::new(),
             footprint: String::new(),
             properties: Default::default(),
+            unit: 1,
+            representation: 1,
             placement: Placement {
                 position: Point::new(x * G, y * G),
                 rotation,

@@ -176,6 +176,76 @@ impl Command for AddSymbolsCommand {
     }
 }
 
+/// Creates, replaces or deletes one symbol in the project's embedded symbol table (the Symbol
+/// Editor's unit of work). `before` / `after` are the complete states; `None` means absent.
+/// Deleting a symbol that placed objects still use is refused.
+#[derive(Debug)]
+pub struct SetSymbolCommand {
+    name: String,
+    before: Option<Symbol>,
+    after: Option<Symbol>,
+    label: Option<String>,
+}
+
+impl SetSymbolCommand {
+    pub fn new(name: impl Into<String>, before: Option<Symbol>, after: Option<Symbol>) -> Self {
+        Self {
+            name: name.into(),
+            before,
+            after,
+            label: None,
+        }
+    }
+
+    /// Overrides the history label ("Move pins", …).
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    fn set(project: &mut Project, name: &str, state: &Option<Symbol>) -> Result<(), CommandError> {
+        match state {
+            Some(sym) => {
+                project.schematic.check_symbol_uses(sym)?;
+                project.schematic.add_symbol(sym.clone());
+                Ok(())
+            }
+            None => project
+                .schematic
+                .remove_symbol(name)
+                .map(|_| ())
+                .map_err(Into::into),
+        }
+    }
+}
+
+impl Command for SetSymbolCommand {
+    fn label(&self) -> String {
+        if let Some(l) = &self.label {
+            return l.clone();
+        }
+        match (&self.before, &self.after) {
+            (None, Some(_)) => format!("Create symbol {}", self.name),
+            (Some(_), None) => format!("Delete symbol {}", self.name),
+            _ => format!("Edit symbol {}", self.name),
+        }
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        if project.schematic.symbol(&self.name) != self.before.as_ref() {
+            return Err(SchematicError::UnknownSymbol(self.name.clone()).into());
+        }
+        if let Some(a) = &self.after {
+            if a.name != self.name {
+                return Err(SchematicError::UnknownSymbol(a.name.clone()).into());
+            }
+        }
+        Self::set(project, &self.name, &self.after)
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        Self::set(project, &self.name, &self.before)
+    }
+}
+
 /// Creates one schematic object.
 pub fn create_object(label: &str, sheet: Id, id: Id, object: Object) -> SchematicEditCommand {
     SchematicEditCommand::new(label, vec![Change::create(sheet, id, object)])

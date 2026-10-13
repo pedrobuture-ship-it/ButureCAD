@@ -125,6 +125,26 @@ pub struct Pin {
     /// Direction from the connection point towards the symbol body.
     pub orientation: Direction,
     pub length: Coord,
+    /// Unit the pin belongs to: `0` = every unit (shared pins such as power), `1..` = that unit.
+    #[serde(default)]
+    pub unit: u8,
+    /// Representation the pin belongs to: `0` = both, [`REPR_NORMAL`] or [`REPR_ALTERNATE`].
+    #[serde(default)]
+    pub representation: u8,
+}
+
+/// Representation numbers. `0` always means "shared by every representation".
+pub const REPR_NORMAL: u8 = 1;
+pub const REPR_ALTERNATE: u8 = 2;
+/// Largest number of units a symbol may declare.
+pub const MAX_UNITS: u8 = 26;
+
+impl Pin {
+    /// Is the pin part of `unit` (1-based) drawn in `representation`?
+    pub fn is_visible_in(&self, unit: u8, representation: u8) -> bool {
+        (self.unit == 0 || self.unit == unit)
+            && (self.representation == 0 || self.representation == representation)
+    }
 }
 
 /// Graphic primitives of a symbol body, in symbol-local coordinates.
@@ -156,6 +176,63 @@ pub enum Graphic {
     },
 }
 
+/// A graphic primitive together with the unit / representation it belongs to (same meaning as
+/// on [`Pin`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SymbolGraphic {
+    #[serde(flatten)]
+    pub graphic: Graphic,
+    #[serde(default)]
+    pub unit: u8,
+    #[serde(default)]
+    pub representation: u8,
+}
+
+impl SymbolGraphic {
+    pub fn is_visible_in(&self, unit: u8, representation: u8) -> bool {
+        (self.unit == 0 || self.unit == unit)
+            && (self.representation == 0 || self.representation == representation)
+    }
+}
+
+impl From<Graphic> for SymbolGraphic {
+    fn from(graphic: Graphic) -> Self {
+        Self {
+            graphic,
+            unit: 0,
+            representation: 0,
+        }
+    }
+}
+
+/// Descriptive data of a symbol; never affects connectivity.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SymbolMeta {
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub keywords: String,
+    #[serde(default)]
+    pub datasheet: String,
+    #[serde(default)]
+    pub manufacturer: String,
+    #[serde(default)]
+    pub mpn: String,
+    /// Footprint proposed when the part is placed (`Library:Name`), may be empty.
+    #[serde(default)]
+    pub default_footprint: String,
+    /// Glob patterns of footprints that fit this symbol (`R_*`, `SOIC-*`).
+    #[serde(default)]
+    pub footprint_filters: Vec<String>,
+    /// Free-form key/value pairs.
+    #[serde(default)]
+    pub properties: BTreeMap<String, String>,
+}
+
+fn one() -> u8 {
+    1
+}
+
 /// A library symbol definition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Symbol {
@@ -166,7 +243,56 @@ pub struct Symbol {
     /// Power symbols name a global net instead of being a part.
     pub is_power: bool,
     pub pins: Vec<Pin>,
-    pub graphics: Vec<Graphic>,
+    pub graphics: Vec<SymbolGraphic>,
+    /// Number of units (`1..=`[`MAX_UNITS`]). Units are drawn and placed separately but share
+    /// one reference (`U1A`, `U1B`).
+    #[serde(default = "one")]
+    pub unit_count: u8,
+    #[serde(default)]
+    pub meta: SymbolMeta,
+}
+
+impl Symbol {
+    /// An empty single-unit symbol.
+    pub fn new(name: impl Into<String>, reference_prefix: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            reference_prefix: reference_prefix.into(),
+            default_value: String::new(),
+            is_power: false,
+            pins: Vec::new(),
+            graphics: Vec::new(),
+            unit_count: 1,
+            meta: SymbolMeta::default(),
+        }
+    }
+
+    /// Does any item use the alternate (De Morgan style) representation?
+    pub fn has_alternate(&self) -> bool {
+        self.pins.iter().any(|p| p.representation == REPR_ALTERNATE)
+            || self
+                .graphics
+                .iter()
+                .any(|g| g.representation == REPR_ALTERNATE)
+    }
+
+    /// Pins drawn for `unit` in `representation`.
+    pub fn pins_for(&self, unit: u8, representation: u8) -> impl Iterator<Item = &Pin> {
+        self.pins
+            .iter()
+            .filter(move |p| p.is_visible_in(unit, representation))
+    }
+
+    /// Graphics drawn for `unit` in `representation`.
+    pub fn graphics_for(
+        &self,
+        unit: u8,
+        representation: u8,
+    ) -> impl Iterator<Item = &SymbolGraphic> {
+        self.graphics
+            .iter()
+            .filter(move |g| g.is_visible_in(unit, representation))
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -183,6 +309,12 @@ pub struct Component {
     pub footprint: String,
     pub properties: BTreeMap<String, String>,
     pub placement: Placement,
+    /// Which unit of a multi-unit symbol this instance is (1-based).
+    #[serde(default = "one")]
+    pub unit: u8,
+    /// Which representation is shown ([`REPR_NORMAL`] or [`REPR_ALTERNATE`]).
+    #[serde(default = "one")]
+    pub representation: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { call, pickFolder, toast } from "../actions";
+import type { LibraryInfo } from "../bindings/LibraryInfo";
 import type { SymbolInfo } from "../bindings/SymbolInfo";
 import type { CoreInfo } from "../bindings/CoreInfo";
 import { store, useUi } from "../store";
@@ -261,6 +262,213 @@ function LabelNameDialog({ global }: { global: boolean }) {
   );
 }
 
+function SymbolNewDialog() {
+  const [library, setLibrary] = useState("User");
+  const [name, setName] = useState("NewSymbol");
+  const [libs, setLibs] = useState<LibraryInfo[]>([]);
+  useEffect(() => {
+    api
+      .symbolLibraries()
+      .then(setLibs)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const valid = library.trim() !== "" && name.trim() !== "" && !/[:/\\]/.test(library + name);
+  const submit = async () => {
+    if (!valid) return;
+    close();
+    await call(api.symbolEditorCommand("new", `${library.trim()}:${name.trim()}`));
+  };
+  return (
+    <Modal title="New symbol" onClose={close}>
+      <label className="field">
+        <span>Library name (the symbol is saved to this library later)</span>
+        <input
+          autoFocus
+          list="symbol-libs"
+          value={library}
+          onChange={(e) => setLibrary(e.target.value)}
+        />
+        <datalist id="symbol-libs">
+          {libs
+            .filter((l) => l.scope !== "builtin")
+            .map((l) => (
+              <option key={`${l.scope}${l.name}`} value={l.name} />
+            ))}
+        </datalist>
+      </label>
+      <label className="field">
+        <span>Symbol name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+        />
+      </label>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!valid} onClick={() => void submit()}>
+          Create
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function SymbolOpenDialog() {
+  const [symbols, setSymbols] = useState<SymbolInfo[]>([]);
+  const [query, setQuery] = useState("");
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    api
+      .librarySymbols()
+      .then(setSymbols)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const q = query.trim().toLowerCase();
+  const shown = symbols.filter(
+    (s) => q === "" || `${s.lib_id} ${s.description}`.toLowerCase().includes(q),
+  );
+  const pick = async (s: SymbolInfo | undefined) => {
+    if (!s) return;
+    close();
+    await call(api.symbolEditorCommand("open", s.lib_id));
+  };
+  return (
+    <Modal title="Open a symbol" onClose={close}>
+      <input
+        autoFocus
+        value={query}
+        placeholder="Search libraries and the project…"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIndex(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") setIndex((i) => Math.min(shown.length - 1, i + 1));
+          else if (e.key === "ArrowUp") setIndex((i) => Math.max(0, i - 1));
+          else if (e.key === "Enter") void pick(shown[index]);
+        }}
+      />
+      <ul className="symbol-list" role="listbox">
+        {shown.length === 0 && <li className="muted">No matching symbol</li>}
+        {shown.map((s, i) => (
+          <li
+            key={s.lib_id}
+            role="option"
+            aria-selected={i === index}
+            className={i === index ? "sel" : ""}
+            onMouseEnter={() => setIndex(i)}
+            onClick={() => void pick(s)}
+          >
+            <strong>{s.lib_id}</strong>
+            <span className="muted">
+              {s.source} · {s.pin_count} pin{s.pin_count === 1 ? "" : "s"}
+              {s.unit_count > 1 ? ` · ${s.unit_count} units` : ""}
+              {s.has_alternate ? " · alt" : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="muted">
+        Opening a library symbol copies it into the project; edits stay in the project until you
+        save them back to a library.
+      </p>
+    </Modal>
+  );
+}
+
+function SymbolSaveDialog() {
+  const current = store.getState().snapshot?.symbol_editor?.lib_id ?? "";
+  const [scope, setScope] = useState("project");
+  const [library, setLibrary] = useState(
+    current.includes(":") ? (current.split(":")[0] ?? "User") : "User",
+  );
+  const [libs, setLibs] = useState<LibraryInfo[]>([]);
+  useEffect(() => {
+    api
+      .symbolLibraries()
+      .then(setLibs)
+      .catch((e) => toast(String(e)));
+  }, []);
+  const builtin = library.trim() === "Buture";
+  const valid = library.trim() !== "" && !builtin && !/[:/\\]/.test(library);
+  const submit = async () => {
+    if (!valid) return;
+    close();
+    await call(api.symbolEditorCommand("save_to_library", `${scope}:${library.trim()}`));
+  };
+  return (
+    <Modal title="Save symbol to library" onClose={close}>
+      <label className="field">
+        <span>Where</span>
+        <select value={scope} onChange={(e) => setScope(e.target.value)}>
+          <option value="project">
+            This project (libraries/ folder, travels with the project)
+          </option>
+          <option value="user">My user libraries (shared by all projects)</option>
+        </select>
+      </label>
+      <label className="field">
+        <span>Library</span>
+        <input
+          autoFocus
+          list="save-libs"
+          value={library}
+          onChange={(e) => setLibrary(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+        />
+        <datalist id="save-libs">
+          {libs
+            .filter((l) => l.scope === scope)
+            .map((l) => (
+              <option key={l.name} value={l.name} />
+            ))}
+        </datalist>
+      </label>
+      {builtin && <p className="warn">“Buture” is the read-only built-in library.</p>}
+      <p className="muted">
+        If the library already has a symbol with this name it is replaced. If the library name
+        differs from the symbol&apos;s, the symbol is renamed in this project too (placed parts
+        follow).
+      </p>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!valid} onClick={() => void submit()}>
+          Save
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function SymbolTextDialog() {
+  const [text, setText] = useState("TEXT");
+  const submit = async () => {
+    if (!text.trim()) return;
+    close();
+    await call(api.editorCommand(`tool:text:${text.trim()}`));
+  };
+  return (
+    <Modal title="Text" onClose={close}>
+      <label className="field">
+        <span>Text to place</span>
+        <input
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void submit()}
+        />
+      </label>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!text.trim()} onClick={() => void submit()}>
+          Place…
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function AboutDialog() {
   const [info, setInfo] = useState<CoreInfo | null>(null);
   useEffect(() => {
@@ -304,5 +512,13 @@ export function Dialogs() {
       return <SymbolPicker power={dialog.power} />;
     case "label-name":
       return <LabelNameDialog global={dialog.global} />;
+    case "symbol-new":
+      return <SymbolNewDialog />;
+    case "symbol-open":
+      return <SymbolOpenDialog />;
+    case "symbol-save":
+      return <SymbolSaveDialog />;
+    case "symbol-text":
+      return <SymbolTextDialog />;
   }
 }

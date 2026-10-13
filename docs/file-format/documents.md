@@ -23,6 +23,10 @@ rejected. Coordinates are integer **nanometres** (see `crates/geometry`).
 }
 ```
 
+Symbols carry `unit_count`, optional `meta`, and every pin and graphic has `unit` and
+`representation` (see `docs/symbol-editor.md`); components have `unit` and `representation`.
+All of these are optional on read (defaults keep older files valid).
+
 Object types: `component`, `wire`, `bus`, `junction`, `net_label`, `global_label`, `hier_label`,
 `power_symbol`, `no_connect`, `sheet`. The model is validated on load (unknown symbols, duplicate
 ids, hierarchy cycles, bad rotations, … are errors). See `docs/schematic-connectivity.md`.

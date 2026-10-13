@@ -96,105 +96,120 @@ fn line(a: Point, b: Point, width: i64) -> Shape {
     }
 }
 
-/// Shapes of a symbol instance, in sheet coordinates.
-pub fn symbol_shapes(sym: &Symbol, placement: &Placement) -> Vec<(LayerId, Shape)> {
+/// Shapes of one symbol graphic, in sheet coordinates.
+pub fn graphic_shapes(g: &Graphic, placement: &Placement) -> Vec<(LayerId, Shape)> {
     let mut out = Vec::new();
-    for g in &sym.graphics {
-        match g {
-            Graphic::Line { segment, width } => out.push((
-                L_BODY,
-                line(
-                    placement.apply(segment.a),
-                    placement.apply(segment.b),
-                    *width,
-                ),
-            )),
-            Graphic::Rect {
-                rect,
-                filled,
-                width,
-            } => {
-                if let Ok(r) =
-                    Rectangle::new(placement.apply(rect.min()), placement.apply(rect.max()))
-                {
-                    out.push((
-                        L_BODY,
-                        Shape::Rect {
-                            rect: r,
-                            filled: *filled,
-                            stroke: *width,
-                        },
-                    ));
-                }
-            }
-            Graphic::Circle {
-                circle,
-                filled,
-                width,
-            } => {
+    match g {
+        Graphic::Line { segment, width } => out.push((
+            L_BODY,
+            line(
+                placement.apply(segment.a),
+                placement.apply(segment.b),
+                *width,
+            ),
+        )),
+        Graphic::Rect {
+            rect,
+            filled,
+            width,
+        } => {
+            if let Ok(r) = Rectangle::new(placement.apply(rect.min()), placement.apply(rect.max()))
+            {
                 out.push((
                     L_BODY,
-                    Shape::Circle {
-                        circle: Circle {
-                            center: placement.apply(circle.center),
-                            radius: circle.radius,
-                        },
+                    Shape::Rect {
+                        rect: r,
                         filled: *filled,
                         stroke: *width,
                     },
                 ));
             }
-            Graphic::Arc { arc, width } => {
-                // A mirror reverses the sweep direction; quarter turns do not.
-                let ccw = arc.ccw != placement.mirror;
-                if let Ok(a) = Arc::new(
-                    placement.apply(arc.center),
-                    placement.apply(arc.start),
-                    placement.apply(arc.end),
-                    ccw,
-                ) {
-                    out.push((
-                        L_BODY,
-                        Shape::Arc {
-                            arc: a,
-                            width: *width,
-                        },
-                    ));
-                }
-            }
-            Graphic::Text {
-                origin,
-                height,
-                text,
-            } => {
+        }
+        Graphic::Circle {
+            circle,
+            filled,
+            width,
+        } => {
+            out.push((
+                L_BODY,
+                Shape::Circle {
+                    circle: Circle {
+                        center: placement.apply(circle.center),
+                        radius: circle.radius,
+                    },
+                    filled: *filled,
+                    stroke: *width,
+                },
+            ));
+        }
+        Graphic::Arc { arc, width } => {
+            // A mirror reverses the sweep direction; quarter turns do not.
+            let ccw = arc.ccw != placement.mirror;
+            if let Ok(a) = Arc::new(
+                placement.apply(arc.center),
+                placement.apply(arc.start),
+                placement.apply(arc.end),
+                ccw,
+            ) {
                 out.push((
-                    L_TEXT,
-                    Shape::Text {
-                        origin: placement.apply(*origin),
-                        height: *height,
-                        text: text.clone(),
+                    L_BODY,
+                    Shape::Arc {
+                        arc: a,
+                        width: *width,
                     },
                 ));
             }
         }
-    }
-    for pin in &sym.pins {
-        if pin.length > 0 {
-            let at = placement.apply(pin.position);
-            let dir = placement.apply_direction(pin.orientation).vector();
+        Graphic::Text {
+            origin,
+            height,
+            text,
+        } => {
             out.push((
-                L_PIN,
-                line(
-                    at,
-                    at + Vector::new(dir.x * pin.length, dir.y * pin.length),
-                    LINE_W,
-                ),
+                L_TEXT,
+                Shape::Text {
+                    origin: placement.apply(*origin),
+                    height: *height,
+                    text: text.clone(),
+                },
             ));
-        } else {
-            // Zero-length pins (power ports) still need a visible, snappable connection mark.
-            let at = placement.apply(pin.position);
-            out.push((L_PIN, line(at, at, 0)));
         }
+    }
+    out
+}
+
+/// The pin line (or a point mark for zero-length pins), in sheet coordinates.
+pub fn pin_shape(pin: &buturecad_schematic::Pin, placement: &Placement) -> (LayerId, Shape) {
+    let at = placement.apply(pin.position);
+    if pin.length > 0 {
+        let dir = placement.apply_direction(pin.orientation).vector();
+        (
+            L_PIN,
+            line(
+                at,
+                at + Vector::new(dir.x * pin.length, dir.y * pin.length),
+                LINE_W,
+            ),
+        )
+    } else {
+        // Zero-length pins (power ports) still need a visible, snappable connection mark.
+        (L_PIN, line(at, at, 0))
+    }
+}
+
+/// Shapes of a symbol instance (one unit in one representation), in sheet coordinates.
+pub fn symbol_shapes(
+    sym: &Symbol,
+    placement: &Placement,
+    unit: u8,
+    representation: u8,
+) -> Vec<(LayerId, Shape)> {
+    let mut out = Vec::new();
+    for g in sym.graphics_for(unit, representation) {
+        out.extend(graphic_shapes(&g.graphic, placement));
+    }
+    for pin in sym.pins_for(unit, representation) {
+        out.push(pin_shape(pin, placement));
     }
     out
 }
@@ -297,7 +312,7 @@ pub fn object_shapes(sch: &Schematic, obj: &Object) -> Vec<(LayerId, Shape)> {
         Object::HierLabel(l) => out.extend(label_shapes(l.position, &l.name, true, l.orientation)),
         Object::Component(c) => {
             if let Some(sym) = sch.symbol(&c.lib_id) {
-                out.extend(symbol_shapes(sym, &c.placement));
+                out.extend(symbol_shapes(sym, &c.placement, c.unit, c.representation));
             }
             // Reference and value sit to the right of the symbol, clear of its pins and wires.
             let bb = sch.object_bounds(obj);
@@ -324,7 +339,7 @@ pub fn object_shapes(sch: &Schematic, obj: &Object) -> Vec<(LayerId, Shape)> {
         }
         Object::PowerSymbol(p) => {
             if let Some(sym) = sch.symbol(&p.lib_id) {
-                out.extend(symbol_shapes(sym, &p.placement));
+                out.extend(symbol_shapes(sym, &p.placement, 1, 1));
             }
         }
         Object::Sheet(s) => {
@@ -588,6 +603,8 @@ mod tests {
             value: "10k".into(),
             footprint: String::new(),
             properties: Default::default(),
+            unit: 1,
+            representation: 1,
             placement: Placement {
                 position: Point::new(x * G, y * G),
                 rotation,

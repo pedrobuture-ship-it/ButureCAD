@@ -8,7 +8,7 @@
 import type { Mode } from "./bindings/Mode";
 import type { UiState } from "./store";
 
-export type Category = "File" | "Edit" | "View" | "Mode" | "Tools" | "Help";
+export type Category = "File" | "Edit" | "View" | "Mode" | "Tools" | "Symbol" | "Help";
 
 /** What a command can do. Implemented by `actions.ts`; faked in tests. */
 export interface Actions {
@@ -41,6 +41,10 @@ export interface Actions {
   selectTool(id: string): void;
   /** Runs a named Rust editor command (rotate, delete, paste, …). */
   editor(name: string): void;
+  symbolNew(): void;
+  symbolOpen(): void;
+  symbolSaveToLibrary(): void;
+  symbolCommand(name: string, arg?: string): void;
   startMove(): void;
 }
 
@@ -62,17 +66,52 @@ const inSchematic = (s: UiState): true | string => {
   return s.snapshot.mode === "schematic" ? true : "Switch to the Schematic view";
 };
 
+const inSymbolEditor = (s: UiState): true | string => {
+  if (!s.snapshot?.project) return "Open or create a project first";
+  if (s.snapshot.mode !== "symbol_editor") return "Switch to the Symbol Editor";
+  return s.snapshot.symbol_editor ? true : "Open or create a symbol first";
+};
+
+/** Editing commands that work on the schematic and on the symbol being edited. */
+const inEditor = (s: UiState): true | string =>
+  s.snapshot?.mode === "symbol_editor" ? inSymbolEditor(s) : inSchematic(s);
+
 const hasSelection = (s: UiState): true | string => {
-  const a = inSchematic(s);
+  const a = inEditor(s);
   if (a !== true) return a;
   return (s.snapshot?.selection.length ?? 0) > 0 ? true : "Select something first";
 };
 
+/** Like `hasSelection`, for commands the Symbol Editor does not implement. */
+const hasSchematicSelection = (s: UiState): true | string =>
+  s.snapshot?.mode === "symbol_editor" ? "Not available in the Symbol Editor" : hasSelection(s);
+
 const hasCanvas = (s: UiState): true | string => {
   if (!s.snapshot?.project) return "Open or create a project first";
   const m = s.snapshot.mode;
+  if (m === "symbol_editor")
+    return s.snapshot.symbol_editor ? true : "Open or create a symbol first";
   return m === "schematic" || m === "pcb" ? true : "This mode has no canvas yet";
 };
+
+function symbolToolCommands(): AppCommand[] {
+  const t = (id: string, title: string, shortcut: string): AppCommand => ({
+    id: `symtool.${id}`,
+    title: `Symbol Editor: ${title}`,
+    category: "Tools",
+    shortcut,
+    available: inSymbolEditor,
+    run: (a) => a.selectTool(id),
+  });
+  return [
+    t("pin", "Place Pin", "P"),
+    t("line", "Draw Line", "L"),
+    t("rect", "Draw Rectangle", "B"),
+    t("circle", "Draw Circle", "C"),
+    t("arc", "Draw Arc", "A"),
+    t("text", "Place Text…", "T"),
+  ];
+}
 
 export function buildCommands(): AppCommand[] {
   const modeCommand = (mode: Mode, title: string, shortcut: string): AppCommand => ({
@@ -249,7 +288,7 @@ export function buildCommands(): AppCommand[] {
       title: "Rotate",
       category: "Edit",
       shortcut: "R",
-      available: inSchematic,
+      available: inEditor,
       run: (a) => a.editor("rotate"),
     },
     {
@@ -257,7 +296,7 @@ export function buildCommands(): AppCommand[] {
       title: "Mirror Left-Right",
       category: "Edit",
       shortcut: "X",
-      available: inSchematic,
+      available: inEditor,
       run: (a) => a.editor("mirror_x"),
     },
     {
@@ -265,7 +304,7 @@ export function buildCommands(): AppCommand[] {
       title: "Mirror Top-Bottom",
       category: "Edit",
       shortcut: "Y",
-      available: inSchematic,
+      available: inEditor,
       run: (a) => a.editor("mirror_y"),
     },
     {
@@ -281,7 +320,7 @@ export function buildCommands(): AppCommand[] {
       title: "Duplicate",
       category: "Edit",
       shortcut: "Ctrl+D",
-      available: hasSelection,
+      available: hasSchematicSelection,
       run: (a) => a.editor("duplicate"),
     },
     {
@@ -289,7 +328,7 @@ export function buildCommands(): AppCommand[] {
       title: "Copy",
       category: "Edit",
       shortcut: "Ctrl+C",
-      available: hasSelection,
+      available: hasSchematicSelection,
       run: (a) => a.editor("copy"),
     },
     {
@@ -297,7 +336,7 @@ export function buildCommands(): AppCommand[] {
       title: "Cut",
       category: "Edit",
       shortcut: "Ctrl+X",
-      available: hasSelection,
+      available: hasSchematicSelection,
       run: (a) => a.editor("cut"),
     },
     {
@@ -311,6 +350,17 @@ export function buildCommands(): AppCommand[] {
         return s.snapshot?.can_paste ? true : "The clipboard is empty";
       },
       run: (a) => a.editor("paste"),
+    },
+    {
+      id: "edit.unitNext",
+      title: "Next Unit of the Part Being Placed",
+      category: "Edit",
+      shortcut: "U",
+      available: (s) =>
+        s.snapshot?.mode === "schematic" && s.snapshot.tool === "place_component"
+          ? true
+          : "Arm the Place Component tool with a multi-unit symbol first",
+      run: (a) => a.editor("unit_next"),
     },
     {
       id: "edit.flipElbow",
@@ -412,6 +462,46 @@ export function buildCommands(): AppCommand[] {
       run: (a) => a.toggleDebugOverlay(),
     },
 
+    ...symbolToolCommands(),
+    {
+      id: "symbol.new",
+      title: "New Symbol…",
+      category: "Symbol",
+      available: hasProject,
+      run: (a) => a.symbolNew(),
+    },
+    {
+      id: "symbol.open",
+      title: "Open Symbol…",
+      category: "Symbol",
+      available: hasProject,
+      run: (a) => a.symbolOpen(),
+    },
+    {
+      id: "symbol.save",
+      title: "Save Symbol to Library…",
+      category: "Symbol",
+      available: inSymbolEditor,
+      run: (a) => a.symbolSaveToLibrary(),
+    },
+    {
+      id: "symbol.addUnit",
+      title: "Add Unit to Symbol",
+      category: "Symbol",
+      available: inSymbolEditor,
+      run: (a) => a.symbolCommand("add_unit"),
+    },
+    {
+      id: "symbol.createAlternate",
+      title: "Create Alternate Representation",
+      category: "Symbol",
+      available: (s) => {
+        const a = inSymbolEditor(s);
+        if (a !== true) return a;
+        return s.snapshot?.symbol_editor?.has_alternate ? "Already has one" : true;
+      },
+      run: (a) => a.symbolCommand("alternate_create"),
+    },
     modeCommand("schematic", "Schematic", "Ctrl+1"),
     modeCommand("pcb", "PCB", "Ctrl+2"),
     modeCommand("symbol_editor", "Symbol Editor", "Ctrl+3"),

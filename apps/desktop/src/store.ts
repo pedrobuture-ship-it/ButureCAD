@@ -9,6 +9,10 @@ export type Dialog =
   | { kind: "save-as" }
   | { kind: "symbol-picker"; power: boolean }
   | { kind: "label-name"; global: boolean }
+  | { kind: "symbol-new" }
+  | { kind: "symbol-open" }
+  | { kind: "symbol-save" }
+  | { kind: "symbol-text" }
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }

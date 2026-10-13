@@ -19,6 +19,7 @@ workspace = true
 buturecad-eda-core = { path = "../../../crates/eda-core" }
 buturecad-geometry = { path = "../../../crates/geometry" }
 buturecad-io = { path = "../../../crates/io" }
+buturecad-libraries = { path = "../../../crates/libraries" }
 buturecad-renderer = { path = "../../../crates/renderer" }
 buturecad-schematic = { path = "../../../crates/schematic" }
 serde = { version = "1", features = ["derive"] }

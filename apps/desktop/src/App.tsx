@@ -13,6 +13,7 @@ import { useActions, useCommands } from "./components/hooks";
 import { Inspector } from "./components/Inspector";
 import { MenuBar } from "./components/MenuBar";
 import { NotImplemented } from "./components/NotImplemented";
+import { SymbolEditorBar, SymbolEditorHome } from "./components/SymbolEditor";
 import { StartScreen } from "./components/StartScreen";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
@@ -64,6 +65,8 @@ export function App() {
       if (state.dialog || (isTyping(e.target) && e.key !== "Escape" && !(e.ctrlKey || e.metaKey)))
         return;
       if (state.paletteOpen) return;
+      // Several commands may share a key in different modes (P is Power in the schematic and
+      // Pin in the Symbol Editor): run the first one that is available right now.
       for (const { c, s } of parsed) {
         if (s && matchesShortcut(e, s)) {
           if (
@@ -74,8 +77,8 @@ export function App() {
           if (availability(c, state) === true) {
             e.preventDefault();
             c.run(actions);
+            return;
           }
-          return;
         }
       }
     };
@@ -110,7 +113,8 @@ export function App() {
   }, [snap?.project?.name, snap?.project?.dirty, snap?.project]);
 
   const mode = snap?.mode ?? "schematic";
-  const hasCanvasMode = mode === "schematic" || mode === "pcb";
+  const hasCanvasMode =
+    mode === "schematic" || mode === "pcb" || (mode === "symbol_editor" && !!snap?.symbol_editor);
 
   return (
     <div className={inspectorOpen ? "app" : "app no-inspector"}>
@@ -123,8 +127,13 @@ export function App() {
           <div className="stage">
             {!snap?.project ? (
               <StartScreen />
+            ) : mode === "symbol_editor" && !snap.symbol_editor ? (
+              <SymbolEditorHome />
             ) : hasCanvasMode ? (
-              <CanvasView />
+              <>
+                {mode === "symbol_editor" && <SymbolEditorBar />}
+                <CanvasView />
+              </>
             ) : (
               <NotImplemented mode={mode} />
             )}

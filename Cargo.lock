@@ -274,6 +274,7 @@ dependencies = [
  "buturecad-eda-core",
  "buturecad-geometry",
  "buturecad-io",
+ "buturecad-libraries",
  "buturecad-renderer",
  "buturecad-schematic",
  "serde",
@@ -322,6 +323,15 @@ dependencies = [
 [[package]]
 name = "buturecad-libraries"
 version = "0.1.0"
+dependencies = [
+ "buturecad-geometry",
+ "buturecad-io",
+ "buturecad-schematic",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "buturecad-manufacturing"

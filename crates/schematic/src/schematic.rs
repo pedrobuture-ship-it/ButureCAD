@@ -36,6 +36,10 @@ pub enum SchematicError {
     SymbolInUse(String),
     #[error("change does not match the current state of object {0:?} (stale change)")]
     StaleChange(Id),
+    #[error("symbol {symbol:?} has {count} unit(s); unit {unit} does not exist")]
+    BadUnit { symbol: String, unit: u8, count: u8 },
+    #[error("symbol {symbol:?} has no alternate representation")]
+    NoAlternate { symbol: String },
 }
 
 /// A pin of a component resolved to sheet coordinates.
@@ -162,6 +166,36 @@ impl Schematic {
     }
     pub fn symbol(&self, lib_id: &str) -> Option<&Symbol> {
         self.symbols.get(lib_id)
+    }
+
+    /// Is `unit` / `representation` valid for `sym`?
+    pub fn check_unit(sym: &Symbol, unit: u8, representation: u8) -> Result<(), SchematicError> {
+        if unit == 0 || unit > sym.unit_count {
+            return Err(SchematicError::BadUnit {
+                symbol: sym.name.clone(),
+                unit,
+                count: sym.unit_count,
+            });
+        }
+        match representation {
+            REPR_NORMAL => Ok(()),
+            REPR_ALTERNATE if sym.has_alternate() => Ok(()),
+            _ => Err(SchematicError::NoAlternate {
+                symbol: sym.name.clone(),
+            }),
+        }
+    }
+
+    /// Would `sym` still be valid for every object that uses a symbol of its name?
+    pub fn check_symbol_uses(&self, sym: &Symbol) -> Result<(), SchematicError> {
+        for obj in self.sheets.values().flat_map(|s| s.objects.values()) {
+            if let Object::Component(c) = obj {
+                if c.lib_id == sym.name {
+                    Self::check_unit(sym, c.unit, c.representation)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Adds or replaces a library symbol in the embedded symbol table.
@@ -348,8 +382,12 @@ impl Schematic {
                 if c.placement.rotation > 3 {
                     return Err(SchematicError::BadRotation(c.placement.rotation));
                 }
-                if !c.lib_id.is_empty() && !self.symbols.contains_key(&c.lib_id) {
-                    return Err(SchematicError::UnknownSymbol(c.lib_id.clone()));
+                if !c.lib_id.is_empty() {
+                    let sym = self
+                        .symbols
+                        .get(&c.lib_id)
+                        .ok_or_else(|| SchematicError::UnknownSymbol(c.lib_id.clone()))?;
+                    Self::check_unit(sym, c.unit, c.representation)?;
                 }
                 name(&c.reference, "component reference")?;
                 pt(c.placement.position)
@@ -446,8 +484,7 @@ impl Schematic {
         let Some(sym) = self.symbols.get(&component.lib_id) else {
             return Vec::new();
         };
-        sym.pins
-            .iter()
+        sym.pins_for(component.unit, component.representation)
             .map(|p| PlacedPin {
                 number: p.number.clone(),
                 name: p.name.clone(),
@@ -493,19 +530,28 @@ impl Schematic {
             Object::HierLabel(l) => text_box(l.position, &l.name),
             Object::Sheet(s) => s.rect.bounding_box(),
             Object::Component(c) => self
-                .symbol_bounds(&c.lib_id, &c.placement)
+                .symbol_bounds(&c.lib_id, &c.placement, c.unit, c.representation)
                 .unwrap_or_else(|| around(c.placement.position, 5_080_000)),
             Object::PowerSymbol(p) => self
-                .symbol_bounds(&p.lib_id, &p.placement)
+                .symbol_bounds(&p.lib_id, &p.placement, 1, 1)
                 .unwrap_or_else(|| around(p.placement.position, 2_540_000)),
         }
     }
 
-    fn symbol_bounds(&self, lib_id: &str, placement: &Placement) -> Option<BoundingBox> {
+    fn symbol_bounds(
+        &self,
+        lib_id: &str,
+        placement: &Placement,
+        unit: u8,
+        representation: u8,
+    ) -> Option<BoundingBox> {
         let sym = self.symbols.get(lib_id)?;
-        let mut pts: Vec<Point> = sym.pins.iter().map(|p| p.position).collect();
-        for g in &sym.graphics {
-            match g {
+        let mut pts: Vec<Point> = sym
+            .pins_for(unit, representation)
+            .map(|p| p.position)
+            .collect();
+        for g in sym.graphics_for(unit, representation) {
+            match &g.graphic {
                 Graphic::Line { segment, .. } => pts.extend([segment.a, segment.b]),
                 Graphic::Rect { rect, .. } => pts.extend([rect.min(), rect.max()]),
                 Graphic::Circle { circle, .. } => {

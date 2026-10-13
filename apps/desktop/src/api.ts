@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CoreInfo } from "./bindings/CoreInfo";
+import type { LibraryInfo } from "./bindings/LibraryInfo";
 import type { Mode } from "./bindings/Mode";
 import type { PointerEvent as CanvasPointerEvent } from "./bindings/PointerEvent";
 import type { PointerResult } from "./bindings/PointerResult";
@@ -47,6 +48,11 @@ export const api = {
   librarySymbols: () => invoke<SymbolInfo[]>("library_symbols"),
   propertySet: (id: number, key: string, value: string) =>
     invoke<Snapshot>("property_set", { id, key, value }),
+  symbolEditorCommand: (name: string, arg?: string) =>
+    invoke<Snapshot>("symbol_editor_command", { name, arg: arg ?? null }),
+  symbolEditorSet: (key: string, value: string) =>
+    invoke<Snapshot>("symbol_editor_set", { key, value }),
+  symbolLibraries: () => invoke<LibraryInfo[]>("symbol_libraries"),
   pointer: (event: CanvasPointerEvent) => invoke<PointerResult>("pointer", { event }),
   /** Raw frame: `width u32 LE`, `height u32 LE`, RGBA8 pixels. */
   renderFrame: (width: number, height: number) =>

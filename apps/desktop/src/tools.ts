@@ -28,6 +28,16 @@ const tool = (id: string, label: string, icon: string, shortcut?: string): ToolD
   implemented: true,
 });
 
+export const SYMBOL_TOOLS: ToolDef[] = [
+  select,
+  tool("pin", "Pin", "Pin", "P"),
+  tool("line", "Line", "Slash", "L"),
+  tool("rect", "Rectangle", "RectangleHorizontal", "B"),
+  tool("circle", "Circle", "Circle", "C"),
+  tool("arc", "Arc", "Spline", "A"),
+  tool("text", "Text", "Type", "T"),
+];
+
 export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
   schematic: [
     select,
@@ -45,6 +55,7 @@ export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
     tool("delete", "Delete", "Trash2", "Del"),
     tool("duplicate", "Duplicate", "Copy", "Ctrl+D"),
   ],
+  symbol_editor: SYMBOL_TOOLS,
   pcb: [
     select,
     {
@@ -76,7 +87,6 @@ export const MODE_TITLES: Record<Mode, string> = {
 
 /** Roadmap stage that will implement a mode that has no canvas yet. */
 export const MODE_PLANNED: Partial<Record<Mode, string>> = {
-  symbol_editor: "roadmap stage 09 (Symbol Editor)",
   footprint_editor: "roadmap stage 12 (Footprint Editor)",
   viewer3d: "roadmap stage 27 (PCB 3D)",
 };

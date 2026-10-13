@@ -126,6 +126,11 @@ pub(crate) struct EditorState {
     /// Rotation/mirror applied to the object about to be placed.
     pending_rotation: u8,
     pending_mirror: bool,
+    /// Unit of a multi-unit symbol about to be placed (1-based).
+    pending_unit: u8,
+    /// The symbol of the active placement tool, resolved once when the tool is chosen (so the
+    /// per-frame preview does not read library files).
+    pending_symbol: Option<Symbol>,
     pub clipboard: Option<Clipboard>,
     /// Elbow orientation for new wires: horizontal leg first.
     horizontal_first: bool,
@@ -170,7 +175,13 @@ impl Workspace {
     fn symbol_by_id(&self, lib_id: &str) -> Option<Symbol> {
         self.sch()
             .and_then(|s| s.symbol(lib_id).cloned())
-            .or_else(|| builtin::symbols().into_iter().find(|s| s.name == lib_id))
+            .or_else(|| {
+                self.editor
+                    .pending_symbol
+                    .clone()
+                    .filter(|s| s.name == lib_id)
+            })
+            .or_else(|| self.find_library_symbol(lib_id))
     }
 
     /// Runs `change` through the Command Engine as one undoable step. Symbols the schematic lacks
@@ -263,6 +274,9 @@ impl Workspace {
     /// Transient shapes drawn above the scene: placement ghosts, the wire being drawn, pasted
     /// objects.
     pub(crate) fn preview_shapes(&self) -> Vec<(Shape, Rgba)> {
+        if self.mode == Mode::SymbolEditor {
+            return self.symed_preview_shapes();
+        }
         if self.mode != Mode::Schematic || self.open.is_none() {
             return Vec::new();
         }
@@ -323,10 +337,10 @@ impl Workspace {
                         };
                         match (&moved, sym) {
                             (Object::Component(c), Some(s)) => {
-                                push(sb::symbol_shapes(s, &c.placement))
+                                push(sb::symbol_shapes(s, &c.placement, c.unit, c.representation))
                             }
                             (Object::PowerSymbol(p), Some(s)) => {
-                                push(sb::symbol_shapes(s, &p.placement))
+                                push(sb::symbol_shapes(s, &p.placement, 1, 1))
                             }
                             _ => push(sb::object_shapes(sch, &moved)),
                         }
@@ -336,7 +350,12 @@ impl Workspace {
             (Tool::PlaceComponent(lib), Interaction::Idle)
             | (Tool::PlacePower(lib), Interaction::Idle) => {
                 if let Some(sym) = self.symbol_by_id(lib) {
-                    push(sb::symbol_shapes(&sym, &placement));
+                    push(sb::symbol_shapes(
+                        &sym,
+                        &placement,
+                        self.editor.pending_unit.clamp(1, sym.unit_count.max(1)),
+                        1,
+                    ));
                 }
             }
             (Tool::NetLabel(name), Interaction::Idle) => {
@@ -403,6 +422,9 @@ impl Workspace {
     /// `delete`, `duplicate`, `copy`, `cut`, `paste`, `start_move`, `flip_elbow`, and
     /// `tool:<id>[:<argument>]`.
     pub fn editor_command(&mut self, name: &str) -> Result<(), String> {
+        if self.mode == Mode::SymbolEditor {
+            return self.symed_editor_command(name);
+        }
         if let Some(rest) = name.strip_prefix("tool:") {
             let (id, arg) = match rest.split_once(':') {
                 Some((id, arg)) => (id, Some(arg)),
@@ -424,6 +446,8 @@ impl Workspace {
             "cut" => self.copy_selection(true)?,
             "paste" => self.begin_paste()?,
             "start_move" => self.start_move_from_keyboard()?,
+            "unit_next" => self.cycle_pending_unit(1),
+            "unit_prev" => self.cycle_pending_unit(-1),
             other => return Err(format!("unknown editor command: {other}")),
         }
         Ok(())
@@ -447,6 +471,7 @@ impl Workspace {
             let sym = self
                 .symbol_by_id(lib)
                 .ok_or_else(|| format!("unknown symbol {lib}"))?;
+            self.editor.pending_symbol = Some(sym.clone());
             if matches!(tool, Tool::PlacePower(_)) != sym.is_power {
                 return Err(format!(
                     "{lib} is {}a power symbol",
@@ -462,6 +487,7 @@ impl Workspace {
         self.abort_interaction();
         self.editor.pending_rotation = 0;
         self.editor.pending_mirror = false;
+        self.editor.pending_unit = 1;
         // Tools that act on objects apply immediately when something is already selected.
         let acts_on_selection = matches!(
             tool,
@@ -479,6 +505,19 @@ impl Workspace {
         }
         self.editor.tool = tool;
         Ok(())
+    }
+
+    /// Cycles the unit of the multi-unit symbol being placed.
+    fn cycle_pending_unit(&mut self, step: i32) {
+        let Tool::PlaceComponent(lib) = &self.editor.tool else {
+            return;
+        };
+        let Some(sym) = self.symbol_by_id(lib) else {
+            return;
+        };
+        let n = i32::from(sym.unit_count.max(1));
+        let cur = i32::from(self.editor.pending_unit.max(1)) - 1;
+        self.editor.pending_unit = ((cur + step).rem_euclid(n) + 1) as u8;
     }
 
     fn abort_interaction(&mut self) {
@@ -692,6 +731,9 @@ impl Workspace {
 
     /// Edits one property of an object (Inspector).
     pub fn set_property(&mut self, id: u64, key: &str, value: &str) -> Result<(), String> {
+        if self.mode == Mode::SymbolEditor {
+            return self.symed_set_item_property(id, key, value);
+        }
         self.require_schematic()?;
         let sch = self.sch().ok_or("no project is open")?;
         let change = edit::set_property(sch, Id(id), key, value).map_err(|e| e.to_string())?;
@@ -703,21 +745,39 @@ impl Workspace {
         }
     }
 
-    /// Symbols the placement tools offer: the built-in set plus anything embedded in the project.
+    /// Symbols the placement tools and the Symbol Editor offer: the built-in set, symbols embedded
+    /// in the project, and everything in the library folders. A project copy wins over a library
+    /// entry with the same id (that is the definition placed parts actually use).
     pub fn library_symbols(&self) -> Vec<SymbolInfo> {
-        let mut all: BTreeMap<String, Symbol> = builtin::symbols()
-            .into_iter()
-            .map(|s| (s.name.clone(), s))
-            .collect();
+        let mut all: BTreeMap<String, (Symbol, String)> = BTreeMap::new();
+        for s in builtin::symbols() {
+            all.insert(s.name.clone(), (s, "builtin".into()));
+        }
+        for (scope, dir) in self.library_dirs() {
+            for l in dir.list_symbol_libraries() {
+                if let Ok(lib) = dir.load_symbol_library(&l.name) {
+                    for name in lib.names() {
+                        if let Some(s) = lib.instantiate(name) {
+                            all.insert(s.name.clone(), (s, format!("{scope}-library")));
+                        }
+                    }
+                }
+            }
+        }
         if let Some(sch) = self.sch() {
             for (k, v) in sch.symbols() {
-                all.entry(k.clone()).or_insert_with(|| v.clone());
+                all.insert(k.clone(), (v.clone(), "project".into()));
             }
         }
         all.into_values()
-            .map(|s| SymbolInfo {
+            .map(|(s, source)| SymbolInfo {
                 lib_id: s.name.clone(),
                 name: s.name.rsplit(':').next().unwrap_or(&s.name).to_owned(),
+                library: s.name.split_once(':').map_or("", |(l, _)| l).to_owned(),
+                source,
+                description: s.meta.description.clone(),
+                unit_count: u32::from(s.unit_count),
+                has_alternate: s.has_alternate(),
                 reference_prefix: s.reference_prefix.clone(),
                 is_power: s.is_power,
                 pin_count: s.pins.len() as u32,
@@ -1062,7 +1122,12 @@ impl Workspace {
                     Object::PowerSymbol(edit::new_power_symbol(&sym, placement))
                 } else {
                     // The reference must account for the symbol even if it is not embedded yet.
-                    Object::Component(edit::new_component(sch, &sym, placement))
+                    Object::Component(edit::new_component_unit(
+                        sch,
+                        &sym,
+                        placement,
+                        self.editor.pending_unit.max(1),
+                    ))
                 };
                 let label = if power {
                     "Place power symbol"

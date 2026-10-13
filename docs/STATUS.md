@@ -11,14 +11,16 @@
 - Desktop shell: menus/toolbar/tool palette/document tabs/inspector/bottom panel/status bar, dark and light themes, command palette, shortcuts, context menu, project New/Open/Save/Save As/Close, dirty-guard, autosave + crash-recovery prompt, recent projects, GPU canvas with pan/zoom/hover/selection/box selection, real connectivity in the inspector, PCB layer visibility. Verified end to end (e2e harness) with screenshots.
 - Schematic editor: place component/power symbol, wire/bus with orthogonal elbows and automatic junctions, junction, net/global labels, move, drag, rotate, mirror, delete, duplicate, multi-selection, box selection, copy/cut/paste, snap, keyboard shortcuts, inspector property editing; move/rotate/mirror keep connections (rubber-banding verified against net topology, reported honestly when impossible). See `docs/schematic-editor.md`.
 
+- Symbol Editor (roadmap 09): pins with all required electrical types, lines/arcs/rectangles/circles/text, multiple units, alternate representation, metadata; every edit is an undoable command; local symbol libraries (`*.bsymlib.json`, project and user folders) with validation and atomic writes; multi-unit placement. See `docs/symbol-editor.md`.
+
 # Partial
 - PCB model is a minimal skeleton (tracks, vias) hosting the commands.
-- Built-in symbol library is a small bootstrap set (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC).
+- Built-in symbol library is a small bootstrap set (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC); real libraries are user-made files. No component records, search index or providers yet (stages 31–33).
 - Multi-file save is not one atomic unit (backup snapshot is the recovery path).
 - Only the root sheet is editable; hierarchical sheets have no UI tools yet.
 - Wire re-routing is not a general router: dense layouts can leave no valid style (reported as a warning).
 - PCB editing tools are not implemented (PCB view is read-only).
-- Symbol Editor, Footprint Editor and 3D Viewer tabs are placeholders labelled as not implemented; ERC/DRC panels likewise.
+- Footprint Editor and 3D Viewer tabs are placeholders labelled as not implemented; ERC/DRC panels likewise.
 - Desktop UI is a static shell; navigation items are disabled.
 
 # Broken

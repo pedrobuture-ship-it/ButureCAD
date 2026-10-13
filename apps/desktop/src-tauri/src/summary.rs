@@ -19,6 +19,20 @@ fn prop(key: &str, label: &str, value: impl Into<String>, editable: bool) -> Pro
         label: label.into(),
         value: value.into(),
         editable,
+        options: Vec::new(),
+    }
+}
+
+fn choice(key: &str, label: &str, value: String, options: &[(String, String)]) -> PropertyInfo {
+    PropertyInfo {
+        options: options
+            .iter()
+            .map(|(v, l)| crate::ui_types::OptionInfo {
+                value: v.clone(),
+                label: l.clone(),
+            })
+            .collect(),
+        ..prop(key, label, value, true)
     }
 }
 
@@ -71,6 +85,28 @@ pub fn summarize(
                     props.push(prop("reference", "Reference", &c.reference, true));
                     props.push(prop("value", "Value", &c.value, true));
                     props.push(prop("footprint", "Footprint", &c.footprint, true));
+                    if let Some(sym) = sch.symbol(&c.lib_id) {
+                        if sym.unit_count > 1 {
+                            let units: Vec<(String, String)> = (1..=sym.unit_count)
+                                .map(|u| {
+                                    (u.to_string(), format!("Unit {}", (b'A' + u - 1) as char))
+                                })
+                                .collect();
+                            props.push(choice("unit", "Unit", c.unit.to_string(), &units));
+                        }
+                        if sym.has_alternate() {
+                            let reprs = vec![
+                                ("1".to_owned(), "Normal".to_owned()),
+                                ("2".to_owned(), "Alternate".to_owned()),
+                            ];
+                            props.push(choice(
+                                "representation",
+                                "Representation",
+                                c.representation.to_string(),
+                                &reprs,
+                            ));
+                        }
+                    }
                     props.push(prop(
                         "lib_id",
                         "Symbol",

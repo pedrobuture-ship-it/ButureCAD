@@ -20,7 +20,7 @@ pub enum Mode {
 impl Mode {
     /// Modes that have a 2D canvas backed by real data today.
     pub fn has_canvas(self) -> bool {
-        matches!(self, Mode::Schematic | Mode::Pcb)
+        matches!(self, Mode::Schematic | Mode::Pcb | Mode::SymbolEditor)
     }
 }
 
@@ -79,6 +79,15 @@ pub struct PropertyInfo {
     pub label: String,
     pub value: String,
     pub editable: bool,
+    /// Fixed choices (drop-down) for enumerated properties; empty for free text.
+    pub options: Vec<OptionInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct OptionInfo {
+    pub value: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -150,6 +159,8 @@ pub struct Snapshot {
     pub zoom_percent: f64,
     /// What the active tool expects next (status bar).
     pub hint: String,
+    /// Present while the Symbol Editor has a symbol open.
+    pub symbol_editor: Option<SymbolEditorInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -199,7 +210,7 @@ pub struct PointerResult {
     pub hint: String,
 }
 
-/// A library symbol offered by the placement tools.
+/// A library symbol offered by the placement tools and the Symbol Editor.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 pub struct SymbolInfo {
@@ -208,4 +219,45 @@ pub struct SymbolInfo {
     pub reference_prefix: String,
     pub is_power: bool,
     pub pin_count: u32,
+    /// Library the symbol belongs to (`Buture` is the built-in bootstrap set).
+    pub library: String,
+    /// Where the definition came from: `builtin`, `project` (embedded in the project) or a
+    /// library scope (`project-library`, `user-library`).
+    pub source: String,
+    pub description: String,
+    pub unit_count: u32,
+    pub has_alternate: bool,
+}
+
+/// A library file found on disk.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct LibraryInfo {
+    pub name: String,
+    /// `project` (the project's `libraries/` folder) or `user`.
+    pub scope: String,
+    pub item_count: u32,
+    pub error: Option<String>,
+}
+
+/// State of the Symbol Editor for the symbol being edited.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct SymbolEditorInfo {
+    pub lib_id: String,
+    /// Currently shown unit (1-based) and representation (1 normal, 2 alternate).
+    pub unit: u32,
+    pub unit_count: u32,
+    pub representation: u32,
+    pub has_alternate: bool,
+    /// Placed instances that use this symbol in the open project.
+    pub used_by: u32,
+    /// Pin type / orientation / length applied to the next pin placed.
+    pub pin_template: Vec<PropertyInfo>,
+    /// Symbol-level fields (name, prefix, metadata, …).
+    pub fields: Vec<PropertyInfo>,
+    /// Custom `property:<key>` entries.
+    pub custom: Vec<PropertyInfo>,
+    /// Problems that make the symbol hard to use (does not block editing).
+    pub warnings: Vec<String>,
 }

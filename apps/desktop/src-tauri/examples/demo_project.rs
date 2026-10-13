@@ -29,6 +29,8 @@ fn main() {
             value: v.into(),
             footprint: String::new(),
             properties: Default::default(),
+            unit: 1,
+            representation: 1,
             placement: Placement {
                 position: pt(x, y),
                 rotation: rot,

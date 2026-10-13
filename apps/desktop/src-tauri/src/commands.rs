@@ -249,3 +249,28 @@ pub fn property_set(
 ) -> Result<Snapshot, String> {
     state.act(|ws| ws.set_property(id, &key, &value))
 }
+
+/// Symbol Editor lifecycle and view commands (see `Workspace::symbol_editor_command`).
+#[tauri::command]
+pub fn symbol_editor_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.symbol_editor_command(&name, arg.as_deref()))
+}
+
+/// Sets a symbol-level field (name, prefix, units, metadata…) of the symbol being edited.
+#[tauri::command]
+pub fn symbol_editor_set(
+    state: State<'_, AppState>,
+    key: String,
+    value: String,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.symbol_editor_set(&key, &value))
+}
+
+#[tauri::command]
+pub fn symbol_libraries(state: State<'_, AppState>) -> Result<Vec<LibraryInfo>, String> {
+    state.with(|ws| Ok(ws.symbol_libraries()))
+}

@@ -6,6 +6,7 @@ import type { Mode } from "./Mode";
 import type { ObjectSummary } from "./ObjectSummary";
 import type { ProjectInfo } from "./ProjectInfo";
 import type { RecentProject } from "./RecentProject";
+import type { SymbolEditorInfo } from "./SymbolEditorInfo";
 import type { ThemeName } from "./ThemeName";
 import type { Units } from "./Units";
 
@@ -36,4 +37,8 @@ object_count: number, zoom_percent: number,
 /**
  * What the active tool expects next (status bar).
  */
-hint: string, };
+hint: string, 
+/**
+ * Present while the Symbol Editor has a symbol open.
+ */
+symbol_editor: SymbolEditorInfo | null, };

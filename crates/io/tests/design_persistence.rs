@@ -17,6 +17,8 @@ fn comp(r: &str, lib: &str) -> Component {
         value: "100n".into(),
         footprint: String::new(),
         properties: Default::default(),
+        unit: 1,
+        representation: 1,
         placement: Placement {
             position: Point::new(1_270_000, 2_540_000),
             rotation: 1,

@@ -14,6 +14,7 @@ pub mod bus;
 pub mod connectivity;
 pub mod model;
 pub mod schematic;
+pub mod symbol_edit;
 
 pub use connectivity::{Connectivity, Issue, Net, NetId, PinRef};
 pub use model::*;

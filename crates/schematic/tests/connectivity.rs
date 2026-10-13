@@ -47,6 +47,8 @@ impl B {
                 value: "".into(),
                 footprint: "".into(),
                 properties: Default::default(),
+                unit: 1,
+                representation: 1,
                 placement,
             }),
         )
@@ -481,6 +483,8 @@ fn validation_rejects_bad_objects() {
             value: "".into(),
             footprint: "".into(),
             properties: Default::default(),
+            unit: 1,
+            representation: 1,
             placement: Placement {
                 position: Point::ORIGIN,
                 rotation,

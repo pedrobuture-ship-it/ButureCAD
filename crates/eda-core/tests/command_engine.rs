@@ -17,6 +17,8 @@ fn comp(r: &str, x: i64) -> Component {
         value: "10k".into(),
         footprint: String::new(),
         properties: Default::default(),
+        unit: 1,
+        representation: 1,
         placement: Placement::at(Point::new(x, 0)),
     }
 }

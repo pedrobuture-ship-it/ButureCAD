@@ -5,6 +5,7 @@ import type { LayerInfo } from "../bindings/LayerInfo";
 import type { Snapshot } from "../bindings/Snapshot";
 import { useUi } from "../store";
 import { MODE_TITLES } from "../tools";
+import { FieldEditor, SymbolFields } from "./SymbolEditor";
 
 /** An editable property: commits on Enter or blur, and only when the value changed. */
 function PropertyInput({
@@ -106,7 +107,12 @@ export function Inspector() {
                 <div key={p.key} className="prop-row">
                   <dt>{p.label}</dt>
                   <dd title={p.value}>
-                    {p.editable ? (
+                    {p.editable && p.options.length > 0 ? (
+                      <FieldEditor
+                        prop={p}
+                        onCommit={(v) => void call(api.propertySet(sel[0]!.id, p.key, v))}
+                      />
+                    ) : p.editable ? (
                       <PropertyInput objectId={sel[0].id} propKey={p.key} value={p.value} />
                     ) : (
                       p.value
@@ -133,6 +139,7 @@ export function Inspector() {
           </>
         )}
       </section>
+      {snap.mode === "symbol_editor" && <SymbolFields />}
       {snap.layers.length > 0 && (
         <section>
           <h3>{snap.mode === "pcb" ? "Layers" : "Object classes"}</h3>

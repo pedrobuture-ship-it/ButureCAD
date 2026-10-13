@@ -36,6 +36,7 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     object_count: 0,
     zoom_percent: 100,
     hint: "",
+    symbol_editor: null,
     ...over,
   };
 }
@@ -53,10 +54,14 @@ const find = (id: string) => {
 describe("command registry", () => {
   beforeEach(() => store.reset());
 
-  it("has unique ids and unique shortcuts", () => {
+  it("has unique ids and unique shortcuts (Symbol Editor tools may reuse keys)", () => {
     const ids = commands.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    const shortcuts = commands.flatMap((c) => (c.shortcut ? [c.shortcut.toLowerCase()] : []));
+    // Symbol Editor tools reuse letters of schematic tools; the Symbol Editor describe block
+    // below checks that the two are never available at the same time.
+    const shortcuts = commands.flatMap((c) =>
+      c.shortcut && !c.id.startsWith("symtool.") ? [c.shortcut.toLowerCase()] : [],
+    );
     expect(new Set(shortcuts).size).toBe(shortcuts.length);
   });
 
@@ -126,5 +131,63 @@ describe("command palette search", () => {
     expect(fuzzyScore("sv", "Save")).not.toBeNull();
     expect(fuzzyScore("vs", "Save")).toBeNull();
     expect((fuzzyScore("sa", "Save") ?? 0) > (fuzzyScore("sa", "Cases") ?? 0)).toBe(true);
+  });
+});
+
+describe("Symbol Editor commands", () => {
+  const withSymbol = (over: Partial<Snapshot> = {}) =>
+    snapshot({
+      mode: "symbol_editor",
+      symbol_editor: {
+        lib_id: "User:X",
+        unit: 1,
+        unit_count: 1,
+        representation: 1,
+        has_alternate: false,
+        used_by: 0,
+        pin_template: [],
+        fields: [],
+        custom: [],
+        warnings: [],
+      },
+      ...over,
+    });
+  const state = (snap: Snapshot): UiState => ({ ...store.getState(), snapshot: snap });
+  const byId = (id: string) => {
+    const c = commands.find((x) => x.id === id);
+    if (!c) throw new Error(`missing command ${id}`);
+    return c;
+  };
+
+  it("symbol tools need an open symbol in the Symbol Editor", () => {
+    expect(availability(byId("symtool.pin"), state(snapshot()))).not.toBe(true);
+    expect(availability(byId("symtool.pin"), state(withSymbol({ symbol_editor: null })))).not.toBe(
+      true,
+    );
+    expect(availability(byId("symtool.pin"), state(withSymbol()))).toBe(true);
+  });
+
+  it("shares keys with other modes without ever being available together", () => {
+    for (const sym of commands.filter((c) => c.id.startsWith("symtool."))) {
+      const clashes = commands.filter(
+        (c) => c !== sym && c.shortcut?.toLowerCase() === sym.shortcut?.toLowerCase(),
+      );
+      for (const other of clashes) {
+        for (const snap of [snapshot(), withSymbol()]) {
+          const both =
+            availability(sym, state(snap)) === true && availability(other, state(snap)) === true;
+          expect(both, `${sym.id} vs ${other.id} in ${snap.mode}`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("rotate and mirror work in both editors, schematic-only commands do not", () => {
+    const st = state(
+      withSymbol({ selection: [{ id: 1, kind: "pin", title: "p", properties: [] }] }),
+    );
+    expect(availability(byId("edit.rotate"), st)).toBe(true);
+    expect(availability(byId("edit.delete"), st)).toBe(true);
+    expect(availability(byId("edit.duplicate"), st)).not.toBe(true);
   });
 });

@@ -852,10 +852,51 @@ pub fn new_component(sch: &Schematic, symbol: &Symbol, placement: Placement) -> 
         lib_id: symbol.name.clone(),
         reference: sch.next_reference(prefix),
         value: symbol.default_value.clone(),
-        footprint: String::new(),
+        footprint: symbol.meta.default_footprint.clone(),
         properties: BTreeMap::new(),
         placement,
+        unit: 1,
+        representation: REPR_NORMAL,
     }
+}
+
+/// A new component for one `unit` of a multi-unit `symbol`. Unit 1 always gets a fresh
+/// reference. Any other unit joins the most recently placed part of the same symbol that does
+/// not have that unit yet (so `U1A`, `U1B` share `U1`); with none, it gets a fresh reference.
+pub fn new_component_unit(
+    sch: &Schematic,
+    symbol: &Symbol,
+    placement: Placement,
+    unit: u8,
+) -> Component {
+    let mut c = new_component(sch, symbol, placement);
+    c.unit = unit.clamp(1, symbol.unit_count.max(1));
+    if c.unit == 1 {
+        return c;
+    }
+    let parts: Vec<(Id, &Component)> = sch
+        .sheets()
+        .values()
+        .flat_map(|s| s.objects.iter())
+        .filter_map(|(id, o)| match o {
+            Object::Component(p) if p.lib_id == symbol.name => Some((*id, p)),
+            _ => None,
+        })
+        .collect();
+    let host = parts
+        .iter()
+        .filter(|(_, p)| {
+            !parts
+                .iter()
+                .any(|(_, q)| q.reference == p.reference && q.unit == c.unit)
+        })
+        .max_by_key(|(id, _)| *id);
+    if let Some((_, p)) = host {
+        c.reference = p.reference.clone();
+        c.value = p.value.clone();
+        c.footprint = p.footprint.clone();
+    }
+    c
 }
 
 pub fn new_power_symbol(symbol: &Symbol, placement: Placement) -> PowerSymbol {
@@ -1007,6 +1048,23 @@ pub fn set_property(sch: &Schematic, id: Id, key: &str, value: &str) -> Result<C
         (Object::Component(c), "reference") => c.reference = value.trim().to_owned(),
         (Object::Component(c), "value") => c.value = value.to_owned(),
         (Object::Component(c), "footprint") => c.footprint = value.to_owned(),
+        (Object::Component(c), "unit") => {
+            c.unit = value
+                .trim()
+                .parse()
+                .map_err(|_| EditError::Invalid("unit must be a whole number".into()))?
+        }
+        (Object::Component(c), "representation") => {
+            c.representation = match value.trim() {
+                "1" | "normal" => REPR_NORMAL,
+                "2" | "alternate" => REPR_ALTERNATE,
+                other => {
+                    return Err(EditError::Invalid(format!(
+                        "representation must be normal or alternate, got {other:?}"
+                    )))
+                }
+            }
+        }
         (Object::NetLabel(l), "name") => l.name = value.trim().to_owned(),
         (Object::GlobalLabel(l), "name") => l.name = value.trim().to_owned(),
         (Object::HierLabel(l), "name") => l.name = value.trim().to_owned(),
