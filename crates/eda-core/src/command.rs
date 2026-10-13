@@ -3,6 +3,7 @@
 use crate::model::{Id, ModelError};
 use crate::project::ProjectError;
 use crate::Project;
+use buturecad_schematic::SchematicError;
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq, Clone)]
@@ -11,6 +12,8 @@ pub enum CommandError {
     Model(#[from] ModelError),
     #[error(transparent)]
     Project(#[from] ProjectError),
+    #[error(transparent)]
+    Schematic(#[from] SchematicError),
     #[error("{kind} {id:?} does not exist")]
     MissingEntity { kind: &'static str, id: Id },
     #[error("{kind} {id:?} already exists")]

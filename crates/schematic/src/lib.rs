@@ -1,4 +1,20 @@
-//! Schematic model: components, pins, wires, labels, connectivity.
+//! Schematic model and logical connectivity.
 //!
-//! **Status: not implemented.** This crate is a reserved slot in the workspace
-//! (see `docs/ROADMAP.md`). It intentionally contains no functionality yet.
+//! Strict separation (see `docs/ARCHITECTURE.md`):
+//!
+//! * [`model`] — plain data (symbols, components, wires, labels, sheets).
+//! * [`schematic`] — the container, validation and reversible [`Change`] sets.
+//! * [`connectivity`] — electrical connectivity derived from the model, never from pixels.
+//! * [`builtin`] — a small bootstrap symbol library (to be superseded by the libraries crate).
+//!
+//! Rendering and tools live outside this crate.
+
+pub mod builtin;
+pub mod bus;
+pub mod connectivity;
+pub mod model;
+pub mod schematic;
+
+pub use connectivity::{Connectivity, Issue, Net, NetId, PinRef};
+pub use model::*;
+pub use schematic::{Change, PlacedPin, Schematic, SchematicError};

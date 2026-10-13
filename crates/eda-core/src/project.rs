@@ -1,7 +1,11 @@
 //! The in-memory project. Mutated only through the Command Engine.
 
-use crate::model::{Id, PcbDoc, SchematicDoc};
+use crate::model::{Id, PcbDoc};
+use buturecad_schematic::Schematic;
 use thiserror::Error;
+
+/// The root sheet always has this id; allocated ids start at 1, so it can never collide.
+pub const ROOT_SHEET: Id = Id(0);
 
 /// Maximum accepted project name length, in characters.
 pub const MAX_NAME_LEN: usize = 128;
@@ -25,7 +29,7 @@ pub enum ProjectError {
 #[derive(Debug, Clone)]
 pub struct Project {
     name: String,
-    pub(crate) schematic: SchematicDoc,
+    pub(crate) schematic: Schematic,
     pub(crate) pcb: PcbDoc,
     next_id: u64,
 }
@@ -46,7 +50,7 @@ impl Project {
         Self::validate_name(&name)?;
         Ok(Self {
             name,
-            schematic: SchematicDoc::default(),
+            schematic: Schematic::new(ROOT_SHEET),
             pcb: PcbDoc::default(),
             next_id: 1,
         })
@@ -55,20 +59,20 @@ impl Project {
     /// Rebuilds a project from loaded documents. The id counter resumes after the highest id.
     pub fn from_parts(
         name: impl Into<String>,
-        schematic: SchematicDoc,
+        schematic: Schematic,
         pcb: PcbDoc,
     ) -> Result<Self, ProjectError> {
         let mut p = Self::new(name)?;
         let max = schematic
-            .components
-            .keys()
-            .chain(schematic.wires.keys())
+            .sheets()
+            .iter()
+            .flat_map(|(sid, sheet)| std::iter::once(sid).chain(sheet.objects.keys()))
             .chain(pcb.tracks.keys())
             .chain(pcb.vias.keys())
             .map(|id| id.0)
             .max()
             .unwrap_or(0);
-        p.next_id = max.saturating_add(1);
+        p.next_id = max.saturating_add(1).max(1);
         p.schematic = schematic;
         p.pcb = pcb;
         Ok(p)
@@ -77,7 +81,7 @@ impl Project {
     pub fn name(&self) -> &str {
         &self.name
     }
-    pub fn schematic(&self) -> &SchematicDoc {
+    pub fn schematic(&self) -> &Schematic {
         &self.schematic
     }
     pub fn pcb(&self) -> &PcbDoc {
@@ -143,7 +147,7 @@ mod tests {
                 drill: 300_000,
             },
         );
-        let mut p = Project::from_parts("x", SchematicDoc::default(), pcb).unwrap();
+        let mut p = Project::from_parts("x", Schematic::new(ROOT_SHEET), pcb).unwrap();
         assert_eq!(p.alloc_id(), Id(42));
     }
 }

@@ -66,6 +66,12 @@ impl CommandEngine {
         &self.project
     }
 
+    /// Reserves a fresh object id. Ids are never reused, so reserving one is not a model change
+    /// and is not undoable; tools use this to build commands that create several objects.
+    pub fn new_id(&mut self) -> crate::model::Id {
+        self.project.alloc_id()
+    }
+
     pub fn into_project(self) -> Project {
         self.project
     }

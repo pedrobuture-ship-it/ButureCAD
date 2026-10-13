@@ -1,9 +1,12 @@
 //! Concrete commands.
 
 use crate::command::{Command, CommandError};
-use crate::model::{Component, Entity, Id, Track, Via, Wire};
+use crate::model::{Entity, Id, Track, Via};
 use crate::Project;
-use buturecad_geometry::Point;
+use buturecad_geometry::{Point, Segment};
+use buturecad_schematic::{
+    Change, Component, Object, Placement, Schematic, SchematicError, Symbol, Wire,
+};
 
 /// Creates an entity. The id is allocated on first apply and reused on redo.
 #[derive(Debug)]
@@ -92,64 +95,148 @@ impl<E: Entity> Command for DeleteCommand<E> {
     }
 }
 
-pub type PlaceComponentCommand = CreateCommand<Component>;
-pub type DeleteComponentCommand = DeleteCommand<Component>;
-pub type CreateWireCommand = CreateCommand<Wire>;
-pub type DeleteWireCommand = DeleteCommand<Wire>;
 pub type CreateTrackCommand = CreateCommand<Track>;
 pub type DeleteTrackCommand = DeleteCommand<Track>;
 pub type CreateViaCommand = CreateCommand<Via>;
 pub type DeleteViaCommand = DeleteCommand<Via>;
 
-/// Moves a component to an absolute position.
+/// Applies a set of reversible schematic object changes as one atomic step.
+///
+/// Tools compute [`Change`]s (full before/after object states) and wrap them here, which keeps
+/// undo/redo trivially exact and makes every edit reviewable as a diff.
 #[derive(Debug)]
-pub struct MoveComponentCommand {
-    id: Id,
-    to: Point,
-    from: Option<Point>,
+pub struct SchematicEditCommand {
+    label: String,
+    changes: Vec<Change>,
 }
 
-impl MoveComponentCommand {
-    pub fn new(id: Id, to: Point) -> Self {
-        Self { id, to, from: None }
+impl SchematicEditCommand {
+    pub fn new(label: impl Into<String>, changes: Vec<Change>) -> Self {
+        Self {
+            label: label.into(),
+            changes,
+        }
+    }
+    pub fn changes(&self) -> &[Change] {
+        &self.changes
+    }
+    pub fn is_empty(&self) -> bool {
+        self.changes.is_empty()
     }
 }
 
-impl Command for MoveComponentCommand {
+impl Command for SchematicEditCommand {
     fn label(&self) -> String {
-        "Move component".into()
+        self.label.clone()
     }
     fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
-        buturecad_geometry::Point::try_new(self.to.x, self.to.y)
-            .map_err(|_| crate::model::ModelError::OutOfRange)?;
-        let c =
-            project
-                .schematic
-                .components
-                .get_mut(&self.id)
-                .ok_or(CommandError::MissingEntity {
-                    kind: Component::KIND,
-                    id: self.id,
-                })?;
-        self.from = Some(std::mem::replace(&mut c.position, self.to));
+        Ok(project.schematic.apply(&self.changes)?)
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        Ok(project.schematic.revert(&self.changes)?)
+    }
+}
+
+/// Adds library symbols to the project's embedded symbol table (symbols already present are left
+/// untouched). Needed before placing parts that use them.
+#[derive(Debug)]
+pub struct AddSymbolsCommand {
+    symbols: Vec<Symbol>,
+    added: Vec<String>,
+}
+
+impl AddSymbolsCommand {
+    pub fn new(symbols: Vec<Symbol>) -> Self {
+        Self {
+            symbols,
+            added: Vec::new(),
+        }
+    }
+}
+
+impl Command for AddSymbolsCommand {
+    fn label(&self) -> String {
+        "Add symbols".into()
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        self.added.clear();
+        for s in &self.symbols {
+            if project.schematic.symbol(&s.name).is_none() {
+                project.schematic.add_symbol(s.clone());
+                self.added.push(s.name.clone());
+            }
+        }
         Ok(())
     }
     fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
-        let from = self
-            .from
-            .take()
-            .ok_or_else(|| CommandError::HistoryCorrupted("move never applied".into()))?;
-        let c =
-            project
-                .schematic
-                .components
-                .get_mut(&self.id)
-                .ok_or(CommandError::MissingEntity {
-                    kind: Component::KIND,
-                    id: self.id,
-                })?;
-        c.position = from;
+        for name in self.added.drain(..).rev() {
+            project.schematic.remove_symbol(&name)?;
+        }
         Ok(())
+    }
+}
+
+/// Creates one schematic object.
+pub fn create_object(label: &str, sheet: Id, id: Id, object: Object) -> SchematicEditCommand {
+    SchematicEditCommand::new(label, vec![Change::create(sheet, id, object)])
+}
+
+/// Places a component instance.
+pub fn place_component(sheet: Id, id: Id, component: Component) -> SchematicEditCommand {
+    create_object("Place component", sheet, id, Object::Component(component))
+}
+
+/// Draws a wire segment.
+pub fn create_wire(sheet: Id, id: Id, segment: Segment) -> SchematicEditCommand {
+    create_object("Create wire", sheet, id, Object::Wire(Wire { segment }))
+}
+
+/// Deletes objects (the current state is captured from `schematic` so undo restores it exactly).
+pub fn delete_objects(
+    schematic: &Schematic,
+    ids: &[Id],
+) -> Result<SchematicEditCommand, CommandError> {
+    let mut changes = Vec::with_capacity(ids.len());
+    for id in ids {
+        let (sheet, obj) = schematic
+            .object(*id)
+            .ok_or(SchematicError::NoSuchObject(*id))?;
+        changes.push(Change::delete(sheet, *id, obj.clone()));
+    }
+    Ok(SchematicEditCommand::new(
+        if ids.len() == 1 {
+            "Delete object"
+        } else {
+            "Delete objects"
+        },
+        changes,
+    ))
+}
+
+/// Moves a component to an absolute position, keeping its rotation and mirror.
+pub fn move_component(
+    schematic: &Schematic,
+    id: Id,
+    to: Point,
+) -> Result<SchematicEditCommand, CommandError> {
+    match schematic.object(id) {
+        Some((sheet, Object::Component(c))) => {
+            let mut moved = c.clone();
+            moved.placement = Placement {
+                position: to,
+                ..c.placement
+            };
+            Ok(SchematicEditCommand::new(
+                "Move component",
+                vec![Change::modify(
+                    sheet,
+                    id,
+                    Object::Component(c.clone()),
+                    Object::Component(moved),
+                )],
+            ))
+        }
+        _ => Err(SchematicError::NoSuchObject(id).into()),
     }
 }
 

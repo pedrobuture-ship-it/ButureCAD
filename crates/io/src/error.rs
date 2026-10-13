@@ -40,6 +40,8 @@ pub enum IoError {
     },
     #[error(transparent)]
     Command(#[from] buturecad_eda_core::CommandError),
+    #[error("invalid document {path}: {reason}")]
+    InvalidDocument { path: PathBuf, reason: String },
     #[error("refusing to copy symbolic link {0}")]
     Symlink(PathBuf),
 }

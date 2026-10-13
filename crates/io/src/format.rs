@@ -3,8 +3,8 @@
 //! See `docs/file-format/`.
 
 use crate::error::{IoError, Result};
-use buturecad_eda_core::model::{Component, Id, Track, Via, Wire};
-use buturecad_eda_core::model::{PcbDoc, SchematicDoc};
+use buturecad_eda_core::model::{Id, PcbDoc, Track, Via};
+use buturecad_schematic::{Schematic, Sheet, Symbol};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,8 +14,13 @@ use std::path::Path;
 pub const FORMAT_TAG: &str = "buturecad.project";
 pub const SCHEMATIC_TAG: &str = "buturecad.schematic";
 pub const PCB_TAG: &str = "buturecad.pcb";
-/// Schema version written by this build (all file kinds start at 1).
+/// Schema version of `project.buture` written by this build.
 pub const CURRENT_SCHEMA: u32 = 1;
+/// Schema version of the schematic document. v1 was the pre-release skeleton (components + wires
+/// without symbols or sheets); v2 is the full schematic model. See [`migrate_schematic_v1_to_v2`].
+pub const SCHEMATIC_SCHEMA: u32 = 2;
+/// Schema version of the PCB document.
+pub const PCB_SCHEMA: u32 = 1;
 
 /// A migration step rewriting a document from version `from` to `from + 1`.
 pub type MigrationFn = fn(&mut Value) -> std::result::Result<(), String>;
@@ -27,11 +32,19 @@ pub struct Migrations {
 }
 
 impl Migrations {
-    /// Production registry. Schema 1 is the first released version, so no steps exist yet.
+    /// Registry for files whose schema 1 is still current (manifest, PCB): no steps yet.
     pub fn builtin() -> Self {
         Self {
-            first_version: CURRENT_SCHEMA,
+            first_version: 1,
             steps: Vec::new(),
+        }
+    }
+
+    /// Registry for the schematic document: v1 → v2.
+    pub fn schematic() -> Self {
+        Self {
+            first_version: 1,
+            steps: vec![migrate_schematic_v1_to_v2],
         }
     }
 
@@ -150,29 +163,94 @@ pub fn parse_manifest_with(path: &Path, bytes: &[u8], migrations: &Migrations) -
     Ok(Manifest { name: m.name })
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SchematicV1 {
-    format: String,
-    schema_version: u32,
-    components: BTreeMap<Id, Component>,
-    wires: BTreeMap<Id, Wire>,
+/// Schematic v1 → v2. v1 held `components` (reference/value/position/rotation) and `wires`
+/// directly; v2 nests objects in sheets and gives components a placement and a (here empty)
+/// symbol reference. The single sheet gets the reserved root id `0`, which cannot collide.
+pub fn migrate_schematic_v1_to_v2(doc: &mut Value) -> std::result::Result<(), String> {
+    let obj = doc.as_object_mut().ok_or("document is not an object")?;
+    let components = obj.remove("components").ok_or("missing components")?;
+    let wires = obj.remove("wires").ok_or("missing wires")?;
+    let mut objects = serde_json::Map::new();
+    for (id, c) in components
+        .as_object()
+        .ok_or("components is not an object")?
+    {
+        let field = |name: &str| {
+            c.get(name)
+                .cloned()
+                .ok_or_else(|| format!("component {id} lacks {name}"))
+        };
+        let mut o = serde_json::Map::new();
+        o.insert("type".into(), "component".into());
+        o.insert("lib_id".into(), "".into());
+        o.insert("reference".into(), field("reference")?);
+        o.insert("value".into(), field("value")?);
+        o.insert("footprint".into(), "".into());
+        o.insert("properties".into(), Value::Object(Default::default()));
+        let mut placement = serde_json::Map::new();
+        placement.insert("position".into(), field("position")?);
+        placement.insert("rotation".into(), field("rotation")?);
+        placement.insert("mirror".into(), false.into());
+        o.insert("placement".into(), Value::Object(placement));
+        objects.insert(id.clone(), Value::Object(o));
+    }
+    for (id, w) in wires.as_object().ok_or("wires is not an object")? {
+        let mut o = serde_json::Map::new();
+        o.insert("type".into(), "wire".into());
+        o.insert(
+            "segment".into(),
+            w.get("segment")
+                .cloned()
+                .ok_or_else(|| format!("wire {id} lacks segment"))?,
+        );
+        if objects.insert(id.clone(), Value::Object(o)).is_some() {
+            return Err(format!("object id {id} used twice"));
+        }
+    }
+    let mut sheet = serde_json::Map::new();
+    sheet.insert("name".into(), "Root".into());
+    sheet.insert("objects".into(), Value::Object(objects));
+    let mut sheets = serde_json::Map::new();
+    sheets.insert("0".into(), Value::Object(sheet));
+    obj.insert("root".into(), 0.into());
+    obj.insert("symbols".into(), Value::Object(Default::default()));
+    obj.insert("sheets".into(), Value::Object(sheets));
+    Ok(())
 }
 
-pub fn serialize_schematic(doc: &SchematicDoc) -> Vec<u8> {
-    to_bytes(&SchematicV1 {
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SchematicV2 {
+    format: String,
+    schema_version: u32,
+    root: Id,
+    symbols: BTreeMap<String, Symbol>,
+    sheets: BTreeMap<Id, Sheet>,
+}
+
+pub fn serialize_schematic(doc: &Schematic) -> Vec<u8> {
+    to_bytes(&SchematicV2 {
         format: SCHEMATIC_TAG.into(),
-        schema_version: CURRENT_SCHEMA,
-        components: doc.components.clone(),
-        wires: doc.wires.clone(),
+        schema_version: SCHEMATIC_SCHEMA,
+        root: doc.root(),
+        symbols: doc.symbols().clone(),
+        sheets: doc.sheets().clone(),
     })
 }
 
-pub fn parse_schematic(path: &Path, bytes: &[u8]) -> Result<SchematicDoc> {
-    let f: SchematicV1 = parse_migrated(path, bytes, SCHEMATIC_TAG, &Migrations::builtin())?;
-    Ok(SchematicDoc {
-        components: f.components,
-        wires: f.wires,
+pub fn parse_schematic(path: &Path, bytes: &[u8]) -> Result<Schematic> {
+    parse_schematic_with(path, bytes, &Migrations::schematic())
+}
+
+pub fn parse_schematic_with(
+    path: &Path,
+    bytes: &[u8],
+    migrations: &Migrations,
+) -> Result<Schematic> {
+    let f: SchematicV2 = parse_migrated(path, bytes, SCHEMATIC_TAG, migrations)?;
+    Schematic::from_parts(f.root, f.symbols, f.sheets).map_err(|source| IoError::InvalidDocument {
+        path: path.into(),
+        reason: source.to_string(),
     })
 }
 
@@ -188,7 +266,7 @@ struct PcbV1 {
 pub fn serialize_pcb(doc: &PcbDoc) -> Vec<u8> {
     to_bytes(&PcbV1 {
         format: PCB_TAG.into(),
-        schema_version: CURRENT_SCHEMA,
+        schema_version: PCB_SCHEMA,
         tracks: doc.tracks.clone(),
         vias: doc.vias.clone(),
     })

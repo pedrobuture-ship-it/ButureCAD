@@ -2,8 +2,9 @@
 
 use buturecad_eda_core::commands::*;
 use buturecad_eda_core::model::*;
-use buturecad_eda_core::{Command, CommandEngine, CommandError, Project};
+use buturecad_eda_core::{Command, CommandEngine, CommandError, Project, ROOT_SHEET};
 use buturecad_geometry::{Point, Segment};
+use buturecad_schematic::{builtin, Component, Object, Placement, SchematicError, Wire};
 use proptest::prelude::*;
 
 fn engine() -> CommandEngine {
@@ -11,10 +12,12 @@ fn engine() -> CommandEngine {
 }
 fn comp(r: &str, x: i64) -> Component {
     Component {
+        lib_id: String::new(),
         reference: r.into(),
         value: "10k".into(),
-        position: Point::new(x, 0),
-        rotation: 0,
+        footprint: String::new(),
+        properties: Default::default(),
+        placement: Placement::at(Point::new(x, 0)),
     }
 }
 fn track(x: i64) -> Track {
@@ -24,74 +27,75 @@ fn track(x: i64) -> Track {
         width: 200_000,
     }
 }
+fn objects(e: &CommandEngine) -> usize {
+    e.project().schematic().object_count()
+}
 fn place(e: &mut CommandEngine, r: &str) -> Id {
-    let before = e.project().schematic().components.len();
-    e.execute(PlaceComponentCommand::new(comp(r, 0))).unwrap();
-    assert_eq!(e.project().schematic().components.len(), before + 1);
-    // Ids are allocated monotonically, so the newest component has the highest id.
-    *e.project().schematic().components.keys().max().unwrap()
+    let id = e.new_id();
+    e.execute(place_component(ROOT_SHEET, id, comp(r, 0)))
+        .unwrap();
+    id
+}
+fn position(e: &CommandEngine, id: Id) -> Point {
+    match e.project().schematic().object(id).unwrap().1 {
+        Object::Component(c) => c.placement.position,
+        _ => unreachable!(),
+    }
+}
+fn move_to(e: &mut CommandEngine, id: Id, p: Point) -> Result<(), CommandError> {
+    let cmd = move_component(e.project().schematic(), id, p)?;
+    e.execute(cmd)
+}
+fn delete(e: &mut CommandEngine, id: Id) -> Result<(), CommandError> {
+    let cmd = delete_objects(e.project().schematic(), &[id])?;
+    e.execute(cmd)
 }
 
 #[test]
 fn place_undo_redo_keeps_the_same_id() {
     let mut e = engine();
     let id = place(&mut e, "R1");
-    assert_eq!(e.undo().unwrap().as_deref(), Some("Create component"));
-    assert!(e.project().schematic().components.is_empty());
-    assert_eq!(e.redo().unwrap().as_deref(), Some("Create component"));
-    assert_eq!(
-        e.project()
-            .schematic()
-            .components
-            .get(&id)
-            .unwrap()
-            .reference,
-        "R1"
-    );
+    assert_eq!(e.undo().unwrap().as_deref(), Some("Place component"));
+    assert_eq!(objects(&e), 0);
+    assert_eq!(e.redo().unwrap().as_deref(), Some("Place component"));
+    assert!(e.project().schematic().object(id).is_some());
 }
 
 #[test]
 fn move_and_delete_roundtrip() {
     let mut e = engine();
     let id = place(&mut e, "R1");
-    e.execute(MoveComponentCommand::new(id, Point::new(500, 700)))
-        .unwrap();
-    assert_eq!(
-        e.project().schematic().components[&id].position,
-        Point::new(500, 700)
-    );
-    e.execute(DeleteComponentCommand::new(id)).unwrap();
-    assert!(e.project().schematic().components.is_empty());
+    move_to(&mut e, id, Point::new(500, 700)).unwrap();
+    assert_eq!(position(&e, id), Point::new(500, 700));
+    delete(&mut e, id).unwrap();
+    assert_eq!(objects(&e), 0);
     e.undo().unwrap();
-    assert_eq!(
-        e.project().schematic().components[&id].position,
-        Point::new(500, 700)
-    );
+    assert_eq!(position(&e, id), Point::new(500, 700));
     e.undo().unwrap();
-    assert_eq!(
-        e.project().schematic().components[&id].position,
-        Point::new(0, 0)
-    );
+    assert_eq!(position(&e, id), Point::new(0, 0));
 }
 
 #[test]
 fn wire_track_via_commands() {
     let mut e = engine();
-    let wire = Wire {
-        segment: Segment::new(Point::new(0, 0), Point::new(100, 0)),
-    };
-    let via = Via {
+    let wire_id = e.new_id();
+    e.execute(create_wire(
+        ROOT_SHEET,
+        wire_id,
+        Segment::new(Point::new(0, 0), Point::new(100, 0)),
+    ))
+    .unwrap();
+    e.execute(CreateTrackCommand::new(track(1_000_000)))
+        .unwrap();
+    e.execute(CreateViaCommand::new(Via {
         position: Point::new(5, 5),
         diameter: 600_000,
         drill: 300_000,
-    };
-    e.execute(CreateWireCommand::new(wire)).unwrap();
-    e.execute(CreateTrackCommand::new(track(1_000_000)))
-        .unwrap();
-    e.execute(CreateViaCommand::new(via)).unwrap();
+    }))
+    .unwrap();
     assert_eq!(
         (
-            e.project().schematic().wires.len(),
+            objects(&e),
             e.project().pcb().tracks.len(),
             e.project().pcb().vias.len()
         ),
@@ -107,18 +111,67 @@ fn wire_track_via_commands() {
 }
 
 #[test]
+fn symbols_are_added_through_a_command_and_undone_with_it() {
+    let mut e = engine();
+    e.transaction("Place resistor", |e| {
+        e.execute(AddSymbolsCommand::new(builtin::symbols()))?;
+        let id = e.new_id();
+        let mut c = comp("R1", 0);
+        c.lib_id = "Buture:R".into();
+        e.execute(place_component(ROOT_SHEET, id, c))
+    })
+    .unwrap();
+    assert!(e.project().schematic().symbol("Buture:R").is_some());
+    e.undo().unwrap();
+    assert!(e.project().schematic().symbol("Buture:R").is_none());
+    assert_eq!(e.project(), &Project::new("T").unwrap());
+    e.redo().unwrap();
+    assert!(e.project().schematic().symbol("Buture:R").is_some());
+}
+
+#[test]
+fn placing_a_part_without_its_symbol_is_rejected() {
+    let mut e = engine();
+    let id = e.new_id();
+    let mut c = comp("R1", 0);
+    c.lib_id = "Buture:R".into();
+    assert_eq!(
+        e.execute(place_component(ROOT_SHEET, id, c)),
+        Err(CommandError::Schematic(SchematicError::UnknownSymbol(
+            "Buture:R".into()
+        )))
+    );
+}
+
+#[test]
 fn invalid_commands_fail_atomically_and_leave_no_history() {
     let mut e = engine();
     let before = e.project().clone();
+    let id = e.new_id();
+    let flat = Wire {
+        segment: Segment::new(Point::ORIGIN, Point::ORIGIN),
+    };
     let bad = [
-        e.execute(PlaceComponentCommand::new(Component {
-            reference: " ".into(),
-            ..comp("x", 0)
-        })),
-        e.execute(PlaceComponentCommand::new(Component {
-            rotation: 4,
-            ..comp("R", 0)
-        })),
+        e.execute(place_component(
+            ROOT_SHEET,
+            id,
+            Component {
+                reference: " ".into(),
+                ..comp("x", 0)
+            },
+        )),
+        e.execute(place_component(
+            ROOT_SHEET,
+            id,
+            Component {
+                placement: Placement {
+                    rotation: 4,
+                    ..Placement::at(Point::ORIGIN)
+                },
+                ..comp("R", 0)
+            },
+        )),
+        e.execute(create_object("w", ROOT_SHEET, id, Object::Wire(flat))),
         e.execute(CreateTrackCommand::new(Track {
             width: 0,
             ..track(10)
@@ -132,14 +185,12 @@ fn invalid_commands_fail_atomically_and_leave_no_history() {
             diameter: 300,
             drill: 300,
         })),
-        e.execute(CreateWireCommand::new(Wire {
-            segment: Segment::new(Point::ORIGIN, Point::ORIGIN),
-        })),
-        e.execute(MoveComponentCommand::new(Id(99), Point::ORIGIN)),
         e.execute(DeleteViaCommand::new(Id(99))),
         e.execute(RenameProjectCommand::new("")),
     ];
-    assert!(bad.iter().all(Result::is_err));
+    assert!(bad.iter().all(Result::is_err), "{bad:?}");
+    assert!(move_component(e.project().schematic(), Id(99), Point::ORIGIN).is_err());
+    assert!(delete_objects(e.project().schematic(), &[Id(99)]).is_err());
     assert_eq!(e.project(), &before);
     assert!(e.undo_history().is_empty() && !e.is_dirty());
 }
@@ -147,13 +198,14 @@ fn invalid_commands_fail_atomically_and_leave_no_history() {
 #[test]
 fn out_of_range_geometry_is_rejected() {
     let mut e = engine();
+    let id = e.new_id();
     let far = Component {
-        position: Point::new(i64::MAX, 0),
+        placement: Placement::at(Point::new(i64::MAX, 0)),
         ..comp("R1", 0)
     };
     assert_eq!(
-        e.execute(PlaceComponentCommand::new(far)),
-        Err(CommandError::Model(ModelError::OutOfRange))
+        e.execute(place_component(ROOT_SHEET, id, far)),
+        Err(CommandError::Schematic(SchematicError::OutOfRange))
     );
 }
 
@@ -184,9 +236,9 @@ fn transaction_is_a_single_undo_step() {
     e.commit_transaction().unwrap();
     assert_eq!(e.undo_history(), vec!["Place resistor pair"]);
     assert_eq!(e.undo().unwrap().as_deref(), Some("Place resistor pair"));
-    assert!(e.project().schematic().components.is_empty());
+    assert_eq!(objects(&e), 0);
     e.redo().unwrap();
-    assert_eq!(e.project().schematic().components.len(), 2);
+    assert_eq!(objects(&e), 2);
 }
 
 #[test]
@@ -197,7 +249,7 @@ fn rollback_discards_everything_in_the_group() {
     place(&mut e, "R1");
     e.execute(CreateTrackCommand::new(track(10))).unwrap();
     e.rollback_transaction().unwrap();
-    assert_eq!(e.project().schematic().components.len(), 1);
+    assert_eq!(objects(&e), 1);
     assert!(e.project().pcb().tracks.is_empty());
     assert_eq!(e.undo_history().len(), 1);
 }
@@ -206,11 +258,12 @@ fn rollback_discards_everything_in_the_group() {
 fn closure_transaction_rolls_back_on_error() {
     let mut e = engine();
     let r = e.transaction("batch", |e| {
-        e.execute(PlaceComponentCommand::new(comp("R1", 0)))?;
-        e.execute(MoveComponentCommand::new(Id(999), Point::ORIGIN))
+        let id = e.new_id();
+        e.execute(place_component(ROOT_SHEET, id, comp("R1", 0)))?;
+        e.execute(DeleteViaCommand::new(Id(999)))
     });
     assert!(matches!(r, Err(CommandError::MissingEntity { .. })));
-    assert!(e.project().schematic().components.is_empty());
+    assert_eq!(objects(&e), 0);
     assert!(e.undo_history().is_empty());
     assert_eq!(e.transaction_depth(), 0);
 }
@@ -227,9 +280,9 @@ fn nested_transactions_merge_into_the_outer_step() {
     e.commit_transaction().unwrap();
     assert_eq!(e.undo_history(), vec!["outer"]);
     e.undo().unwrap();
-    assert!(e.project().schematic().components.is_empty());
+    assert_eq!(objects(&e), 0);
     e.redo().unwrap();
-    assert_eq!(e.project().schematic().components.len(), 2);
+    assert_eq!(objects(&e), 2);
 }
 
 #[test]
@@ -241,7 +294,7 @@ fn inner_rollback_keeps_outer_work() {
     place(&mut e, "R2");
     e.rollback_transaction().unwrap();
     e.commit_transaction().unwrap();
-    assert_eq!(e.project().schematic().components.len(), 1);
+    assert_eq!(objects(&e), 1);
 }
 
 #[test]
@@ -322,11 +375,7 @@ fn history_limit_drops_oldest_and_tracks_clean_point() {
     assert_eq!(e.undo_history().len(), 3);
     while e.undo().unwrap().is_some() {}
     assert!(e.is_dirty(), "the saved state fell off the history");
-    assert_eq!(
-        e.project().schematic().components.len(),
-        2,
-        "R1 and R2 are not undoable anymore"
-    );
+    assert_eq!(objects(&e), 2, "R1 and R2 are not undoable anymore");
 }
 
 #[test]
@@ -394,12 +443,12 @@ fn failing_revert_clears_history_instead_of_continuing() {
 fn composite_apply_failure_reverts_applied_children() {
     let mut project = Project::new("C").unwrap();
     let children: Vec<Box<dyn Command>> = vec![
-        Box::new(PlaceComponentCommand::new(comp("R1", 0))),
-        Box::new(MoveComponentCommand::new(Id(999), Point::ORIGIN)),
+        Box::new(place_component(ROOT_SHEET, Id(1), comp("R1", 0))),
+        Box::new(DeleteViaCommand::new(Id(999))),
     ];
     let mut c = CompositeCommand::new("c", children);
     assert!(c.apply(&mut project).is_err());
-    assert!(project.schematic().components.is_empty());
+    assert_eq!(project.schematic().object_count(), 0);
 }
 
 #[derive(Debug, Clone)]
@@ -433,22 +482,27 @@ fn op_strategy() -> impl Strategy<Value = Op> {
 
 fn run(e: &mut CommandEngine, op: &Op) {
     let pick = |e: &CommandEngine, i: usize| {
-        let ids: Vec<Id> = e.project().schematic().components.keys().copied().collect();
+        let ids: Vec<Id> = e.project().schematic().sheets()[&ROOT_SHEET]
+            .objects
+            .keys()
+            .copied()
+            .collect();
         (!ids.is_empty()).then(|| ids[i % ids.len()])
     };
     match op {
         Op::Place(x) => {
-            let n = e.project().schematic().components.len();
-            let _ = e.execute(PlaceComponentCommand::new(comp(&format!("R{n}"), *x)));
+            let n = objects(e);
+            let id = e.new_id();
+            let _ = e.execute(place_component(ROOT_SHEET, id, comp(&format!("R{n}"), *x)));
         }
         Op::Move(i, x) => {
             if let Some(id) = pick(e, *i) {
-                let _ = e.execute(MoveComponentCommand::new(id, Point::new(*x, *x)));
+                let _ = move_to(e, id, Point::new(*x, *x));
             }
         }
         Op::Delete(i) => {
             if let Some(id) = pick(e, *i) {
-                let _ = e.execute(DeleteComponentCommand::new(id));
+                let _ = delete(e, id);
             }
         }
         Op::Track(x) => {

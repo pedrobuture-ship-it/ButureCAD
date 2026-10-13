@@ -12,7 +12,7 @@ pub mod project;
 
 pub use command::{Command, CommandError};
 pub use engine::CommandEngine;
-pub use project::{Project, ProjectError};
+pub use project::{Project, ProjectError, ROOT_SHEET};
 
 /// Product name.
 pub const NAME: &str = "ButureCAD";

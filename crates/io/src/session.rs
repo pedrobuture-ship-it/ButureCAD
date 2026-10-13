@@ -223,7 +223,7 @@ pub fn read_project(root: &Path) -> Result<Project> {
     let sch_path = root.join(SCHEMATIC_FILE);
     let schematic = match read_file(&sch_path)? {
         Some(b) => parse_schematic(&sch_path, &b)?,
-        None => Default::default(),
+        None => buturecad_schematic::Schematic::new(buturecad_eda_core::ROOT_SHEET),
     };
     let pcb_path = root.join(PCB_FILE);
     let pcb = match read_file(&pcb_path)? {

@@ -15,7 +15,8 @@ Desktop GUI (Tauri + React)   buturecad-cli (planned)
 | `eda-core` | Core: project model, Command Engine | foundation |
 | `geometry` | Integer-coordinate geometry | foundation |
 | `io` | Project format, atomic save | foundation |
-| `schematic`, `pcb`, `router`, `rules`, `libraries`, `manufacturing`, `simulation`, `viewer3d`, `renderer`, `scripting`, `plugin-runtime`, `agent-api` | reserved slots | not implemented |
+| `schematic` | Schematic model, symbols, logical connectivity, change sets | core model done |
+| `pcb`, `router`, `rules`, `libraries`, `manufacturing`, `simulation`, `viewer3d`, `renderer`, `scripting`, `plugin-runtime`, `agent-api` | reserved slots | not implemented |
 | `apps/desktop` | Tauri 2 shell + React UI | shell only |
 
 ## Rules
@@ -55,8 +56,9 @@ Proprietary, all rights reserved (see `LICENSE`). Crates use `LicenseRef-Proprie
 - Autosave: the engine exposes `revision()` / `autosave_pending()`; `buturecad-io::engine` performs
   the writes, so the core stays I/O free. A recovered autosave is wrapped with
   `CommandEngine::recovered` (starts dirty). A failing `revert` clears history rather than continue.
-- The entity model (`model.rs`) is a deliberately minimal skeleton to host the commands; pins,
-  nets, footprints etc. arrive with the schematic/PCB stages.
+- Schematic edits are `SchematicEditCommand`s wrapping `Change` sets (full before/after object
+  states) from `buturecad-schematic`; `AddSymbolsCommand` embeds library symbols. Ids are reserved
+  with `CommandEngine::new_id()`. The PCB entities in `eda-core::model` remain a minimal skeleton.
 
 ## Renderer (`buturecad-renderer`)
 
