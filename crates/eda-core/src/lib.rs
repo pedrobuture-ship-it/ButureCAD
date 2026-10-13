@@ -1,9 +1,17 @@
 //! ButureCAD Core: the headless source of truth.
 //!
 //! Must never depend on React, Tauri, a window system or any AI/network service.
+//!
+//! All user-level mutations of a [`Project`] go through the [`CommandEngine`].
 
+pub mod command;
+pub mod commands;
+pub mod engine;
+pub mod model;
 pub mod project;
 
+pub use command::{Command, CommandError};
+pub use engine::CommandEngine;
 pub use project::{Project, ProjectError};
 
 /// Product name.

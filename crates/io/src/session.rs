@@ -4,39 +4,48 @@
 //!
 //! ```text
 //! MyBoard/
-//!   project.buture      manifest (source of truth)
-//!   schematic/ pcb/ libraries/ models/ scripts/ rules/ output/
-//!   .buture/            local state: backups/, autosave/, session.lock (not for version control)
+//!   project.buture            manifest
+//!   schematic/main.bsch.json  schematic document
+//!   pcb/main.bpcb.json        PCB document
+//!   libraries/ models/ scripts/ rules/ output/
+//!   .buture/                  local state: backups/, autosave/, session.lock (not for VCS)
 //! ```
 
 use crate::atomic::atomic_write;
 use crate::error::{IoError, Result};
-use crate::format::{parse_project, serialize_project};
+use crate::format::{
+    parse_manifest, parse_pcb, parse_schematic, serialize_manifest, serialize_pcb,
+    serialize_schematic,
+};
 use buturecad_eda_core::Project;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const MANIFEST_NAME: &str = "project.buture";
+pub const SCHEMATIC_FILE: &str = "schematic/main.bsch.json";
+pub const PCB_FILE: &str = "pcb/main.bpcb.json";
 pub const STATE_DIR: &str = ".buture";
-const AUTOSAVE_FILE: &str = "autosave/project.buture";
+const AUTOSAVE_DIR: &str = "autosave";
 const LOCK_FILE: &str = "session.lock";
 const BACKUP_DIR: &str = "backups";
-/// Number of manifest backups kept.
+/// Number of backup snapshots kept.
 pub const MAX_BACKUPS: usize = 5;
-const SUBDIRS: [&str; 6] = [
+const SUBDIRS: [&str; 7] = [
     "schematic",
     "pcb",
     "libraries",
     "models",
     "scripts",
     "rules",
+    "output",
 ];
 
 /// An autosave left behind by a session that did not shut down cleanly.
 #[derive(Debug)]
 pub struct Recovery {
-    pub autosave_path: PathBuf,
-    /// The recovered project, if the autosave file was readable.
+    pub autosave_dir: PathBuf,
+    /// The recovered project, if the autosave was readable. Wrap with
+    /// `CommandEngine::recovered` so it starts dirty.
     pub project: std::result::Result<Project, String>,
 }
 
@@ -45,7 +54,7 @@ pub struct Recovery {
 pub struct Opened {
     pub session: ProjectSession,
     pub project: Project,
-    /// Present only when the previous session crashed and left a newer autosave.
+    /// Present only when the previous session crashed and left an autosave.
     pub recovery: Option<Recovery>,
 }
 
@@ -74,7 +83,7 @@ impl ProjectSession {
             source,
         })?;
         init_layout(&root)?;
-        atomic_write(&root.join(MANIFEST_NAME), &serialize_project(&project))?;
+        write_project(&root, &project)?;
         let session = Self::attach(root)?;
         Ok((session, project))
     }
@@ -83,21 +92,13 @@ impl ProjectSession {
     /// crashed; if an autosave exists it is offered through [`Opened::recovery`].
     pub fn open(root: impl Into<PathBuf>) -> Result<Opened> {
         let root = root.into();
-        let manifest = root.join(MANIFEST_NAME);
-        let bytes = fs::read(&manifest).map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => IoError::NotFound(manifest.clone()),
-            _ => IoError::fs("cannot read project file", &manifest, e),
-        })?;
-        let project = parse_project(&manifest, &bytes)?;
-
+        let project = read_project(&root)?;
         let state = root.join(STATE_DIR);
+        let autosave = state.join(AUTOSAVE_DIR);
         let crashed = state.join(LOCK_FILE).exists();
-        let autosave = state.join(AUTOSAVE_FILE);
-        let recovery = (crashed && autosave.is_file()).then(|| Recovery {
-            project: fs::read(&autosave)
-                .map_err(|e| e.to_string())
-                .and_then(|b| parse_project(&autosave, &b).map_err(|e| e.to_string())),
-            autosave_path: autosave,
+        let recovery = (crashed && autosave.join(MANIFEST_NAME).is_file()).then(|| Recovery {
+            project: read_project(&autosave).map_err(|e| e.to_string()),
+            autosave_dir: autosave,
         });
         let session = Self::attach(root)?;
         Ok(Opened {
@@ -107,11 +108,14 @@ impl ProjectSession {
         })
     }
 
-    /// Atomically writes the manifest, keeping a rotating backup of the previous valid one.
+    /// Writes the project, keeping a rotating backup snapshot of the previous valid state.
+    ///
+    /// Each file is replaced atomically, documents first and the manifest last. The set of files
+    /// is **not** a single atomic unit: a crash mid-save can leave new documents next to an old
+    /// manifest. The backup snapshot taken beforehand is the recovery path for that case.
     pub fn save(&self, project: &Project) -> Result<()> {
-        let manifest = self.root.join(MANIFEST_NAME);
         self.backup_current()?;
-        atomic_write(&manifest, &serialize_project(project))?;
+        write_project(&self.root, project)?;
         self.discard_autosave()
     }
 
@@ -124,40 +128,41 @@ impl ProjectSession {
         }
         init_layout(&new_root)?;
         copy_tree(&self.root, &new_root)?;
-        atomic_write(&new_root.join(MANIFEST_NAME), &serialize_project(project))?;
+        write_project(&new_root, project)?;
         let new_session = Self::attach(new_root)?;
         // Dropping the old session releases the old lock.
         *self = new_session;
         Ok(())
     }
 
-    /// Writes the working state to the autosave slot without touching `project.buture`.
+    /// Writes the working state to the autosave slot without touching the project files.
     pub fn autosave(&self, project: &Project) -> Result<()> {
-        let path = self.root.join(STATE_DIR).join(AUTOSAVE_FILE);
-        ensure_parent(&path)?;
-        atomic_write(&path, &serialize_project(project))
+        write_project(&self.root.join(STATE_DIR).join(AUTOSAVE_DIR), project)
     }
 
     /// Removes any autosave (after a successful save or when the user declines recovery).
     pub fn discard_autosave(&self) -> Result<()> {
-        let path = self.root.join(STATE_DIR).join(AUTOSAVE_FILE);
-        match fs::remove_file(&path) {
+        let dir = self.root.join(STATE_DIR).join(AUTOSAVE_DIR);
+        match fs::remove_dir_all(&dir) {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(IoError::fs("cannot remove autosave", path, e)),
+            Err(e) => Err(IoError::fs("cannot remove autosave", dir, e)),
         }
     }
 
-    /// Backup files, oldest first.
+    /// Backup snapshot directories, oldest first.
     pub fn backups(&self) -> Result<Vec<PathBuf>> {
         let dir = self.root.join(STATE_DIR).join(BACKUP_DIR);
-        let mut files: Vec<PathBuf> = match fs::read_dir(&dir) {
-            Ok(rd) => rd.filter_map(|e| e.ok().map(|e| e.path())).collect(),
+        let mut snapshots: Vec<PathBuf> = match fs::read_dir(&dir) {
+            Ok(rd) => rd
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.is_dir())
+                .collect(),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
             Err(e) => return Err(IoError::fs("cannot list backups", dir, e)),
         };
-        files.sort();
-        Ok(files)
+        snapshots.sort();
+        Ok(snapshots)
     }
 
     fn attach(root: PathBuf) -> Result<Self> {
@@ -168,14 +173,10 @@ impl ProjectSession {
         Ok(Self { root })
     }
 
-    /// Copies the current manifest to `backups/project.NNNNNN.buture` (only if it is valid,
-    /// so a corrupt file never displaces a good backup) and prunes old ones.
+    /// Snapshots the current project files into `backups/NNNNNN/` — only when everything on
+    /// disk parses, so a corrupt state never displaces a good backup — and prunes old ones.
     fn backup_current(&self) -> Result<()> {
-        let manifest = self.root.join(MANIFEST_NAME);
-        let Ok(bytes) = fs::read(&manifest) else {
-            return Ok(());
-        };
-        if parse_project(&manifest, &bytes).is_err() {
+        if read_project(&self.root).is_err() {
             return Ok(());
         }
         let existing = self.backups()?;
@@ -183,12 +184,22 @@ impl ProjectSession {
             .last()
             .and_then(|p| backup_index(p))
             .map_or(1, |n| n + 1);
-        let dir = self.root.join(STATE_DIR).join(BACKUP_DIR);
-        fs::create_dir_all(&dir).map_err(|e| IoError::fs("cannot create directory", &dir, e))?;
-        atomic_write(&dir.join(format!("project.{next:06}.buture")), &bytes)?;
+        let snapshot = self
+            .root
+            .join(STATE_DIR)
+            .join(BACKUP_DIR)
+            .join(format!("{next:06}"));
+        for rel in [MANIFEST_NAME, SCHEMATIC_FILE, PCB_FILE] {
+            let from = self.root.join(rel);
+            if let Ok(bytes) = fs::read(&from) {
+                let to = snapshot.join(rel);
+                ensure_parent(&to)?;
+                atomic_write(&to, &bytes)?;
+            }
+        }
         let all = self.backups()?;
         for old in all.iter().take(all.len().saturating_sub(MAX_BACKUPS)) {
-            fs::remove_file(old).map_err(|e| IoError::fs("cannot prune backup", old, e))?;
+            fs::remove_dir_all(old).map_err(|e| IoError::fs("cannot prune backup", old, e))?;
         }
         Ok(())
     }
@@ -201,13 +212,54 @@ impl Drop for ProjectSession {
     }
 }
 
+/// Reads a project laid out under `root`. The manifest is required; a missing document file
+/// means an empty document (projects created before documents existed).
+pub fn read_project(root: &Path) -> Result<Project> {
+    let manifest_path = root.join(MANIFEST_NAME);
+    let bytes =
+        read_file(&manifest_path)?.ok_or_else(|| IoError::NotFound(manifest_path.clone()))?;
+    let manifest = parse_manifest(&manifest_path, &bytes)?;
+
+    let sch_path = root.join(SCHEMATIC_FILE);
+    let schematic = match read_file(&sch_path)? {
+        Some(b) => parse_schematic(&sch_path, &b)?,
+        None => Default::default(),
+    };
+    let pcb_path = root.join(PCB_FILE);
+    let pcb = match read_file(&pcb_path)? {
+        Some(b) => parse_pcb(&pcb_path, &b)?,
+        None => Default::default(),
+    };
+    Project::from_parts(manifest.name, schematic, pcb).map_err(|source| IoError::Invalid {
+        path: manifest_path,
+        source,
+    })
+}
+
+/// Writes documents first and the manifest last.
+fn write_project(root: &Path, project: &Project) -> Result<()> {
+    for (rel, bytes) in [
+        (SCHEMATIC_FILE, serialize_schematic(project.schematic())),
+        (PCB_FILE, serialize_pcb(project.pcb())),
+        (MANIFEST_NAME, serialize_manifest(project.name())),
+    ] {
+        let path = root.join(rel);
+        ensure_parent(&path)?;
+        atomic_write(&path, &bytes)?;
+    }
+    Ok(())
+}
+
+fn read_file(path: &Path) -> Result<Option<Vec<u8>>> {
+    match fs::read(path) {
+        Ok(b) => Ok(Some(b)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(IoError::fs("cannot read project file", path, e)),
+    }
+}
+
 fn backup_index(path: &Path) -> Option<u64> {
-    path.file_name()?
-        .to_str()?
-        .strip_prefix("project.")?
-        .strip_suffix(".buture")?
-        .parse()
-        .ok()
+    path.file_name()?.to_str()?.parse().ok()
 }
 
 fn ensure_parent(path: &Path) -> Result<()> {
@@ -222,8 +274,6 @@ fn init_layout(root: &Path) -> Result<()> {
         let dir = root.join(sub);
         fs::create_dir_all(&dir).map_err(|e| IoError::fs("cannot create directory", &dir, e))?;
     }
-    let out = root.join("output");
-    fs::create_dir_all(&out).map_err(|e| IoError::fs("cannot create directory", &out, e))?;
     Ok(())
 }
 

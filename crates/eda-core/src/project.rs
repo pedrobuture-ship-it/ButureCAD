@@ -1,12 +1,13 @@
-//! The in-memory project model.
+//! The in-memory project. Mutated only through the Command Engine.
 
+use crate::model::{Id, PcbDoc, SchematicDoc};
 use thiserror::Error;
 
 /// Maximum accepted project name length, in characters.
 pub const MAX_NAME_LEN: usize = 128;
 
 /// Invalid project data.
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum ProjectError {
     #[error("project name must not be empty")]
     EmptyName,
@@ -16,33 +17,86 @@ pub enum ProjectError {
     NameHasControlChars,
 }
 
-/// A ButureCAD project. Design documents (schematic, PCB) are added by later stages.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A ButureCAD project.
+///
+/// Fields are read through accessors. Mutation goes through commands (`crate::commands`) driven
+/// by the [`crate::CommandEngine`]; this keeps undo/redo, dirty tracking and AI change review
+/// reliable.
+#[derive(Debug, Clone)]
 pub struct Project {
     name: String,
+    pub(crate) schematic: SchematicDoc,
+    pub(crate) pcb: PcbDoc,
+    next_id: u64,
 }
 
+/// Equality compares design content (name and documents). The id counter is bookkeeping: it is
+/// deliberately never rewound by undo, so ids are not reused within a session.
+impl PartialEq for Project {
+    fn eq(&self, o: &Self) -> bool {
+        self.name == o.name && self.schematic == o.schematic && self.pcb == o.pcb
+    }
+}
+impl Eq for Project {}
+
 impl Project {
-    /// Creates a project, validating the name.
+    /// Creates an empty project, validating the name.
     pub fn new(name: impl Into<String>) -> Result<Self, ProjectError> {
         let name = name.into();
         Self::validate_name(&name)?;
-        Ok(Self { name })
+        Ok(Self {
+            name,
+            schematic: SchematicDoc::default(),
+            pcb: PcbDoc::default(),
+            next_id: 1,
+        })
+    }
+
+    /// Rebuilds a project from loaded documents. The id counter resumes after the highest id.
+    pub fn from_parts(
+        name: impl Into<String>,
+        schematic: SchematicDoc,
+        pcb: PcbDoc,
+    ) -> Result<Self, ProjectError> {
+        let mut p = Self::new(name)?;
+        let max = schematic
+            .components
+            .keys()
+            .chain(schematic.wires.keys())
+            .chain(pcb.tracks.keys())
+            .chain(pcb.vias.keys())
+            .map(|id| id.0)
+            .max()
+            .unwrap_or(0);
+        p.next_id = max.saturating_add(1);
+        p.schematic = schematic;
+        p.pcb = pcb;
+        Ok(p)
     }
 
     pub fn name(&self) -> &str {
         &self.name
     }
+    pub fn schematic(&self) -> &SchematicDoc {
+        &self.schematic
+    }
+    pub fn pcb(&self) -> &PcbDoc {
+        &self.pcb
+    }
 
-    /// Renames the project, validating the new name.
-    pub fn set_name(&mut self, name: impl Into<String>) -> Result<(), ProjectError> {
-        let name = name.into();
+    pub(crate) fn set_name(&mut self, name: String) -> Result<(), ProjectError> {
         Self::validate_name(&name)?;
         self.name = name;
         Ok(())
     }
 
-    fn validate_name(name: &str) -> Result<(), ProjectError> {
+    pub(crate) fn alloc_id(&mut self) -> Id {
+        let id = Id(self.next_id);
+        self.next_id += 1;
+        id
+    }
+
+    pub fn validate_name(name: &str) -> Result<(), ProjectError> {
         if name.trim().is_empty() {
             return Err(ProjectError::EmptyName);
         }
@@ -63,10 +117,7 @@ mod tests {
 
     #[test]
     fn accepts_valid_name() {
-        assert_eq!(
-            Project::new("Drone_FC").map(|p| p.name().to_owned()),
-            Ok("Drone_FC".into())
-        );
+        assert_eq!(Project::new("Drone_FC").unwrap().name(), "Drone_FC");
     }
 
     #[test]
@@ -77,5 +128,22 @@ mod tests {
             Project::new("x".repeat(129)),
             Err(ProjectError::NameTooLong)
         );
+    }
+
+    #[test]
+    fn from_parts_resumes_ids_after_the_highest() {
+        use crate::model::{PcbDoc, Via};
+        use buturecad_geometry::Point;
+        let mut pcb = PcbDoc::default();
+        pcb.vias.insert(
+            Id(41),
+            Via {
+                position: Point::ORIGIN,
+                diameter: 600_000,
+                drill: 300_000,
+            },
+        );
+        let mut p = Project::from_parts("x", SchematicDoc::default(), pcb).unwrap();
+        assert_eq!(p.alloc_id(), Id(42));
     }
 }

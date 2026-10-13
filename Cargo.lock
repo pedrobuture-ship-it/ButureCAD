@@ -245,6 +245,9 @@ dependencies = [
 name = "buturecad-eda-core"
 version = "0.1.0"
 dependencies = [
+ "buturecad-geometry",
+ "proptest",
+ "serde",
  "thiserror 2.0.21",
 ]
 
@@ -263,6 +266,7 @@ name = "buturecad-io"
 version = "0.1.0"
 dependencies = [
  "buturecad-eda-core",
+ "buturecad-geometry",
  "serde",
  "serde_json",
  "tempfile",

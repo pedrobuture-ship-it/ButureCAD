@@ -4,10 +4,13 @@
 
 - Project format (schema 1): create/open/save/save-as, atomic writes, rotating backups, autosave, crash recovery, migration framework (`buturecad-io`).
 - Geometry engine (`buturecad-geometry`): Point/Vector/Line/Segment/Arc/Circle/Rectangle/Polygon/BoundingBox, exact predicates, nearest point, offset, rotation, R-tree index; unit + property-based tests.
+- Command Engine (`buturecad-eda-core`): undo/redo, nested transactions, dirty state, history limit, autosave/recovery hooks; commands for components, wires, tracks, vias, rename; unit + property tests (undo-all/redo-all is lossless).
+- Schematic/PCB document persistence (`schematic/main.bsch.json`, `pcb/main.bpcb.json`) through the engine, with backups/autosave/recovery covering documents.
 
 # Partial
-- Project only holds a name; schematic/PCB documents are not persisted yet.
-- Not exposed in the desktop UI yet.
+- Design model is a minimal skeleton (no pins, nets, footprints, connectivity); entities exist only to host commands.
+- Multi-file save is not one atomic unit (backup snapshot is the recovery path).
+- Project and command engine are not exposed in the desktop UI yet.
 - Desktop UI is a static shell; navigation items are disabled.
 
 # Broken

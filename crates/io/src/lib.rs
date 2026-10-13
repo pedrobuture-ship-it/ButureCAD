@@ -3,6 +3,7 @@
 //! Treats project files as untrusted input: malformed files yield [`IoError`], never a panic.
 
 pub mod atomic;
+pub mod engine;
 pub mod error;
 pub mod format;
 pub mod session;

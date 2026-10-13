@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use buturecad_eda_core::Project;
-use buturecad_io::format::{parse_project_with, serialize_project, Migrations, CURRENT_SCHEMA};
+use buturecad_io::format::{parse_manifest_with, serialize_manifest, Migrations, CURRENT_SCHEMA};
 use buturecad_io::session::{MANIFEST_NAME, MAX_BACKUPS};
 use buturecad_io::{IoError, ProjectSession};
 use serde_json::Value;
@@ -48,9 +48,8 @@ fn create_refuses_existing_project() {
 
 #[test]
 fn output_is_deterministic() {
-    let p = Project::new("Same").unwrap();
-    assert_eq!(serialize_project(&p), serialize_project(&p));
-    let text = String::from_utf8(serialize_project(&p)).unwrap();
+    assert_eq!(serialize_manifest("Same"), serialize_manifest("Same"));
+    let text = String::from_utf8(serialize_manifest("Same")).unwrap();
     assert_eq!(
         text,
         "{\n  \"format\": \"buturecad.project\",\n  \"schema_version\": 1,\n  \"name\": \"Same\"\n}\n"
@@ -60,9 +59,8 @@ fn output_is_deterministic() {
 #[test]
 fn save_persists_changes() {
     let dir = tempfile::tempdir().unwrap();
-    let (s, mut p) = ProjectSession::create(dir.path(), "Old").unwrap();
-    p.set_name("New").unwrap();
-    s.save(&p).unwrap();
+    let (s, _) = ProjectSession::create(dir.path(), "Old").unwrap();
+    s.save(&Project::new("New").unwrap()).unwrap();
     drop(s);
     assert_eq!(
         ProjectSession::open(dir.path()).unwrap().project.name(),
@@ -130,7 +128,7 @@ fn newer_schema_is_refused_with_clear_error() {
         r#"{{"format":"buturecad.project","schema_version":{},"name":"x"}}"#,
         CURRENT_SCHEMA + 1
     );
-    let err = parse_project_with(dir.path(), text.as_bytes(), &Migrations::builtin()).unwrap_err();
+    let err = parse_manifest_with(dir.path(), text.as_bytes(), &Migrations::builtin()).unwrap_err();
     assert!(matches!(err, IoError::NewerSchema { .. }));
 }
 
@@ -147,12 +145,12 @@ fn old_versions_are_migrated_in_order() {
     let registry = Migrations::new(1, vec![rename]);
     assert_eq!(registry.target(), 2);
     let old = br#"{"format":"buturecad.project","schema_version":1,"title":"Legacy"}"#;
-    let p = parse_project_with(Path::new("x"), old, &registry).unwrap();
-    assert_eq!(p.name(), "Legacy");
+    let p = parse_manifest_with(Path::new("x"), old, &registry).unwrap();
+    assert_eq!(p.name, "Legacy");
 
     let broken = br#"{"format":"buturecad.project","schema_version":1}"#;
     assert!(matches!(
-        parse_project_with(Path::new("x"), broken, &registry),
+        parse_manifest_with(Path::new("x"), broken, &registry),
         Err(IoError::Migration { from: 1, .. })
     ));
 }
@@ -160,22 +158,25 @@ fn old_versions_are_migrated_in_order() {
 #[test]
 fn backups_rotate_and_skip_corrupt_manifests() {
     let dir = tempfile::tempdir().unwrap();
-    let (s, mut p) = ProjectSession::create(dir.path(), "v0").unwrap();
+    let (s, _) = ProjectSession::create(dir.path(), "v0").unwrap();
+    let mut p = Project::new("v0").unwrap();
     for i in 1..=MAX_BACKUPS + 3 {
-        p.set_name(format!("v{i}")).unwrap();
+        p = Project::new(format!("v{i}")).unwrap();
         s.save(&p).unwrap();
     }
     let backups = s.backups().unwrap();
     assert_eq!(backups.len(), MAX_BACKUPS);
     // Newest backup holds the state before the last save.
-    let newest = fs::read_to_string(backups.last().unwrap()).unwrap();
+    let newest = fs::read_to_string(backups.last().unwrap().join(MANIFEST_NAME)).unwrap();
     assert!(newest.contains(&format!("\"v{}\"", MAX_BACKUPS + 2)));
 
     // A corrupt manifest must not become a backup.
     fs::write(manifest(dir.path()), "garbage").unwrap();
     s.save(&p).unwrap();
     for b in s.backups().unwrap() {
-        assert!(!fs::read_to_string(b).unwrap().contains("garbage"));
+        assert!(!fs::read_to_string(b.join(MANIFEST_NAME))
+            .unwrap()
+            .contains("garbage"));
     }
     assert!(ProjectSession::open(dir.path()).is_ok());
 }
@@ -183,9 +184,8 @@ fn backups_rotate_and_skip_corrupt_manifests() {
 #[test]
 fn crash_with_autosave_offers_recovery() {
     let dir = tempfile::tempdir().unwrap();
-    let (s, mut p) = ProjectSession::create(dir.path(), "Saved").unwrap();
-    p.set_name("Unsaved work").unwrap();
-    s.autosave(&p).unwrap();
+    let (s, _) = ProjectSession::create(dir.path(), "Saved").unwrap();
+    s.autosave(&Project::new("Unsaved work").unwrap()).unwrap();
     std::mem::forget(s); // simulate a crash: Drop never releases the lock
 
     let opened = ProjectSession::open(dir.path()).unwrap();
@@ -195,7 +195,7 @@ fn crash_with_autosave_offers_recovery() {
 
     // Saving discards the autosave.
     opened.session.save(&opened.project).unwrap();
-    assert!(!recovery.autosave_path.exists());
+    assert!(!recovery.autosave_dir.exists());
 }
 
 #[test]
@@ -223,9 +223,9 @@ fn save_as_copies_files_and_switches_session() {
     let dir = tempfile::tempdir().unwrap();
     let a = dir.path().join("a");
     let b = dir.path().join("b");
-    let (mut s, mut p) = ProjectSession::create(&a, "A").unwrap();
+    let (mut s, _) = ProjectSession::create(&a, "A").unwrap();
     fs::write(a.join("scripts/x.beda"), "hello").unwrap();
-    p.set_name("B").unwrap();
+    let p = Project::new("B").unwrap();
     s.save_as(&b, &p).unwrap();
     assert_eq!(s.root(), b);
     assert_eq!(

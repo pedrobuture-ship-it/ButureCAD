@@ -38,6 +38,8 @@ pub enum IoError {
         #[source]
         source: buturecad_eda_core::ProjectError,
     },
+    #[error(transparent)]
+    Command(#[from] buturecad_eda_core::CommandError),
     #[error("refusing to copy symbolic link {0}")]
     Symlink(PathBuf),
 }

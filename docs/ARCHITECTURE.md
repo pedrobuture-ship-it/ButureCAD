@@ -40,3 +40,20 @@ Proprietary, all rights reserved (see `LICENSE`). Crates use `LicenseRef-Proprie
   (bad on mixed object sizes) and a BVH (rebuild cost under edits). Bounding-box queries only.
 - Known limits: polygons have no holes; polygon offset is mitered and rejects topology changes
   instead of resolving them; arc/circle intersection points are numerical (f64).
+
+## Command Engine (`buturecad-eda-core`)
+
+- `Project` exposes read-only accessors; mutation is `pub(crate)` and reachable only through
+  `Command`s executed by `CommandEngine` (place/move/delete component, create/delete wire, track,
+  via, rename project). Generic `CreateCommand<E>` / `DeleteCommand<E>` serve every `Entity`.
+- Contract: `apply` is atomic; `revert` runs LIFO and restores exact state including ids (ids are
+  allocated on first apply, reused on redo, never rewound).
+- Transactions group commands into one undo step, nest, and roll back atomically; the closure form
+  `transaction(label, |e| ...)` commits on `Ok` and rolls back on `Err`.
+- Dirty state is exact w.r.t. the last save point (undoing back to it is clean; a save point lost
+  to a discarded redo branch or the history limit is never clean again).
+- Autosave: the engine exposes `revision()` / `autosave_pending()`; `buturecad-io::engine` performs
+  the writes, so the core stays I/O free. A recovered autosave is wrapped with
+  `CommandEngine::recovered` (starts dirty). A failing `revert` clears history rather than continue.
+- The entity model (`model.rs`) is a deliberately minimal skeleton to host the commands; pins,
+  nets, footprints etc. arrive with the schematic/PCB stages.

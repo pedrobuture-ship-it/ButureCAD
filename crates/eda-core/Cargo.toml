@@ -12,4 +12,9 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+buturecad-geometry = { path = "../geometry" }
+serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+
+[dev-dependencies]
+proptest = "1"
