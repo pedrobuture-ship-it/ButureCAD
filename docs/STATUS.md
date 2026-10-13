@@ -1,6 +1,6 @@
 # Working
 
-*Checkpoint after roadmap stages 01–12. Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–18. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -14,7 +14,7 @@ desktop app; limits are stated in the sections that follow.*
 - **ERC** (roadmap 11): 21 rules on the connectivity graph, clickable findings (select + centre), documented waivers stored in the project. See `docs/erc.md`.
 - **Footprint Editor** (roadmap 12): SMD/through-hole/NPTH/custom pads, five shapes, mask/paste/silkscreen/fabrication/courtyard graphics, reference/value text, DIP/SOIC/QFN/BGA/header generators, footprint libraries (`*.bfplib.json`), 3D model references (stored only). See `docs/footprint-editor.md`.
 - **Desktop shell:** menus, toolbar, tool palette, document tabs, inspector, bottom panel (ERC, Messages, Console), status bar, dark/light themes, command palette, shortcuts from one command registry, context menu, dirty guard, recent projects, crash-recovery prompt.
-- **Verification:** 375 Rust tests in 28 test binaries (unit, integration, property, IPC through Tauri's mock runtime), 21 frontend tests, and an end-to-end harness (`apps/desktop/e2e`: real Rust commands, real GPU renderer, headless Chromium, screenshots) with scenarios for the shell, schematic editing, Symbol Editor, ERC and Footprint Editor.
+- **Verification:** 432 Rust tests in 33 test binaries (unit, integration, property, IPC through Tauri's mock runtime), 21 frontend tests, and an end-to-end harness (`apps/desktop/e2e`: real Rust commands, real GPU renderer, headless Chromium, screenshots) with scenarios for the shell, schematic editing, Symbol Editor, ERC, Footprint Editor, PCB editor, schematic→PCB update and routing.
 
 - **PCB core** (roadmap 13): layer set and stackup (2–32 copper layers), placed footprints with exact flip/rotate transforms and pad geometry, nets, tracks/vias carrying nets, zones, keepouts, texts, graphics, via kinds modelled; generic atomic `PcbEditCommand`; PCB schema 3. See `docs/pcb-core.md`.
 
@@ -30,6 +30,7 @@ desktop app; limits are stated in the sections that follow.*
 
 - **PCB:** the model, placement, routing and vias exist; routing does not avoid obstacles and clearance is only displayed (no DRC until roadmap 19); zones/keepouts have no tools (25).
 - **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
+- **Router:** obstacles are not avoided and clearance is not enforced; track width, clearance and via size are global defaults until net classes (roadmap 20).
 - **Hierarchy:** only the root sheet can be drawn and edited; hierarchical sheets exist in the model and connectivity but have no UI tools. ERC findings inside child sheets are listed but cannot be focused.
 - **Symbol edits and placed parts:** changing a symbol's pins moves the pins but not the wires attached to them in the schematic; ERC shows what became unconnected. There is no "update symbol from library" command: the project copy is authoritative once opened.
 - **Wire re-routing** is not a general router: dense layouts can leave no valid style (reported as a warning).
@@ -51,7 +52,7 @@ desktop app; limits are stated in the sections that follow.*
 
 - Connectivity merge phase is O(nets) per update (net ids are positions in a global order): measured 2.5× faster than a full rebuild on a 63k-object design, ~1 ms on typical sheets (`cargo run --release -p buturecad-schematic --example connectivity_bench`).
 - `buturecad-libraries` depends on `buturecad-io` only for `atomic_write`; the helper could move to a smaller shared crate.
-- The desktop crate's `workspace/` module is ~6.4 k lines; the schematic, symbol and footprint editors each carry their own select/move/draw state machine with similar structure. A shared item-editor abstraction is worth extracting before the PCB editor adds a fourth copy.
+- The desktop crate's `workspace/` module is ~8.3 k lines; the schematic, symbol, footprint and PCB editors each carry their own select/move/draw state machine with similar structure. A shared item-editor abstraction is worth extracting before more editors (zones, 3D) add copies.
 - The end-to-end harness needs Chromium and a GPU, so it is not run in CI; React components are covered by it and by the command-registry tests only.
 - Reserved crates (`router`, `manufacturing`, `simulation`, `viewer3d`, `scripting`, `plugin-runtime`, `agent-api`) are empty on purpose.
 - `PinType::Unspecified` exists beyond the ten types the roadmap lists (kept for legacy and imported data).

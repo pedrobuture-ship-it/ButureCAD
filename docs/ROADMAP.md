@@ -17,7 +17,11 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 10 | Connectivity engine | done (`docs/schematic-connectivity.md`) |
 | 11 | ERC | done (`docs/erc.md`) |
 | 12 | Footprint Editor | done (`docs/footprint-editor.md`) |
-| 13–18 | PCB core, editor, schematic→PCB, ratsnest, tracks, vias | planned |
+| 13 | PCB core | done (`docs/pcb-core.md`) |
+| 14 | PCB editor | done (`docs/pcb-editor.md`) |
+| 15 | Schematic → PCB | done (`docs/schematic-to-pcb.md`) |
+| 16 | Ratsnest | done (`docs/ratsnest.md`) |
+| 17–18 | Tracks, vias and layer change | done (`docs/routing.md`) |
 | 19–26 | DRC, net classes, routing, zones, stackup | planned |
 | 27–30 | 3D, STEP/MCAD, manufacturing, Gerber viewer | planned |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
