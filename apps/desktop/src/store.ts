@@ -20,6 +20,7 @@ export type Dialog =
   | { kind: "footprint-generate" }
   | { kind: "footprint-text" }
   | { kind: "pcb-place" }
+  | { kind: "pcb-update" }
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }

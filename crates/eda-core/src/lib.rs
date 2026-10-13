@@ -10,6 +10,7 @@ pub mod engine;
 pub mod model;
 pub mod pcb_ops;
 pub mod project;
+pub mod sync;
 
 pub use command::{Command, CommandError};
 pub use engine::CommandEngine;

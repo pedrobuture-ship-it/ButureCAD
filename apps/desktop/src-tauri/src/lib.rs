@@ -47,6 +47,8 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::symbol_libraries,
         commands::pcb_command,
         commands::pcb_footprints,
+        commands::pcb_update_preview,
+        commands::pcb_update_apply,
         commands::erc_run,
         commands::erc_focus,
         commands::erc_waive,

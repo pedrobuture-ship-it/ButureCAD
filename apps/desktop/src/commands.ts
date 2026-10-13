@@ -48,6 +48,7 @@ export interface Actions {
   symbolCommand(name: string, arg?: string): void;
   runErc(): void;
   pcbPlaceFootprint(): void;
+  pcbUpdateFromSchematic(): void;
   pcbCommand(name: string, arg?: string): void;
   footprintNew(): void;
   footprintOpen(): void;
@@ -190,6 +191,14 @@ function pcbCommands(): AppCommand[] {
     run: (a) => a.editor(name),
   });
   return [
+    {
+      id: "pcb.update",
+      title: "Update PCB from Schematic…",
+      category: "Tools",
+      shortcut: "F8",
+      available: (s) => (s.snapshot?.project ? true : "Open or create a project first"),
+      run: (a) => a.pcbUpdateFromSchematic(),
+    },
     tool("place_footprint", "Place Footprint…", "A"),
     tool("outline_rect", "Draw Board Outline (rectangle)", "O"),
     tool("outline_line", "Draw Board Outline (polyline)"),

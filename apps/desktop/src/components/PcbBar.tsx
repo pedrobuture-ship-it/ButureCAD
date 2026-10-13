@@ -1,6 +1,6 @@
 import { api } from "../api";
 import { call } from "../actions";
-import { useUi } from "../store";
+import { store, useUi } from "../store";
 
 /** Floating bar above the PCB canvas: stackup and board problems. */
 export function PcbBar() {
@@ -22,6 +22,12 @@ export function PcbBar() {
           ))}
         </select>
       </label>
+      <button
+        title="Add, update and remove footprints and nets so the board matches the schematic (F8)"
+        onClick={() => store.set({ dialog: { kind: "pcb-update" } })}
+      >
+        Update from schematic…
+      </button>
       <span className="muted">Active layer: {info.active_layer}</span>
       <span className="muted">
         {info.footprints} footprint{info.footprints === 1 ? "" : "s"} · {info.nets} net

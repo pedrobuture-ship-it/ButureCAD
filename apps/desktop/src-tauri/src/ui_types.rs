@@ -354,6 +354,25 @@ pub struct PcbInfo {
     pub warnings: Vec<String>,
 }
 
+/// One line of the "Update PCB from Schematic" preview.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct PlanLineInfo {
+    /// `add_footprint`, `remove_footprint`, `change_footprint`, `link`, `update_field`,
+    /// `add_net`, `remove_net`, `rename_net`, `pad_net` or `warning`.
+    pub kind: String,
+    pub text: String,
+}
+
+/// What "Update PCB from Schematic" would do, computed without changing anything.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct UpdatePreview {
+    pub lines: Vec<PlanLineInfo>,
+    /// There is something to apply (warnings alone do not count).
+    pub can_apply: bool,
+}
+
 /// State of the Symbol Editor for the symbol being edited.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]

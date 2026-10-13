@@ -372,6 +372,9 @@ impl PcbDoc {
     pub fn apply_changes(&mut self, changes: &[PcbChange]) -> Result<(), ModelError> {
         let snapshot_ids: Vec<(Id, Option<PcbObject>)> =
             changes.iter().map(|c| (c.id, self.object(c.id))).collect();
+        // Two phases so changes may refer to each other (a footprint to a net created in the same
+        // step, a net deleted together with the objects that used it): apply everything, then
+        // validate every resulting object against the final document.
         let result = (|| {
             for c in changes {
                 if self.object(c.id) != c.before {
@@ -382,8 +385,12 @@ impl PcbDoc {
                 }
                 self.remove_object(c.id);
                 if let Some(a) = &c.after {
-                    self.validate_object(a)?;
                     self.put_object(c.id, a.clone());
+                }
+            }
+            for c in changes {
+                if let Some(a) = &c.after {
+                    self.validate_object(a)?;
                 }
             }
             Ok(())

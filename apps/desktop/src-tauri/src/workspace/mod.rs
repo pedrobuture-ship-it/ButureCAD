@@ -87,6 +87,8 @@ pub struct Workspace {
     sch_scene: SchematicScene,
     pcb_scene: crate::pcb_scene::PcbScene,
     pub(crate) pcb_ed: PcbEditor,
+    /// The previewed schematic→PCB update and the revision it was computed at.
+    pcb_plan: Option<(u64, buturecad_eda_core::sync::UpdatePlan)>,
     built_for: Option<(u64, ThemeName, BTreeSet<u16>)>,
     pub views: BTreeMap<Mode, View>,
     fitted: BTreeSet<Mode>,
@@ -132,6 +134,7 @@ impl Workspace {
             sch_scene: SchematicScene::default(),
             pcb_scene: crate::pcb_scene::PcbScene::default(),
             pcb_ed: PcbEditor::default(),
+            pcb_plan: None,
             built_for: None,
             views: BTreeMap::new(),
             fitted: BTreeSet::new(),
@@ -234,6 +237,7 @@ impl Workspace {
         self.symed = SymbolEditor::default();
         self.fped = FootprintEditor::default();
         self.pcb_ed = PcbEditor::default();
+        self.pcb_plan = None;
         *self.conn.get_mut() = None;
         self.erc = erc::ErcState::default();
     }

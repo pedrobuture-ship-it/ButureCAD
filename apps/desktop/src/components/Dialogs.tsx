@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { call, pickFolder, toast } from "../actions";
 import type { FootprintInfo } from "../bindings/FootprintInfo";
+import type { UpdatePreview } from "../bindings/UpdatePreview";
 import type { GeneratorInfo } from "../bindings/GeneratorInfo";
 import type { LibraryInfo } from "../bindings/LibraryInfo";
 import type { SymbolInfo } from "../bindings/SymbolInfo";
@@ -754,6 +755,62 @@ function FootprintTextDialog() {
   );
 }
 
+const PLAN_LABELS: Record<string, string> = {
+  add_footprint: "Add",
+  remove_footprint: "Remove",
+  change_footprint: "Change footprint",
+  link: "Link",
+  update_field: "Update",
+  add_net: "Add net",
+  remove_net: "Remove net",
+  rename_net: "Rename net",
+  pad_net: "Pad net",
+  warning: "Warning",
+};
+
+function PcbUpdateDialog() {
+  const [preview, setPreview] = useState<UpdatePreview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api
+      .pcbUpdatePreview()
+      .then(setPreview)
+      .catch((e) => setError(String(e)));
+  }, []);
+  const apply = async () => {
+    close();
+    await call(api.pcbUpdateApply());
+  };
+  return (
+    <Modal title="Update PCB from Schematic" onClose={close}>
+      {error && <p className="warn">{error}</p>}
+      {!preview && !error && <p className="muted">Comparing the schematic and the board…</p>}
+      {preview && preview.lines.length === 0 && (
+        <p>The board already matches the schematic. Nothing to do.</p>
+      )}
+      {preview && preview.lines.length > 0 && (
+        <ul className="plan-list" aria-label="Planned changes">
+          {preview.lines.map((l, i) => (
+            <li key={i} className={`plan-${l.kind}`}>
+              <span className="plan-kind">{PLAN_LABELS[l.kind] ?? l.kind}</span> {l.text}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="muted">
+        Existing placement and routing are kept: footprints are updated in place, tracks stay where
+        they are, and everything is one undo step. Nothing has been changed yet.
+      </p>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" disabled={!preview?.can_apply} onClick={() => void apply()}>
+          Apply changes
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function PcbPlaceDialog() {
   const [items, setItems] = useState<FootprintInfo[]>([]);
   const [query, setQuery] = useState("");
@@ -869,6 +926,8 @@ export function Dialogs() {
       return <SymbolSaveDialog />;
     case "symbol-text":
       return <SymbolTextDialog />;
+    case "pcb-update":
+      return <PcbUpdateDialog />;
     case "pcb-place":
       return <PcbPlaceDialog />;
     case "footprint-new":

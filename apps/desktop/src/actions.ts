@@ -149,6 +149,7 @@ export function createActions(): Actions {
     footprintGenerate: () => store.set({ dialog: { kind: "footprint-generate" } }),
     footprintSaveToLibrary: () => store.set({ dialog: { kind: "footprint-save" } }),
     footprintCommand: (name, arg) => void call(api.footprintEditorCommand(name, arg)),
+    pcbUpdateFromSchematic: () => store.set({ dialog: { kind: "pcb-update" } }),
     pcbPlaceFootprint: () => store.set({ dialog: { kind: "pcb-place" } }),
     pcbCommand: (name, arg) => void call(api.pcbCommand(name, arg)),
     runErc: () => {

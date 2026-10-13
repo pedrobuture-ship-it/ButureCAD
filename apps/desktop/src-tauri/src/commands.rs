@@ -354,3 +354,15 @@ pub fn pcb_command(
 pub fn pcb_footprints(state: State<'_, AppState>) -> Result<Vec<FootprintInfo>, String> {
     state.with(|ws| Ok(ws.pcb_footprint_choices()))
 }
+
+/// Previews "Update PCB from Schematic" without changing anything.
+#[tauri::command]
+pub fn pcb_update_preview(state: State<'_, AppState>) -> Result<UpdatePreview, String> {
+    state.with(|ws| ws.pcb_update_preview())
+}
+
+/// Applies the previewed update as one undo step.
+#[tauri::command]
+pub fn pcb_update_apply(state: State<'_, AppState>) -> Result<Snapshot, String> {
+    state.act(|ws| ws.pcb_update_apply())
+}

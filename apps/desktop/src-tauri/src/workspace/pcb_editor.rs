@@ -8,6 +8,7 @@ use crate::pcb_scene::{self as ps, object_shapes};
 use buturecad_eda_core::commands::{PcbEditCommand, SetFootprintCommand, SetStackupCommand};
 use buturecad_eda_core::model::{PcbChange, PcbDoc, PcbObject};
 use buturecad_eda_core::pcb_ops::{self, Align, Distribute};
+use buturecad_eda_core::sync::PlanKind;
 use buturecad_geometry::{Rectangle, Segment, Vector};
 use buturecad_pcb::{layer, BoardGraphic, Footprint, FpShape, PlacedFootprint, Placement, Stackup};
 use buturecad_renderer::{Rgba, Shape};
@@ -785,6 +786,54 @@ impl Workspace {
         }
     }
 
+    /// Computes (without changing anything) what "Update PCB from Schematic" would do, and keeps
+    /// the plan for [`Self::pcb_update_apply`].
+    pub fn pcb_update_preview(&mut self) -> Result<UpdatePreview, String> {
+        let open = self.open.as_ref().ok_or("no project is open")?;
+        let revision = open.engine.revision();
+        let plan = buturecad_eda_core::sync::plan_update(open.engine.project(), &|name| {
+            self.find_library_footprint(name)
+        });
+        let preview = UpdatePreview {
+            lines: plan
+                .lines
+                .iter()
+                .map(|l| PlanLineInfo {
+                    kind: plan_kind_id(l.kind).into(),
+                    text: l.text.clone(),
+                })
+                .collect(),
+            can_apply: !plan.is_empty(),
+        };
+        self.pcb_plan = Some((revision, plan));
+        Ok(preview)
+    }
+
+    /// Applies the previewed plan as one undo step. Refuses if the project changed since.
+    pub fn pcb_update_apply(&mut self) -> Result<(), String> {
+        let (revision, plan) = self.pcb_plan.take().ok_or("preview the update first")?;
+        let open = self.open.as_mut().ok_or("no project is open")?;
+        if open.engine.revision() != revision {
+            return Err("the project changed since the preview; preview the update again".into());
+        }
+        if plan.is_empty() {
+            return Err("there is nothing to update".into());
+        }
+        plan.apply(&mut open.engine).map_err(|e| e.to_string())?;
+        self.built_for = None;
+        self.command_log.push("Update PCB from Schematic".into());
+        self.log(
+            MessageLevel::Info,
+            format!(
+                "Updated the PCB from the schematic: {} footprint(s) added, {} removed, {} net(s) added",
+                plan.count(PlanKind::AddFootprint),
+                plan.count(PlanKind::RemoveFootprint),
+                plan.count(PlanKind::AddNet)
+            ),
+        );
+        Ok(())
+    }
+
     /// Footprints the placement tool can offer: the project's table plus library footprints.
     pub fn pcb_footprint_choices(&self) -> Vec<FootprintInfo> {
         self.library_footprints()
@@ -1107,5 +1156,20 @@ impl Workspace {
             (PcbTool::OutlineLine, _) => "Board outline: click the next corner; click the first point to close. Esc ends.".into(),
             (PcbTool::PlaceFootprint(_), _) => "Place footprint: click to place. R rotates, F flips to the back, Esc stops.".into(),
         }
+    }
+}
+
+fn plan_kind_id(k: PlanKind) -> &'static str {
+    match k {
+        PlanKind::AddFootprint => "add_footprint",
+        PlanKind::RemoveFootprint => "remove_footprint",
+        PlanKind::ChangeFootprint => "change_footprint",
+        PlanKind::Link => "link",
+        PlanKind::UpdateField => "update_field",
+        PlanKind::AddNet => "add_net",
+        PlanKind::RemoveNet => "remove_net",
+        PlanKind::RenameNet => "rename_net",
+        PlanKind::PadNet => "pad_net",
+        PlanKind::Warning => "warning",
     }
 }

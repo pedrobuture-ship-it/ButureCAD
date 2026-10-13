@@ -93,7 +93,7 @@ impl Project {
         Ok(())
     }
 
-    pub(crate) fn next_id(&self) -> u64 {
+    pub fn next_id(&self) -> u64 {
         self.next_id
     }
 

@@ -8,6 +8,7 @@ import type { PointerEvent as CanvasPointerEvent } from "./bindings/PointerEvent
 import type { PointerResult } from "./bindings/PointerResult";
 import type { Snapshot } from "./bindings/Snapshot";
 import type { SymbolInfo } from "./bindings/SymbolInfo";
+import type { UpdatePreview } from "./bindings/UpdatePreview";
 import type { ThemeName } from "./bindings/ThemeName";
 import type { Units } from "./bindings/Units";
 
@@ -65,6 +66,8 @@ export const api = {
   pcbCommand: (name: string, arg?: string) =>
     invoke<Snapshot>("pcb_command", { name, arg: arg ?? null }),
   pcbFootprints: () => invoke<FootprintInfo[]>("pcb_footprints"),
+  pcbUpdatePreview: () => invoke<UpdatePreview>("pcb_update_preview"),
+  pcbUpdateApply: () => invoke<Snapshot>("pcb_update_apply"),
   ercRun: () => invoke<Snapshot>("erc_run"),
   ercFocus: (index: number) => invoke<Snapshot>("erc_focus", { index }),
   ercWaive: (fingerprint: string, reason: string) =>

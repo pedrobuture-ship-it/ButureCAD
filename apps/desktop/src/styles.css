@@ -808,3 +808,37 @@ textarea {
   padding: 6px;
   resize: vertical;
 }
+
+/* Schematic → PCB preview */
+.plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.plan-list li {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.plan-kind {
+  display: inline-block;
+  min-width: 96px;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
+.plan-warning {
+  color: var(--warn);
+}
+.plan-remove_footprint .plan-kind,
+.plan-remove_net .plan-kind {
+  color: var(--danger);
+}
+.plan-add_footprint .plan-kind,
+.plan-add_net .plan-kind {
+  color: var(--ok);
+}
