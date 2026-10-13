@@ -13,6 +13,8 @@
 
 - Symbol Editor (roadmap 09): pins with all required electrical types, lines/arcs/rectangles/circles/text, multiple units, alternate representation, metadata; every edit is an undoable command; local symbol libraries (`*.bsymlib.json`, project and user folders) with validation and atomic writes; multi-unit placement. See `docs/symbol-editor.md`.
 
+- Connectivity engine (roadmap 10): `ConnectivityEngine` keeps per-sheet graphs and merges them; small edits rebuild only the touched sheets (property-tested against full rebuilds); nets know whether they are power/global; dangling wire ends (and ends touching a wire body without a junction) are reported; hierarchical names are aliases (nearest the root wins). The desktop inspector uses the incremental path. See `docs/schematic-connectivity.md`.
+
 # Partial
 - PCB model is a minimal skeleton (tracks, vias) hosting the commands.
 - Built-in symbol library is a small bootstrap set (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC); real libraries are user-made files. No component records, search index or providers yet (stages 31–33).
@@ -32,6 +34,7 @@
 
 
 # Technical Debt
+- Connectivity merge phase is O(nets) per update (net ids are positions in a global order); measured 2.5× faster than a full rebuild on a 63k-object design, ~1 ms on typical sheets.
 - Reserved crates are empty on purpose.
 
 # Known Bugs

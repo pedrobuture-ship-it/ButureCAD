@@ -622,3 +622,47 @@ fn edits_survive_save_and_reopen() {
     );
     assert!(sch(&ws).validate().is_ok());
 }
+
+fn pin_net(ws: &mut Workspace, pin: &str) -> String {
+    let snap = ws.snapshot();
+    let sel = snap.selection.first().expect("one part selected");
+    sel.properties
+        .iter()
+        .find(|p| p.key == format!("pin_{pin}"))
+        .unwrap_or_else(|| panic!("no pin_{pin} in {:?}", sel.properties))
+        .value
+        .clone()
+}
+
+#[test]
+fn inspector_connectivity_follows_new_wires_undo_and_redo() {
+    let dir = tempfile::tempdir().unwrap();
+    let (mut ws, _r1, _r2) = with_two_resistors(dir.path());
+    // R2 sits at x = 12; its pin 1 is at (12, 3), R1's pin 1 at (0, 3).
+    click(&mut ws, 12, 0);
+    assert_eq!(
+        pin_net(&mut ws, "2"),
+        "Net-(R1-Pad2)",
+        "joined to R1 by the wire"
+    );
+    assert_eq!(pin_net(&mut ws, "1"), "Net-(R2-Pad1)");
+
+    // A new wire goes through the incremental path (the cache exists after the click above).
+    ws.editor_command("tool:wire").unwrap();
+    click(&mut ws, 12, 3);
+    click(&mut ws, 0, 3);
+    ws.editor_command("cancel").unwrap();
+    ws.editor_command("tool:select").unwrap();
+    click(&mut ws, 12, 0);
+    assert_eq!(
+        pin_net(&mut ws, "1"),
+        "Net-(R1-Pad1)",
+        "the new wire joined the two pin-1 nets"
+    );
+
+    // Undo / redo refresh the cache.
+    ws.undo().unwrap();
+    assert_eq!(pin_net(&mut ws, "1"), "Net-(R2-Pad1)");
+    ws.redo().unwrap();
+    assert_eq!(pin_net(&mut ws, "1"), "Net-(R1-Pad1)");
+}

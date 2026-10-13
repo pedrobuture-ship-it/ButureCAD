@@ -11,11 +11,23 @@
 //!   join nets with the same name **across the design**; a sheet pin joins the hierarchical
 //!   label of the same name in the child sheet.
 //! * Buses name groups of signals but make no electrical connection themselves.
+//!
+//! # Incremental updates
+//!
+//! [`ConnectivityEngine`] keeps one cached graph per sheet (geometry attachment, local labels,
+//! buses, dangling ends) and a cheap global phase that merges them (global names, power symbols,
+//! hierarchy, net naming). [`ConnectivityEngine::update`] rebuilds only the sheets a change set
+//! touched and re-runs the global phase, whose cost is proportional to the number of *nets*, not
+//! the number of objects. The result is always identical to a from-scratch build (checked by
+//! property tests). Granularity is one sheet: a very large flat sheet is rebuilt as a whole.
+//! Edits that do not go through a change set (symbol definitions, sheet renames) need
+//! [`ConnectivityEngine::refresh`].
 
 use crate::bus::{looks_like_bus, BusDef, BusNameError};
 use crate::model::*;
+use crate::schematic::Change;
 use crate::schematic::Schematic;
-use buturecad_geometry::{Bounded, Point, SpatialIndex};
+use buturecad_geometry::{Bounded, Point, Segment, SpatialIndex};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -41,11 +53,17 @@ pub struct Net {
     /// Labels, power symbols and sheet pins attached to the net.
     pub labels: Vec<Id>,
     pub sheets: BTreeSet<Id>,
+    /// A power symbol is attached (the net is a supply rail by definition).
+    pub power: bool,
+    /// Named across the whole design (power symbol or global label).
+    pub global: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Issue {
-    /// Several different names compete for one net; the highest-priority, then smallest, wins.
+    /// Several different names of the same kind (power symbols, global labels or local labels)
+    /// compete for one net; the smallest wins. Hierarchical labels and sheet pins are aliases and
+    /// never conflict.
     NameConflict { net: NetId, names: Vec<String> },
     /// A sheet pin has no hierarchical label of the same name in its child sheet.
     SheetPinWithoutLabel { sheet: Id, pin: String },
@@ -57,6 +75,17 @@ pub enum Issue {
     UnreachableSheet { sheet: Id },
 }
 
+/// A wire end that is attached to nothing (no other wire end, pin, label, junction, …).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DanglingEnd {
+    pub sheet: Id,
+    pub wire: Id,
+    pub at: Point,
+    /// The end lies on the *body* of this other wire without a junction, so it looks connected
+    /// but is not.
+    pub touches: Option<Id>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BusInfo {
     pub label: Id,
@@ -66,13 +95,14 @@ pub struct BusInfo {
     pub segments: Vec<Id>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Connectivity {
     nets: Vec<Net>,
     pin_nets: BTreeMap<(Id, String), NetId>,
     no_connects: BTreeSet<(Id, String)>,
     buses: Vec<BusInfo>,
     issues: Vec<Issue>,
+    dangling: Vec<DanglingEnd>,
 }
 
 impl Connectivity {
@@ -101,13 +131,32 @@ impl Connectivity {
     pub fn issues(&self) -> &[Issue] {
         &self.issues
     }
+    /// Wire ends that attach to nothing, in sheet and object order.
+    pub fn dangling_ends(&self) -> &[DanglingEnd] {
+        &self.dangling
+    }
+    /// Every pin electrically connected to `pin` (excluding itself), sorted.
+    pub fn connected_pins(&self, component: Id, pin: &str) -> Vec<&PinRef> {
+        self.net_of_pin(component, pin)
+            .map(|n| {
+                n.pins
+                    .iter()
+                    .filter(|p| !(p.component == component && p.pin == pin))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 
     /// Builds connectivity for the whole design (all sheets reachable from the root).
+    ///
+    /// For repeated queries on a changing design keep a [`ConnectivityEngine`] instead.
     pub fn build(sch: &Schematic) -> Connectivity {
-        Builder::new(sch).run()
+        ConnectivityEngine::new(sch).into_connectivity()
     }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Per-sheet graph
 // ---------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
@@ -119,19 +168,14 @@ enum Kind {
         number: String,
     },
     Junction,
-    NetLabel(Id),
-    GlobalLabel(Id),
-    HierLabel(Id),
-    Power(Id),
+    NetLabel(Id, String),
+    GlobalLabel(Id, String),
+    HierLabel(Id, String),
+    Power(Id, String),
     SheetPin {
         name: String,
         instance: Id,
     },
-}
-
-struct Node {
-    sheet: Id,
-    kind: Kind,
 }
 
 struct Uf {
@@ -141,6 +185,11 @@ struct Uf {
 impl Uf {
     fn new() -> Self {
         Self { parent: Vec::new() }
+    }
+    fn with_len(n: usize) -> Self {
+        Self {
+            parent: (0..n).collect(),
+        }
     }
     fn add(&mut self) -> usize {
         self.parent.push(self.parent.len());
@@ -163,285 +212,275 @@ impl Uf {
     }
 }
 
-struct Builder<'a> {
-    sch: &'a Schematic,
-    nodes: Vec<Node>,
-    uf: Uf,
-    issues: Vec<Issue>,
-    no_connects: BTreeSet<(Id, String)>,
-    /// (sheet id, bus-label object, bus name, anchor point)
-    bus_labels: Vec<(Id, Id, String, Point)>,
-    bus_segments: Vec<(Id, Id, buturecad_geometry::Segment)>,
+const PRIO_POWER: u8 = 4;
+const PRIO_GLOBAL: u8 = 3;
+const PRIO_LOCAL: u8 = 2;
+/// Hierarchical labels and sheet pins are *aliases* of one signal across hierarchy levels; they
+/// never conflict with each other. The name closest to the root wins.
+const PRIO_HIER: u8 = 1;
+
+/// One connected group of objects inside a single sheet.
+#[derive(Debug, Clone)]
+struct Comp {
+    pins: Vec<PinRef>,
+    wires: Vec<Id>,
+    labels: Vec<Id>,
+    /// Name candidates `(priority, name)`: 4 power symbol, 3 global label, 2 local net label,
+    /// 1 hierarchical label or sheet pin.
+    candidates: Vec<(u8, String)>,
+    first_object: Id,
+    junction_only: bool,
+    power: bool,
+    global: bool,
 }
 
-impl<'a> Builder<'a> {
-    fn new(sch: &'a Schematic) -> Self {
-        Self {
-            sch,
-            nodes: Vec::new(),
-            uf: Uf::new(),
-            issues: Vec::new(),
-            no_connects: BTreeSet::new(),
-            bus_labels: Vec::new(),
-            bus_segments: Vec::new(),
+/// Everything derived from one sheet alone.
+#[derive(Debug, Clone, Default)]
+struct SheetGraph {
+    comps: Vec<Comp>,
+    /// Global names (power symbols, global labels) and the component that carries them.
+    globals: Vec<(String, usize)>,
+    hier_labels: BTreeMap<String, usize>,
+    /// Hierarchical label objects in object order, for the "label without sheet pin" check.
+    hier_label_objs: Vec<(Id, String)>,
+    /// Sheet pins in object order: (component, child sheet, pin name).
+    sheet_pins: Vec<(usize, Id, String)>,
+    children: Vec<Id>,
+    no_connects: BTreeSet<(Id, String)>,
+    buses: Vec<BusInfo>,
+    bus_issues: Vec<Issue>,
+    dangling: Vec<DanglingEnd>,
+}
+
+/// Local names are scoped to their sheet: `/NAME` on the root sheet, `/Sheet/NAME` below it.
+fn qualify_local(sch: &Schematic, sheet: Id, name: &str) -> String {
+    if sheet == sch.root() {
+        format!("/{name}")
+    } else {
+        let sheet_name = sch.sheet(sheet).map_or("?", |s| s.name.as_str());
+        format!("/{sheet_name}/{name}")
+    }
+}
+
+fn register(uf: &mut Uf, map: &mut HashMap<String, usize>, key: &str, n: usize) {
+    match map.get(key) {
+        Some(first) => uf.union(*first, n),
+        None => {
+            map.insert(key.to_owned(), n);
         }
     }
+}
 
-    fn node(&mut self, sheet: Id, kind: Kind) -> usize {
-        self.nodes.push(Node { sheet, kind });
-        self.uf.add()
-    }
-
-    fn reachable_sheets(&self) -> Vec<Id> {
-        let mut order = vec![self.sch.root()];
-        let mut seen: BTreeSet<Id> = order.iter().copied().collect();
-        let mut i = 0;
-        while i < order.len() {
-            let sheet = order[i];
-            i += 1;
-            if let Some(s) = self.sch.sheet(sheet) {
-                for obj in s.objects.values() {
-                    if let Object::Sheet(inst) = obj {
-                        if seen.insert(inst.child) {
-                            order.push(inst.child);
-                        }
-                    }
-                }
-            }
-        }
-        order
-    }
-
-    fn run(mut self) -> Connectivity {
-        let sheets = self.reachable_sheets();
-        for sid in self.sch.sheets().keys() {
-            if !sheets.contains(sid) {
-                self.issues.push(Issue::UnreachableSheet { sheet: *sid });
-            }
-        }
-        // Global/local name registries: name -> first node, to merge same-named nets.
+impl SheetGraph {
+    fn build(sch: &Schematic, sid: Id) -> SheetGraph {
+        let mut g = SheetGraph::default();
+        let Some(sheet) = sch.sheet(sid) else {
+            return g;
+        };
+        let mut kinds: Vec<Kind> = Vec::new();
+        let mut uf = Uf::new();
+        let node = |kinds: &mut Vec<Kind>, uf: &mut Uf, kind: Kind| {
+            kinds.push(kind);
+            uf.add()
+        };
+        let mut wires: Vec<(usize, Id, Segment)> = Vec::new();
+        let mut points: Vec<(usize, Point)> = Vec::new();
         let mut globals: HashMap<String, usize> = HashMap::new();
-        let mut locals: HashMap<(Id, String), usize> = HashMap::new();
-        let mut hier_labels: HashMap<(Id, String), usize> = HashMap::new();
-        let mut sheet_pins: Vec<(usize, Id, String)> = Vec::new(); // node, child sheet, pin name
+        let mut locals: HashMap<String, usize> = HashMap::new();
+        let mut hier: BTreeMap<String, usize> = BTreeMap::new();
+        let mut sheet_pins: Vec<(usize, Id, String)> = Vec::new();
+        let mut bus_labels: Vec<(Id, String, Point)> = Vec::new();
+        let mut bus_segments: Vec<(Id, Segment)> = Vec::new();
 
-        for &sid in &sheets {
-            let Some(sheet) = self.sch.sheet(sid) else {
-                continue;
-            };
-            let mut wires: Vec<(usize, buturecad_geometry::Segment)> = Vec::new();
-            let mut points: Vec<(usize, Point)> = Vec::new();
-
-            for (oid, obj) in &sheet.objects {
-                match obj {
-                    Object::Wire(w) => {
-                        let n = self.node(sid, Kind::Wire(*oid));
-                        wires.push((n, w.segment));
-                    }
-                    Object::Bus(b) => self.bus_segments.push((sid, *oid, b.segment)),
-                    Object::Junction(j) => {
-                        let n = self.node(sid, Kind::Junction);
-                        points.push((n, j.position));
-                    }
-                    Object::NoConnect(nc) => {
-                        // Not a union element; mark the pins at this point after pins are known.
-                        let _ = nc;
-                    }
-                    Object::Component(c) => {
-                        let mut same_number: HashMap<String, usize> = HashMap::new();
-                        for pin in self.sch.placed_pins(c) {
-                            let n = self.node(
-                                sid,
-                                Kind::Pin {
-                                    component: *oid,
-                                    reference: c.reference.clone(),
-                                    number: pin.number.clone(),
-                                },
-                            );
-                            points.push((n, pin.position));
-                            // Duplicate pin numbers on one symbol are the same electrical pin.
-                            if let Some(first) = same_number.get(&pin.number) {
-                                self.uf.union(*first, n);
-                            } else {
+        for (oid, obj) in &sheet.objects {
+            match obj {
+                Object::Wire(w) => {
+                    let n = node(&mut kinds, &mut uf, Kind::Wire(*oid));
+                    wires.push((n, *oid, w.segment));
+                }
+                Object::Bus(b) => bus_segments.push((*oid, b.segment)),
+                Object::Junction(j) => {
+                    let n = node(&mut kinds, &mut uf, Kind::Junction);
+                    points.push((n, j.position));
+                }
+                // Not a union element; the pins at its point are marked below.
+                Object::NoConnect(_) => {}
+                Object::Component(c) => {
+                    let mut same_number: HashMap<String, usize> = HashMap::new();
+                    for pin in sch.placed_pins(c) {
+                        let n = node(
+                            &mut kinds,
+                            &mut uf,
+                            Kind::Pin {
+                                component: *oid,
+                                reference: c.reference.clone(),
+                                number: pin.number.clone(),
+                            },
+                        );
+                        points.push((n, pin.position));
+                        // Duplicate pin numbers on one symbol are the same electrical pin.
+                        match same_number.get(&pin.number) {
+                            Some(first) => uf.union(*first, n),
+                            None => {
                                 same_number.insert(pin.number, n);
                             }
                         }
                     }
-                    Object::PowerSymbol(p) => {
-                        if let Some(at) = self.sch.power_pin_position(p) {
-                            let n = self.node(sid, Kind::Power(*oid));
-                            points.push((n, at));
-                            if let Some(first) = globals.get(&p.net_name) {
-                                self.uf.union(*first, n);
-                            } else {
-                                globals.insert(p.net_name.clone(), n);
-                            }
-                        }
+                }
+                Object::PowerSymbol(p) => {
+                    if let Some(at) = sch.power_pin_position(p) {
+                        let n = node(&mut kinds, &mut uf, Kind::Power(*oid, p.net_name.clone()));
+                        points.push((n, at));
+                        register(&mut uf, &mut globals, &p.net_name, n);
                     }
-                    Object::GlobalLabel(l) => {
-                        let n = self.node(sid, Kind::GlobalLabel(*oid));
+                }
+                Object::GlobalLabel(l) => {
+                    let n = node(&mut kinds, &mut uf, Kind::GlobalLabel(*oid, l.name.clone()));
+                    points.push((n, l.position));
+                    register(&mut uf, &mut globals, &l.name, n);
+                }
+                Object::NetLabel(l) => {
+                    if looks_like_bus(&l.name) {
+                        bus_labels.push((*oid, l.name.clone(), l.position));
+                    } else {
+                        let n = node(&mut kinds, &mut uf, Kind::NetLabel(*oid, l.name.clone()));
                         points.push((n, l.position));
-                        if let Some(first) = globals.get(&l.name) {
-                            self.uf.union(*first, n);
-                        } else {
-                            globals.insert(l.name.clone(), n);
-                        }
-                    }
-                    Object::NetLabel(l) => {
-                        if looks_like_bus(&l.name) {
-                            self.bus_labels
-                                .push((sid, *oid, l.name.clone(), l.position));
-                        } else {
-                            let n = self.node(sid, Kind::NetLabel(*oid));
-                            points.push((n, l.position));
-                            Self::register(&mut self.uf, &mut locals, (sid, l.name.clone()), n);
-                        }
-                    }
-                    Object::HierLabel(l) => {
-                        let n = self.node(sid, Kind::HierLabel(*oid));
-                        points.push((n, l.position));
-                        Self::register(&mut self.uf, &mut locals, (sid, l.name.clone()), n);
-                        hier_labels.insert((sid, l.name.clone()), n);
-                    }
-                    Object::Sheet(inst) => {
-                        for pin in &inst.pins {
-                            let n = self.node(
-                                sid,
-                                Kind::SheetPin {
-                                    name: pin.name.clone(),
-                                    instance: *oid,
-                                },
-                            );
-                            points.push((n, pin.position));
-                            sheet_pins.push((n, inst.child, pin.name.clone()));
-                        }
+                        register(&mut uf, &mut locals, &l.name, n);
                     }
                 }
-            }
-
-            // 1. Wires sharing an endpoint.
-            let mut endpoints: HashMap<Point, usize> = HashMap::new();
-            for (n, seg) in &wires {
-                for p in [seg.a, seg.b] {
-                    match endpoints.get(&p) {
-                        Some(first) => self.uf.union(*first, *n),
-                        None => {
-                            endpoints.insert(p, *n);
-                        }
-                    }
+                Object::HierLabel(l) => {
+                    let n = node(&mut kinds, &mut uf, Kind::HierLabel(*oid, l.name.clone()));
+                    points.push((n, l.position));
+                    register(&mut uf, &mut locals, &l.name, n);
+                    hier.insert(l.name.clone(), n);
+                    g.hier_label_objs.push((*oid, l.name.clone()));
                 }
-            }
-            // 2. Point elements attach to every wire through their point.
-            let index =
-                SpatialIndex::bulk_load(wires.iter().map(|(n, s)| (s.bounding_box(), (*n, *s))));
-            for (n, p) in &points {
-                for (_, (wn, seg)) in index.query_point(*p) {
-                    if seg.contains_point(*p) {
-                        self.uf.union(*n, *wn);
-                    }
-                }
-            }
-            // 3. Point elements at the same point are connected.
-            let mut at_point: HashMap<Point, usize> = HashMap::new();
-            for (n, p) in &points {
-                match at_point.get(p) {
-                    Some(first) => self.uf.union(*first, *n),
-                    None => {
-                        at_point.insert(*p, *n);
-                    }
-                }
-            }
-            // 4. No-connect markers.
-            for (oid, obj) in &sheet.objects {
-                if let Object::NoConnect(nc) = obj {
-                    let _ = oid;
-                    for (n, p) in &points {
-                        if *p == nc.position {
-                            if let Kind::Pin {
-                                component, number, ..
-                            } = &self.nodes[*n].kind
-                            {
-                                self.no_connects.insert((*component, number.clone()));
-                            }
-                        }
+                Object::Sheet(inst) => {
+                    g.children.push(inst.child);
+                    for pin in &inst.pins {
+                        let n = node(
+                            &mut kinds,
+                            &mut uf,
+                            Kind::SheetPin {
+                                name: pin.name.clone(),
+                                instance: *oid,
+                            },
+                        );
+                        points.push((n, pin.position));
+                        sheet_pins.push((n, inst.child, pin.name.clone()));
                     }
                 }
             }
         }
 
-        // Hierarchy: sheet pin ↔ hierarchical label of the same name in the child sheet.
-        let mut linked_labels: BTreeSet<(Id, String)> = BTreeSet::new();
-        for (n, child, name) in &sheet_pins {
-            match hier_labels.get(&(*child, name.clone())) {
-                Some(label) => {
-                    self.uf.union(*n, *label);
-                    linked_labels.insert((*child, name.clone()));
-                }
-                None => {
-                    let parent = self.nodes[*n].sheet;
-                    self.issues.push(Issue::SheetPinWithoutLabel {
-                        sheet: parent,
-                        pin: name.clone(),
-                    });
-                }
-            }
-        }
-        for (i, node) in self.nodes.iter().enumerate() {
-            if let Kind::HierLabel(oid) = node.kind {
-                let name = match self.sch.object(oid) {
-                    Some((_, Object::HierLabel(l))) => l.name.clone(),
-                    _ => continue,
-                };
-                if !linked_labels.contains(&(node.sheet, name)) {
-                    let _ = i;
-                    self.issues.push(Issue::HierLabelWithoutPin {
-                        sheet: node.sheet,
-                        label: oid,
-                    });
-                }
-            }
-        }
-
-        let buses = self.collect_buses();
-        self.collect(buses)
-    }
-
-    fn register(uf: &mut Uf, map: &mut HashMap<(Id, String), usize>, key: (Id, String), n: usize) {
-        match map.get(&key) {
-            Some(first) => uf.union(*first, n),
-            None => {
-                map.insert(key, n);
-            }
-        }
-    }
-
-    fn collect_buses(&mut self) -> Vec<BusInfo> {
-        // Union bus segments sharing an endpoint, per sheet.
-        let mut uf = Uf::new();
-        let ids: Vec<usize> = self.bus_segments.iter().map(|_| uf.add()).collect();
-        let mut ends: HashMap<(Id, Point), usize> = HashMap::new();
-        for (i, (sid, _, seg)) in self.bus_segments.iter().enumerate() {
+        // 1. Wires sharing an endpoint.
+        let mut endpoints: HashMap<Point, usize> = HashMap::new();
+        let mut end_count: HashMap<Point, u32> = HashMap::new();
+        for (n, _, seg) in &wires {
             for p in [seg.a, seg.b] {
-                match ends.get(&(*sid, p)) {
+                *end_count.entry(p).or_insert(0) += 1;
+                match endpoints.get(&p) {
+                    Some(first) => uf.union(*first, *n),
+                    None => {
+                        endpoints.insert(p, *n);
+                    }
+                }
+            }
+        }
+        // 2. Point elements attach to every wire through their point.
+        let index = SpatialIndex::bulk_load(
+            wires
+                .iter()
+                .map(|(n, id, s)| (s.bounding_box(), (*n, *id, *s))),
+        );
+        for (n, p) in &points {
+            for (_, (wn, _, seg)) in index.query_point(*p) {
+                if seg.contains_point(*p) {
+                    uf.union(*n, *wn);
+                }
+            }
+        }
+        // 3. Point elements at the same point are connected.
+        let mut at_point: HashMap<Point, usize> = HashMap::new();
+        for (n, p) in &points {
+            match at_point.get(p) {
+                Some(first) => uf.union(*first, *n),
+                None => {
+                    at_point.insert(*p, *n);
+                }
+            }
+        }
+        // 4. No-connect markers.
+        for obj in sheet.objects.values() {
+            if let Object::NoConnect(nc) = obj {
+                for (n, p) in &points {
+                    if *p == nc.position {
+                        if let Kind::Pin {
+                            component, number, ..
+                        } = &kinds[*n]
+                        {
+                            g.no_connects.insert((*component, number.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        // 5. Dangling wire ends: attached to no other wire end and no point element.
+        for (_, id, seg) in &wires {
+            for p in [seg.a, seg.b] {
+                let others =
+                    end_count.get(&p).copied().unwrap_or(0) > 1 || at_point.contains_key(&p);
+                if others {
+                    continue;
+                }
+                let touches = index
+                    .query_point(p)
+                    .into_iter()
+                    .find(|(_, (_, other, s))| other != id && s.contains_point(p))
+                    .map(|(_, (_, other, _))| *other);
+                g.dangling.push(DanglingEnd {
+                    sheet: sid,
+                    wire: *id,
+                    at: p,
+                    touches,
+                });
+            }
+        }
+
+        g.collect_buses(sid, bus_labels, bus_segments);
+        g.collect_comps(sch, sid, &kinds, &mut uf, &globals, &hier, &sheet_pins);
+        g
+    }
+
+    fn collect_buses(
+        &mut self,
+        sid: Id,
+        labels: Vec<(Id, String, Point)>,
+        segments: Vec<(Id, Segment)>,
+    ) {
+        // Union bus segments sharing an endpoint.
+        let mut uf = Uf::new();
+        let ids: Vec<usize> = segments.iter().map(|_| uf.add()).collect();
+        let mut ends: HashMap<Point, usize> = HashMap::new();
+        for (i, (_, seg)) in segments.iter().enumerate() {
+            for p in [seg.a, seg.b] {
+                match ends.get(&p) {
                     Some(first) => uf.union(*first, ids[i]),
                     None => {
-                        ends.insert((*sid, p), ids[i]);
+                        ends.insert(p, ids[i]);
                     }
                 }
             }
         }
-        let mut out = Vec::new();
-        let labels = std::mem::take(&mut self.bus_labels);
-        for (sid, label, name, at) in labels {
-            let on: Vec<usize> = self
-                .bus_segments
+        for (label, name, at) in labels {
+            let on: Vec<usize> = segments
                 .iter()
                 .enumerate()
-                .filter(|(_, (s, _, seg))| *s == sid && seg.contains_point(at))
+                .filter(|(_, (_, seg))| seg.contains_point(at))
                 .map(|(i, _)| i)
                 .collect();
             let Some(&first) = on.first() else {
-                self.issues.push(Issue::BadBusLabel {
+                self.bus_issues.push(Issue::BadBusLabel {
                     label,
                     reason: "bracketed label is not on a bus".into(),
                 });
@@ -452,7 +491,7 @@ impl<'a> Builder<'a> {
                 Err(
                     e @ (BusNameError::NotABus | BusNameError::BadRange | BusNameError::TooWide),
                 ) => {
-                    self.issues.push(Issue::BadBusLabel {
+                    self.bus_issues.push(Issue::BadBusLabel {
                         label,
                         reason: e.to_string(),
                     });
@@ -460,198 +499,466 @@ impl<'a> Builder<'a> {
                 }
             };
             let root = uf.find(ids[first]);
-            let segments = self
-                .bus_segments
+            let members = segments
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| uf.find(ids[*i]) == root)
-                .map(|(_, (_, oid, _))| *oid)
+                .map(|(_, (oid, _))| *oid)
                 .collect();
-            out.push(BusInfo {
+            self.buses.push(BusInfo {
                 label,
                 sheet: sid,
                 name,
                 def,
-                segments,
+                segments: members,
             });
         }
-        out.sort_by_key(|b| b.label);
-        out
     }
 
-    fn collect(mut self, buses: Vec<BusInfo>) -> Connectivity {
-        // Group nodes by root.
+    #[allow(clippy::too_many_arguments)]
+    fn collect_comps(
+        &mut self,
+        sch: &Schematic,
+        sid: Id,
+        kinds: &[Kind],
+        uf: &mut Uf,
+        globals: &HashMap<String, usize>,
+        hier: &BTreeMap<String, usize>,
+        sheet_pins: &[(usize, Id, String)],
+    ) {
         let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-        for i in 0..self.nodes.len() {
-            let r = self.uf.find(i);
-            groups.entry(r).or_default().push(i);
+        for i in 0..kinds.len() {
+            groups.entry(uf.find(i)).or_default().push(i);
         }
-
-        struct Draft {
-            name: String,
-            named: bool,
-            conflict: Option<Vec<String>>,
-            pins: Vec<PinRef>,
-            wires: Vec<Id>,
-            labels: Vec<Id>,
-            sheets: BTreeSet<Id>,
-            first_object: Id,
-        }
-        let mut drafts: Vec<Draft> = Vec::new();
-
-        for members in groups.values() {
-            if members
-                .iter()
-                .all(|m| matches!(self.nodes[*m].kind, Kind::Junction))
-            {
-                continue;
-            }
-            let mut pins = Vec::new();
-            let mut wires = Vec::new();
-            let mut labels = Vec::new();
-            let mut sheets = BTreeSet::new();
-            // name candidates by priority: 3 power, 2 global, 1 local label, 0 sheet pin
-            let mut candidates: Vec<(u8, String)> = Vec::new();
-            let mut first_object = Id(u64::MAX);
+        let mut comp_of_root: HashMap<usize, usize> = HashMap::new();
+        for (ci, (root, members)) in groups.iter().enumerate() {
+            comp_of_root.insert(*root, ci);
+            let mut c = Comp {
+                pins: Vec::new(),
+                wires: Vec::new(),
+                labels: Vec::new(),
+                candidates: Vec::new(),
+                first_object: Id(u64::MAX),
+                junction_only: members.iter().all(|m| matches!(kinds[*m], Kind::Junction)),
+                power: false,
+                global: false,
+            };
             for &m in members {
-                let node = &self.nodes[m];
-                sheets.insert(node.sheet);
-                match &node.kind {
+                match &kinds[m] {
                     Kind::Wire(id) => {
-                        wires.push(*id);
-                        first_object = first_object.min(*id);
+                        c.wires.push(*id);
+                        c.first_object = c.first_object.min(*id);
                     }
                     Kind::Pin {
                         component,
                         reference,
                         number,
                     } => {
-                        pins.push(PinRef {
+                        c.pins.push(PinRef {
                             reference: reference.clone(),
                             pin: number.clone(),
                             component: *component,
-                            sheet: node.sheet,
+                            sheet: sid,
                         });
-                        first_object = first_object.min(*component);
+                        c.first_object = c.first_object.min(*component);
                     }
                     Kind::Junction => {}
-                    Kind::Power(id) => {
-                        labels.push(*id);
-                        first_object = first_object.min(*id);
-                        if let Some((_, Object::PowerSymbol(p))) = self.sch.object(*id) {
-                            candidates.push((3, p.net_name.clone()));
-                        }
+                    Kind::Power(id, name) => {
+                        c.labels.push(*id);
+                        c.first_object = c.first_object.min(*id);
+                        c.candidates.push((PRIO_POWER, name.clone()));
+                        c.power = true;
+                        c.global = true;
                     }
-                    Kind::GlobalLabel(id) => {
-                        labels.push(*id);
-                        first_object = first_object.min(*id);
-                        if let Some((_, Object::GlobalLabel(l))) = self.sch.object(*id) {
-                            candidates.push((2, l.name.clone()));
-                        }
+                    Kind::GlobalLabel(id, name) => {
+                        c.labels.push(*id);
+                        c.first_object = c.first_object.min(*id);
+                        c.candidates.push((PRIO_GLOBAL, name.clone()));
+                        c.global = true;
                     }
-                    Kind::NetLabel(id) | Kind::HierLabel(id) => {
-                        labels.push(*id);
-                        first_object = first_object.min(*id);
-                        let name = match self.sch.object(*id) {
-                            Some((_, Object::NetLabel(l))) => Some(l.name.clone()),
-                            Some((_, Object::HierLabel(l))) => Some(l.name.clone()),
-                            _ => None,
-                        };
-                        if let Some(n) = name {
-                            candidates.push((1, self.qualify_local(node.sheet, &n)));
-                        }
+                    Kind::NetLabel(id, name) => {
+                        c.labels.push(*id);
+                        c.first_object = c.first_object.min(*id);
+                        c.candidates
+                            .push((PRIO_LOCAL, qualify_local(sch, sid, name)));
+                    }
+                    Kind::HierLabel(id, name) => {
+                        c.labels.push(*id);
+                        c.first_object = c.first_object.min(*id);
+                        c.candidates
+                            .push((PRIO_HIER, qualify_local(sch, sid, name)));
                     }
                     Kind::SheetPin { name, instance } => {
-                        labels.push(*instance);
-                        first_object = first_object.min(*instance);
-                        candidates.push((0, self.qualify_local(node.sheet, name)));
+                        c.labels.push(*instance);
+                        c.first_object = c.first_object.min(*instance);
+                        c.candidates
+                            .push((PRIO_HIER, qualify_local(sch, sid, name)));
                     }
                 }
             }
-            pins.sort();
-            pins.dedup();
-            wires.sort();
-            labels.sort();
-            labels.dedup();
+            self.comps.push(c);
+        }
+        let comp_of = |uf: &mut Uf, node: usize| comp_of_root[&uf.find(node)];
+        let mut seen: BTreeSet<(String, usize)> = BTreeSet::new();
+        let mut global_nodes: Vec<(String, usize)> = globals
+            .iter()
+            .map(|(name, node)| (name.clone(), *node))
+            .collect();
+        global_nodes.sort();
+        for (name, node) in global_nodes {
+            let ci = comp_of(uf, node);
+            if seen.insert((name.clone(), ci)) {
+                self.globals.push((name, ci));
+            }
+        }
+        for (name, node) in hier {
+            let ci = comp_of(uf, *node);
+            self.hier_labels.insert(name.clone(), ci);
+        }
+        for (node, child, name) in sheet_pins {
+            let ci = comp_of(uf, *node);
+            self.sheet_pins.push((ci, *child, name.clone()));
+        }
+    }
+}
 
-            let best = candidates.iter().map(|c| c.0).max();
-            let (name, named, conflict) = match best {
-                Some(prio) => {
-                    let names: BTreeSet<String> = candidates
-                        .iter()
-                        .filter(|c| c.0 == prio)
-                        .map(|c| c.1.clone())
-                        .collect();
-                    let chosen = names.iter().next().cloned().unwrap_or_default();
-                    let conflict = (names.len() > 1).then(|| names.into_iter().collect::<Vec<_>>());
-                    (chosen, true, conflict)
+// ---------------------------------------------------------------------------------------------
+// Engine
+// ---------------------------------------------------------------------------------------------
+
+/// What an update rebuilt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct UpdateStats {
+    /// Sheet graphs rebuilt from the model.
+    pub sheets_rebuilt: usize,
+    /// Sheet graphs reused unchanged.
+    pub sheets_reused: usize,
+}
+
+/// A connectivity result that can be kept up to date cheaply. See the module documentation.
+#[derive(Debug, Clone)]
+pub struct ConnectivityEngine {
+    graphs: BTreeMap<Id, SheetGraph>,
+    result: Connectivity,
+}
+
+impl ConnectivityEngine {
+    /// Builds every sheet and the merged result.
+    pub fn new(sch: &Schematic) -> Self {
+        let graphs = sch
+            .sheets()
+            .keys()
+            .map(|sid| (*sid, SheetGraph::build(sch, *sid)))
+            .collect();
+        let mut e = Self {
+            graphs,
+            result: Connectivity::default(),
+        };
+        e.result = compose(sch, &e.graphs);
+        e
+    }
+
+    pub fn connectivity(&self) -> &Connectivity {
+        &self.result
+    }
+
+    pub fn into_connectivity(self) -> Connectivity {
+        self.result
+    }
+
+    /// Brings the result up to date after `changes` were applied to (or reverted from) `sch`.
+    /// Only sheets named by the changes (and sheets that appeared or disappeared) are rebuilt.
+    pub fn update(&mut self, sch: &Schematic, changes: &[Change]) -> UpdateStats {
+        let mut dirty: BTreeSet<Id> = changes.iter().map(|c| c.sheet).collect();
+        self.graphs.retain(|sid, _| sch.sheet(*sid).is_some());
+        for sid in sch.sheets().keys() {
+            if !self.graphs.contains_key(sid) {
+                dirty.insert(*sid);
+            }
+        }
+        self.rebuild(sch, dirty)
+    }
+
+    /// Rebuilds the listed sheets (for changes that are not change sets, such as a renamed
+    /// sheet) and the merged result.
+    pub fn invalidate(&mut self, sch: &Schematic, sheets: &[Id]) -> UpdateStats {
+        self.graphs.retain(|sid, _| sch.sheet(*sid).is_some());
+        let mut dirty: BTreeSet<Id> = sheets.iter().copied().collect();
+        for sid in sch.sheets().keys() {
+            if !self.graphs.contains_key(sid) {
+                dirty.insert(*sid);
+            }
+        }
+        self.rebuild(sch, dirty)
+    }
+
+    /// Rebuilds everything (symbol definitions changed, unknown edits, …).
+    pub fn refresh(&mut self, sch: &Schematic) -> UpdateStats {
+        let all: BTreeSet<Id> = sch.sheets().keys().copied().collect();
+        self.graphs.clear();
+        self.rebuild(sch, all)
+    }
+
+    fn rebuild(&mut self, sch: &Schematic, dirty: BTreeSet<Id>) -> UpdateStats {
+        let mut rebuilt = 0;
+        for sid in dirty {
+            if sch.sheet(sid).is_some() {
+                self.graphs.insert(sid, SheetGraph::build(sch, sid));
+                rebuilt += 1;
+            }
+        }
+        self.result = compose(sch, &self.graphs);
+        UpdateStats {
+            sheets_rebuilt: rebuilt,
+            sheets_reused: self.graphs.len().saturating_sub(rebuilt),
+        }
+    }
+}
+
+/// The global phase: merges sheet graphs into nets.
+fn compose(sch: &Schematic, graphs: &BTreeMap<Id, SheetGraph>) -> Connectivity {
+    // Sheets reachable from the root, breadth first.
+    let mut order = vec![sch.root()];
+    let mut seen: BTreeSet<Id> = order.iter().copied().collect();
+    let mut depth: BTreeMap<Id, u32> = BTreeMap::from([(sch.root(), 0)]);
+    let mut i = 0;
+    while i < order.len() {
+        let sid = order[i];
+        i += 1;
+        if let Some(g) = graphs.get(&sid) {
+            for child in &g.children {
+                if seen.insert(*child) {
+                    depth.insert(*child, depth[&sid] + 1);
+                    order.push(*child);
                 }
-                None => match pins.first() {
-                    Some(p) => (format!("Net-({}-Pad{})", p.reference, p.pin), false, None),
-                    None => (format!("Net-(unnamed-{})", first_object.0), false, None),
-                },
-            };
-            drafts.push(Draft {
-                name,
-                named,
-                conflict,
-                pins,
-                wires,
-                labels,
-                sheets,
-                first_object,
-            });
+            }
         }
+    }
+    let empty = SheetGraph::default();
+    let graph = |sid: Id| graphs.get(&sid).unwrap_or(&empty);
 
-        // Deterministic order and unique names.
-        drafts.sort_by(|a, b| {
-            (a.name.as_str(), a.first_object).cmp(&(b.name.as_str(), b.first_object))
-        });
-        let mut seen: HashMap<String, u32> = HashMap::new();
-        for d in &mut drafts {
-            let count = seen.entry(d.name.clone()).or_insert(0);
-            *count += 1;
-            if *count > 1 {
-                d.name = format!("{}_{}", d.name, count);
-            }
-        }
-
-        let mut nets = Vec::new();
-        let mut pin_nets = BTreeMap::new();
-        for (i, d) in drafts.into_iter().enumerate() {
-            let id = NetId(i as u32);
-            for p in &d.pins {
-                pin_nets.insert((p.component, p.pin.clone()), id);
-            }
-            if let Some(names) = d.conflict {
-                self.issues.push(Issue::NameConflict { net: id, names });
-            }
-            nets.push(Net {
-                id,
-                name: d.name,
-                named: d.named,
-                pins: d.pins,
-                wires: d.wires,
-                labels: d.labels,
-                sheets: d.sheets,
-            });
-        }
-        Connectivity {
-            nets,
-            pin_nets,
-            no_connects: self.no_connects,
-            buses,
-            issues: self.issues,
+    let mut issues: Vec<Issue> = Vec::new();
+    for sid in sch.sheets().keys() {
+        if !seen.contains(sid) {
+            issues.push(Issue::UnreachableSheet { sheet: *sid });
         }
     }
 
-    /// Local names are scoped to their sheet: `/NAME` on the root sheet, `/Sheet/NAME` below it.
-    fn qualify_local(&self, sheet: Id, name: &str) -> String {
-        if sheet == self.sch.root() {
-            format!("/{name}")
-        } else {
-            let sheet_name = self.sch.sheet(sheet).map_or("?", |s| s.name.as_str());
-            format!("/{sheet_name}/{name}")
+    // Global component indices.
+    let mut base: BTreeMap<Id, usize> = BTreeMap::new();
+    let mut total = 0;
+    for sid in &order {
+        base.insert(*sid, total);
+        total += graph(*sid).comps.len();
+    }
+    let mut uf = Uf::with_len(total);
+
+    // Global names join across sheets.
+    let mut globals: HashMap<&str, usize> = HashMap::new();
+    for sid in &order {
+        for (name, ci) in &graph(*sid).globals {
+            let at = base[sid] + ci;
+            match globals.get(name.as_str()) {
+                Some(first) => uf.union(*first, at),
+                None => {
+                    globals.insert(name.as_str(), at);
+                }
+            }
         }
+    }
+
+    // Hierarchy: sheet pin <-> hierarchical label of the same name in the child sheet.
+    let mut linked: BTreeSet<(Id, &str)> = BTreeSet::new();
+    for sid in &order {
+        for (ci, child, name) in &graph(*sid).sheet_pins {
+            let target = graphs
+                .get(child)
+                .filter(|_| base.contains_key(child))
+                .and_then(|g| g.hier_labels.get(name));
+            match target {
+                Some(label_ci) => {
+                    uf.union(base[sid] + ci, base[child] + label_ci);
+                    linked.insert((*child, name.as_str()));
+                }
+                None => issues.push(Issue::SheetPinWithoutLabel {
+                    sheet: *sid,
+                    pin: name.clone(),
+                }),
+            }
+        }
+    }
+    for sid in &order {
+        for (oid, name) in &graph(*sid).hier_label_objs {
+            if !linked.contains(&(*sid, name.as_str())) {
+                issues.push(Issue::HierLabelWithoutPin {
+                    sheet: *sid,
+                    label: *oid,
+                });
+            }
+        }
+    }
+    for sid in &order {
+        issues.extend(graph(*sid).bus_issues.iter().cloned());
+    }
+
+    // Group components into nets.
+    struct Draft {
+        name: String,
+        named: bool,
+        conflict: Option<Vec<String>>,
+        pins: Vec<PinRef>,
+        wires: Vec<Id>,
+        labels: Vec<Id>,
+        sheets: BTreeSet<Id>,
+        first_object: Id,
+        power: bool,
+        global: bool,
+    }
+    let mut groups: BTreeMap<usize, Vec<(Id, usize)>> = BTreeMap::new();
+    for sid in &order {
+        for ci in 0..graph(*sid).comps.len() {
+            groups
+                .entry(uf.find(base[sid] + ci))
+                .or_default()
+                .push((*sid, ci));
+        }
+    }
+    let mut drafts: Vec<Draft> = Vec::new();
+    for members in groups.values() {
+        let comps: Vec<(Id, &Comp)> = members
+            .iter()
+            .map(|(sid, ci)| (*sid, &graph(*sid).comps[*ci]))
+            .collect();
+        if comps.iter().all(|(_, c)| c.junction_only) {
+            continue;
+        }
+        let mut pins = Vec::new();
+        let mut wires = Vec::new();
+        let mut labels = Vec::new();
+        let mut sheets = BTreeSet::new();
+        // (priority, depth of the sheet that carries the name, name)
+        let mut candidates: Vec<(u8, u32, &str)> = Vec::new();
+        let mut first_object = Id(u64::MAX);
+        let (mut power, mut global) = (false, false);
+        for (sid, c) in &comps {
+            sheets.insert(*sid);
+            pins.extend(c.pins.iter().cloned());
+            wires.extend(c.wires.iter().copied());
+            labels.extend(c.labels.iter().copied());
+            candidates.extend(
+                c.candidates
+                    .iter()
+                    .map(|(p, n)| (*p, depth[sid], n.as_str())),
+            );
+            first_object = first_object.min(c.first_object);
+            power |= c.power;
+            global |= c.global;
+        }
+        pins.sort();
+        pins.dedup();
+        wires.sort();
+        labels.sort();
+        labels.dedup();
+
+        let best = candidates.iter().map(|c| c.0).max();
+        let (name, named, conflict) = match best {
+            Some(PRIO_HIER) => {
+                // Aliases of one signal: the name nearest the root wins, never a conflict.
+                let chosen = candidates
+                    .iter()
+                    .filter(|c| c.0 == PRIO_HIER)
+                    .map(|c| (c.1, c.2))
+                    .min()
+                    .map(|(_, n)| n.to_owned())
+                    .unwrap_or_default();
+                (chosen, true, None)
+            }
+            Some(prio) => {
+                let names: BTreeSet<&str> = candidates
+                    .iter()
+                    .filter(|c| c.0 == prio)
+                    .map(|c| c.2)
+                    .collect();
+                let chosen = names
+                    .iter()
+                    .next()
+                    .map(|s| (*s).to_owned())
+                    .unwrap_or_default();
+                let conflict = (names.len() > 1)
+                    .then(|| names.into_iter().map(str::to_owned).collect::<Vec<_>>());
+                (chosen, true, conflict)
+            }
+            None => match pins.first() {
+                Some(p) => (format!("Net-({}-Pad{})", p.reference, p.pin), false, None),
+                None => (format!("Net-(unnamed-{})", first_object.0), false, None),
+            },
+        };
+        drafts.push(Draft {
+            name,
+            named,
+            conflict,
+            pins,
+            wires,
+            labels,
+            sheets,
+            first_object,
+            power,
+            global,
+        });
+    }
+
+    // Deterministic order and unique names.
+    drafts
+        .sort_by(|a, b| (a.name.as_str(), a.first_object).cmp(&(b.name.as_str(), b.first_object)));
+    let mut counts: HashMap<String, u32> = HashMap::new();
+    for d in &mut drafts {
+        let count = counts.entry(d.name.clone()).or_insert(0);
+        *count += 1;
+        if *count > 1 {
+            d.name = format!("{}_{}", d.name, count);
+        }
+    }
+
+    let mut nets = Vec::new();
+    let mut pin_nets = BTreeMap::new();
+    for (i, d) in drafts.into_iter().enumerate() {
+        let id = NetId(i as u32);
+        for p in &d.pins {
+            pin_nets.insert((p.component, p.pin.clone()), id);
+        }
+        if let Some(names) = d.conflict {
+            issues.push(Issue::NameConflict { net: id, names });
+        }
+        nets.push(Net {
+            id,
+            name: d.name,
+            named: d.named,
+            pins: d.pins,
+            wires: d.wires,
+            labels: d.labels,
+            sheets: d.sheets,
+            power: d.power,
+            global: d.global,
+        });
+    }
+
+    let mut no_connects = BTreeSet::new();
+    let mut buses: Vec<BusInfo> = Vec::new();
+    let mut dangling = Vec::new();
+    for sid in &order {
+        let g = graph(*sid);
+        no_connects.extend(g.no_connects.iter().cloned());
+        buses.extend(g.buses.iter().cloned());
+        dangling.extend(g.dangling.iter().cloned());
+    }
+    buses.sort_by_key(|b| b.label);
+
+    Connectivity {
+        nets,
+        pin_nets,
+        no_connects,
+        buses,
+        issues,
+        dangling,
     }
 }

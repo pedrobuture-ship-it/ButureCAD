@@ -16,7 +16,9 @@ pub mod model;
 pub mod schematic;
 pub mod symbol_edit;
 
-pub use connectivity::{Connectivity, Issue, Net, NetId, PinRef};
+pub use connectivity::{
+    Connectivity, ConnectivityEngine, DanglingEnd, Issue, Net, NetId, PinRef, UpdateStats,
+};
 pub use model::*;
 pub use schematic::{Change, PlacedPin, Schematic, SchematicError};
 pub mod edit;

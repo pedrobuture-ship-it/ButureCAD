@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 69bcb549e0c0ca610ad32a26dc450c35e36db7692c1ed4daa4e60bca8dd4eb65 # shrinks to edits = [Wire { sheet: 0, x1: 0, y1: 0, x2: 0, y2: 0 }]

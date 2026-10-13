@@ -28,11 +28,39 @@ embedded in the schematic (self-contained projects); pins are placed through
 
 ## Net naming
 
-Priority: power symbol > global label > local/hierarchical label > sheet pin > generated name
-(`Net-(R1-Pad2)`, from the smallest reference/pin). Ties at the same priority resolve
-alphabetically and are reported as `Issue::NameConflict`. Local names are qualified by sheet
-(`/NAME` on the root sheet, `/Sheet/NAME` below it); global and power names are bare. Net order
-and ids are deterministic.
+Priority: power symbol > global label > local net label > hierarchical label / sheet pin >
+generated name (`Net-(R1-Pad2)`, from the smallest reference/pin).
+
+* Two *different* power-symbol, global-label or local-label names on one net resolve
+  alphabetically and are reported as `Issue::NameConflict`.
+* Hierarchical labels and sheet pins are **aliases** of one signal across hierarchy levels
+  (`IN` in the parent, `A` in the child). They never conflict; the name nearest the root wins
+  (a sheet pin beats the hierarchical label it links to), then the smallest name.
+* Local names are qualified by sheet (`/NAME` on the root sheet, `/Sheet/NAME` below it); global
+  and power names are bare. Net order and ids are deterministic.
+
+Each net also records whether it is a **power** net (a power symbol is attached) and/or
+**global** (named by a power symbol or global label).
+
+## Incremental engine
+
+`ConnectivityEngine` keeps a graph per sheet and merges them cheaply. `update(&schematic,
+&changes)` rebuilds only the sheets the change set touched (plus any sheet that appeared or
+vanished) and re-runs the merge, which costs O(components) rather than O(objects). The result
+is identical to `Connectivity::build` (property-tested over random edit/undo sequences on a
+three-level hierarchy). Limits, stated plainly:
+
+* granularity is one sheet: a single huge flat sheet is rebuilt as a whole;
+* the merge phase is O(nets) (net ids are positions in a global name order, so a change can shift
+  them). Measured with `cargo run --release -p buturecad-schematic --example connectivity_bench`
+  on this machine: 40 sheets, 63k objects, 16k nets → full build ≈ 52 ms, one-wire update
+  ≈ 21 ms (2.5×); the per-sheet graph build (~1.3 ms per 1.5k objects) is what the cache saves,
+  the merge (~13 ms) is what remains. Typical sheets (≤ 1k nets) update in about a millisecond;
+  stable net ids would allow patching the merge in place if profiling ever demands it;
+* symbol-definition edits and sheet renames are not change sets; call `refresh` / `invalidate`.
+
+`Connectivity::dangling_ends()` lists wire ends attached to nothing, and ends lying on another
+wire's body without a junction (they look connected but are not).
 
 ## Structural issues (not ERC)
 

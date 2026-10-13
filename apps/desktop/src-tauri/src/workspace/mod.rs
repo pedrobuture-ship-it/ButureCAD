@@ -11,7 +11,8 @@ use buturecad_renderer::{
     box_select, pick, BoxMode, FrameRequest, GpuRenderer, GridSettings, ObjectId, Rgba, Scene,
     Selection, SnapSettings, Theme, View,
 };
-use buturecad_schematic::{Connectivity, Id, Object};
+use buturecad_schematic::{Connectivity, ConnectivityEngine, Id, Object};
+use std::cell::RefCell;
 
 mod editor;
 mod symbol_editor;
@@ -26,6 +27,12 @@ const PX_PER_NM_AT_100: f64 = 3.7795e-6;
 const MAX_MESSAGES: usize = 500;
 const PICK_TOLERANCE_PX: f64 = 5.0;
 const DRAG_THRESHOLD_PX: f64 = 4.0;
+
+/// Connectivity kept up to date between edits (see `Workspace::connectivity`).
+struct ConnCache {
+    revision: u64,
+    engine: ConnectivityEngine,
+}
 
 pub struct OpenProject {
     pub session: ProjectSession,
@@ -65,6 +72,7 @@ pub struct Workspace {
     pub debug: bool,
     pub(crate) editor: EditorState,
     pub(crate) symed: SymbolEditor,
+    conn: RefCell<Option<ConnCache>>,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
 
@@ -108,6 +116,7 @@ impl Workspace {
             debug: false,
             editor: EditorState::default(),
             symed: SymbolEditor::default(),
+            conn: RefCell::new(None),
             user_libs: None,
             sch_scene: SchematicScene::default(),
             pcb_scene: sb::PcbScene::default(),
@@ -211,6 +220,7 @@ impl Workspace {
         self.command_log.clear();
         self.editor = EditorState::default();
         self.symed = SymbolEditor::default();
+        *self.conn.get_mut() = None;
     }
 
     pub fn new_project(&mut self, root: &Path, name: &str) -> Result<(), String> {
@@ -313,6 +323,7 @@ impl Workspace {
             }
         }
         self.open = None;
+        *self.conn.get_mut() = None;
         self.recovery = None;
         self.built_for = None;
         self.selection.clear();
@@ -419,6 +430,50 @@ impl Workspace {
         match self.theme {
             ThemeName::Dark => ThemeKind::Dark,
             ThemeName::Light => ThemeKind::Light,
+        }
+    }
+
+    /// Runs `f` on the connectivity of the open project. The result is cached per model
+    /// revision; edits made through the schematic editor update it incrementally (only the
+    /// touched sheets are rebuilt), anything else (undo, symbol edits, recovery) refreshes it.
+    pub(crate) fn connectivity<R>(&self, f: impl FnOnce(&Connectivity) -> R) -> Option<R> {
+        let open = self.open.as_ref()?;
+        let revision = open.engine.revision();
+        let sch = open.engine.project().schematic();
+        let mut cache = self.conn.borrow_mut();
+        match cache.as_mut() {
+            Some(c) if c.revision == revision => {}
+            Some(c) => {
+                c.engine.refresh(sch);
+                c.revision = revision;
+            }
+            None => {
+                *cache = Some(ConnCache {
+                    revision,
+                    engine: ConnectivityEngine::new(sch),
+                });
+            }
+        }
+        cache.as_ref().map(|c| f(c.engine.connectivity()))
+    }
+
+    /// Brings the cached connectivity up to date after `changes` were committed on top of
+    /// `revision_before`. A stale cache is left for `connectivity` to refresh.
+    pub(crate) fn connectivity_committed(
+        &mut self,
+        revision_before: u64,
+        changes: &[buturecad_schematic::Change],
+    ) {
+        let Some(open) = self.open.as_ref() else {
+            return;
+        };
+        let revision = open.engine.revision();
+        let sch = open.engine.project().schematic();
+        if let Some(c) = self.conn.get_mut().as_mut() {
+            if c.revision == revision_before {
+                c.engine.update(sch, changes);
+                c.revision = revision;
+            }
         }
     }
 
@@ -863,11 +918,17 @@ impl Workspace {
             .map(|s| s.iter().copied().collect())
             .unwrap_or_default();
         // Connectivity is only needed for a single selected schematic object.
-        let conn = (self.mode == Mode::Schematic && ids.len() == 1)
-            .then(|| Connectivity::build(project.schematic()));
-        ids.into_iter()
-            .filter_map(|id| crate::summary::summarize(project, self.mode, id, conn.as_ref()))
-            .collect()
+        let summarize = |conn: Option<&Connectivity>| -> Vec<ObjectSummary> {
+            ids.iter()
+                .filter_map(|id| crate::summary::summarize(project, self.mode, *id, conn))
+                .collect()
+        };
+        if self.mode == Mode::Schematic && ids.len() == 1 {
+            self.connectivity(|c| summarize(Some(c)))
+                .unwrap_or_default()
+        } else {
+            summarize(None)
+        }
     }
 
     // -- snapshot --------------------------------------------------------------------------------

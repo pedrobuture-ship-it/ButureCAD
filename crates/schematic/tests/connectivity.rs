@@ -321,8 +321,8 @@ fn sheet_pin_links_to_hierarchical_label() {
     assert_eq!(pin_set(net), vec!["R1.1", "R3.1"]);
     assert!(c.issues().is_empty(), "{:?}", c.issues());
     assert_eq!(
-        net.name, "/Power/IN",
-        "the label's (higher priority) name wins"
+        net.name, "/IN",
+        "hierarchical names are aliases; the one nearest the root (the sheet pin) wins"
     );
 }
 

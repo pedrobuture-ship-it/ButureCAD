@@ -204,6 +204,8 @@ impl Workspace {
             .filter(|s| open.engine.project().schematic().symbol(&s.name).is_none())
             .collect();
         open.engine.reserve_ids_until(gen.next);
+        let revision_before = open.engine.revision();
+        let applied = changes.clone();
         let cmd = SchematicEditCommand::new(label, changes);
         let result = if missing.is_empty() {
             open.engine.execute(cmd)
@@ -217,6 +219,7 @@ impl Workspace {
         self.editor.touched.clear();
         match result {
             Ok(()) => {
+                self.connectivity_committed(revision_before, &applied);
                 self.command_log.push(label.to_owned());
                 true
             }
