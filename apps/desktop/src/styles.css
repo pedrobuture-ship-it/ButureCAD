@@ -901,3 +901,16 @@ textarea {
   max-height: 84vh;
   overflow: auto;
 }
+
+.fab-files {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.fab-files th,
+.fab-files td {
+  text-align: left;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--border, #2a2f3a);
+}

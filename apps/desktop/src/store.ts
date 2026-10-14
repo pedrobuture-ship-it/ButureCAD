@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { PointerResult } from "./bindings/PointerResult";
 import type { Snapshot } from "./bindings/Snapshot";
 
-export type BottomTab = "erc" | "drc" | "messages" | "console";
+export type BottomTab = "erc" | "drc" | "fab" | "messages" | "console";
 
 export type Dialog =
   | { kind: "new-project" }

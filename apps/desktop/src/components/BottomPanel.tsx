@@ -2,10 +2,12 @@ import { useEffect, useRef } from "react";
 import { store, useUi, type BottomTab } from "../store";
 import { DrcPanel } from "./DrcPanel";
 import { ErcPanel } from "./ErcPanel";
+import { FabPanel } from "./FabPanel";
 
 const TABS: { id: BottomTab; label: string }[] = [
   { id: "erc", label: "ERC" },
   { id: "drc", label: "DRC" },
+  { id: "fab", label: "Manufacturing" },
   { id: "messages", label: "Messages" },
   { id: "console", label: "Console" },
 ];
@@ -44,6 +46,11 @@ export function BottomPanel() {
                 {snap.drc.errors + snap.drc.warnings}
               </span>
             )}
+            {t.id === "fab" && snap?.fab && snap.fab.errors + snap.fab.warnings > 0 && (
+              <span className={snap.fab.errors > 0 ? "count err" : "count"}>
+                {snap.fab.errors + snap.fab.warnings}
+              </span>
+            )}
             {t.id === "messages" && messages.length > 0 && (
               <span className="count">{messages.length}</span>
             )}
@@ -62,6 +69,7 @@ export function BottomPanel() {
         <div className="bottom-body" ref={bodyRef}>
           {tab === "erc" && <ErcPanel />}
           {tab === "drc" && <DrcPanel />}
+          {tab === "fab" && <FabPanel />}
           {tab === "messages" && (
             <ul className="log">
               {messages.length === 0 && <li className="muted">No messages.</li>}

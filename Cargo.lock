@@ -275,6 +275,7 @@ dependencies = [
  "buturecad-geometry",
  "buturecad-io",
  "buturecad-libraries",
+ "buturecad-manufacturing",
  "buturecad-mcad",
  "buturecad-pcb",
  "buturecad-renderer",
@@ -346,6 +347,9 @@ dependencies = [
 [[package]]
 name = "buturecad-manufacturing"
 version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "buturecad-mcad"

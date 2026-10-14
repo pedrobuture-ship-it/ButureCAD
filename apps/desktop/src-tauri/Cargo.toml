@@ -24,6 +24,7 @@ buturecad-pcb = { path = "../../../crates/pcb" }
 buturecad-renderer = { path = "../../../crates/renderer" }
 buturecad-viewer3d = { path = "../../../crates/viewer3d" }
 buturecad-mcad = { path = "../../../crates/mcad" }
+buturecad-manufacturing = { path = "../../../crates/manufacturing" }
 buturecad-router = { path = "../../../crates/router" }
 buturecad-rules = { path = "../../../crates/rules" }
 buturecad-schematic = { path = "../../../crates/schematic" }

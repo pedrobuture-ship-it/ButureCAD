@@ -174,6 +174,8 @@ pub struct Snapshot {
     pub drc: Option<DrcInfo>,
     /// 3D view state (only in the 3D mode).
     pub viewer3d: Option<Viewer3dInfo>,
+    /// The last manufacturing preview.
+    pub fab: Option<FabInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -470,6 +472,38 @@ pub struct DrcInfo {
     pub warnings: u32,
     pub violations: Vec<DrcViolationInfo>,
     pub truncated: u32,
+}
+
+/// Manufacturing preview: preflight issues and the files `production.zip` would contain.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct FabInfo {
+    /// The board changed after the preview.
+    pub stale: bool,
+    /// Preflight errors block `production.zip`.
+    pub blocked: bool,
+    pub errors: u32,
+    pub warnings: u32,
+    pub issues: Vec<FabIssueInfo>,
+    pub files: Vec<FabFileInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct FabIssueInfo {
+    /// `error`, `warning` or `note`.
+    pub severity: String,
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct FabFileInfo {
+    pub name: String,
+    #[ts(type = "number")]
+    pub bytes: u64,
+    pub summary: String,
 }
 
 /// One net class, dimensions in mm (text, so the UI shows exactly what is stored).

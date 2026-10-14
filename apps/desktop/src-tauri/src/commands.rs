@@ -363,6 +363,18 @@ pub fn mcad_export(state: State<'_, AppState>, path: String) -> Result<Snapshot,
     state.act(|ws| ws.mcad_export(&path))
 }
 
+/// Manufacturing preview: DRC, preflight and the list of production files (nothing is written).
+#[tauri::command]
+pub fn fab_preview(state: State<'_, AppState>) -> Result<Snapshot, String> {
+    state.act(|ws| ws.fab_preview())
+}
+
+/// Writes `production.zip` (refused while the preflight has errors).
+#[tauri::command]
+pub fn fab_export(state: State<'_, AppState>, path: String) -> Result<Snapshot, String> {
+    state.act(|ws| ws.fab_export(&path))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

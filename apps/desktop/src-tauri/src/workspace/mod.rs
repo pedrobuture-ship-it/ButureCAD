@@ -17,6 +17,7 @@ use std::cell::RefCell;
 mod drc;
 mod editor;
 mod erc;
+mod fab;
 mod footprint_editor;
 mod mcad;
 mod pcb_editor;
@@ -91,6 +92,7 @@ pub struct Workspace {
     conn: RefCell<Option<ConnCache>>,
     erc: erc::ErcState,
     drc: drc::DrcState,
+    fab: fab::FabState,
     pub(crate) view3d: viewer3d::Viewer3d,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
@@ -143,6 +145,7 @@ impl Workspace {
             conn: RefCell::new(None),
             erc: erc::ErcState::default(),
             drc: drc::DrcState::default(),
+            fab: fab::FabState::default(),
             view3d: Default::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
@@ -257,6 +260,7 @@ impl Workspace {
         *self.conn.get_mut() = None;
         self.erc = erc::ErcState::default();
         self.drc = drc::DrcState::default();
+        self.fab = fab::FabState::default();
     }
 
     pub fn new_project(&mut self, root: &Path, name: &str) -> Result<(), String> {
@@ -362,6 +366,7 @@ impl Workspace {
         *self.conn.get_mut() = None;
         self.erc = erc::ErcState::default();
         self.drc = drc::DrcState::default();
+        self.fab = fab::FabState::default();
         self.recovery = None;
         self.built_for = None;
         self.selection.clear();
@@ -1093,6 +1098,7 @@ impl Workspace {
                 self.viewer3d_info()
             }),
             drc: self.drc_info(),
+            fab: self.fab_info(),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }

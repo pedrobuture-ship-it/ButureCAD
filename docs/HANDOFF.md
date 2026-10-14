@@ -1,13 +1,13 @@
 # Handoff — where the project stands and how to continue
 
-*Written at the end of the session that implemented roadmap stages 19–28. Read this, then
+*Written at the end of the session that implemented roadmap stages 19–29. Read this, then
 `CLAUDE.md`, `docs/STATUS.md` and `docs/ROADMAP.md`, then ask for / read the next roadmap prompt
-in `promptsbuturecad.md` (prompt 29 is next).*
+in `promptsbuturecad.md` (prompt 30 is next).*
 
 ## State
 
-* Roadmap stages **01–27 are done**, tested and pushed to `https://github.com/pedrobuture-ship-it/ButureCAD`
-  (branch `main`). Last checkpoint (full review, no new features) was after stage 26; stage 27 was
+* Roadmap stages **01–29 are done**, tested and pushed to `https://github.com/pedrobuture-ship-it/ButureCAD`
+  (branch `main`). Last checkpoint (full review, no new features) was after stage 26; stages 27–29 were
   added after it. Reasonable next step: implement 28–30, then do the next checkpoint.
 * Verification commands (all green at the end of this session):
   ```bash
@@ -49,10 +49,10 @@ routing,drc,diff-pairs,length-tuning,zones,stackup,viewer3d}.md`, file formats i
 `docs/file-format/documents.md`, dependency decisions in `docs/DEPENDENCIES.md`
 (`i_overlay`/`i_triangle` were added for zones).
 
-## What was done in the last session (stages 19–28)
+## What was done in the last session (stages 19–29)
 
 19 DRC engine · 20 net classes · 21 walk around · 22 push & shove · 23 differential pairs · 24 length
-tuning · 25 copper zones · 26 layer stack manager · 27 3D viewer. Each has tests (unit, property,
+tuning · 25 copper zones · 26 layer stack manager · 27 3D viewer · 28 STEP/MCAD layer (partial) · 29 manufacturing export. Each has tests (unit, property,
 workspace IPC) and a doc; stages 25–27 also have an e2e scenario with screenshots in
 `apps/desktop/e2e/out/`.
 
