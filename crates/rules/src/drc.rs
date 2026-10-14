@@ -165,48 +165,54 @@ fn arc_points(arc: &buturecad_geometry::Arc) -> Vec<Point> {
     pts
 }
 
-impl Outline {
-    fn build(doc: &PcbDoc) -> Self {
-        let mut polylines: Vec<Vec<Point>> = Vec::new();
-        for g in doc
-            .graphics
-            .values()
-            .filter(|g| g.layer == layer::EDGE_CUTS)
-        {
-            match &g.shape {
-                FpShape::Line { segment, .. } => polylines.push(vec![segment.a, segment.b]),
-                FpShape::Arc { arc, .. } => polylines.push(arc_points(arc)),
-                FpShape::Polygon { points, .. } => {
-                    let mut p = points.clone();
-                    p.push(points[0]);
-                    polylines.push(p);
-                }
-                FpShape::Rect { rect, .. } => {
-                    let (a, b) = (rect.min(), rect.max());
-                    polylines.push(vec![a, Point::new(b.x, a.y), b, Point::new(a.x, b.y), a]);
-                }
-                FpShape::Circle { circle, .. } => {
-                    let pts: Vec<Point> = (0..=48)
-                        .map(|i| {
-                            let a = i as f64 / 48.0 * std::f64::consts::TAU;
-                            Point::new(
-                                (circle.center.x as f64 + circle.radius as f64 * a.cos()).round()
-                                    as i64,
-                                (circle.center.y as f64 + circle.radius as f64 * a.sin()).round()
-                                    as i64,
-                            )
-                        })
-                        .collect();
-                    polylines.push(pts);
-                }
+/// The straight pieces of the board outline on `Edge.Cuts` (arcs and circles approximated by
+/// polylines of at most 48 segments).
+pub fn outline_segments(doc: &PcbDoc) -> Vec<Segment> {
+    let mut polylines: Vec<Vec<Point>> = Vec::new();
+    for g in doc
+        .graphics
+        .values()
+        .filter(|g| g.layer == layer::EDGE_CUTS)
+    {
+        match &g.shape {
+            FpShape::Line { segment, .. } => polylines.push(vec![segment.a, segment.b]),
+            FpShape::Arc { arc, .. } => polylines.push(arc_points(arc)),
+            FpShape::Polygon { points, .. } => {
+                let mut p = points.clone();
+                p.push(points[0]);
+                polylines.push(p);
+            }
+            FpShape::Rect { rect, .. } => {
+                let (a, b) = (rect.min(), rect.max());
+                polylines.push(vec![a, Point::new(b.x, a.y), b, Point::new(a.x, b.y), a]);
+            }
+            FpShape::Circle { circle, .. } => {
+                let pts: Vec<Point> = (0..=48)
+                    .map(|i| {
+                        let a = i as f64 / 48.0 * std::f64::consts::TAU;
+                        Point::new(
+                            (circle.center.x as f64 + circle.radius as f64 * a.cos()).round()
+                                as i64,
+                            (circle.center.y as f64 + circle.radius as f64 * a.sin()).round()
+                                as i64,
+                        )
+                    })
+                    .collect();
+                polylines.push(pts);
             }
         }
+    }
+    polylines
+        .iter()
+        .flat_map(|p| p.windows(2).map(|w| Segment::new(w[0], w[1])))
+        .filter(|s| s.a != s.b)
+        .collect()
+}
+
+impl Outline {
+    fn build(doc: &PcbDoc) -> Self {
         let mut o = Outline::default();
-        let segs: Vec<Segment> = polylines
-            .iter()
-            .flat_map(|p| p.windows(2).map(|w| Segment::new(w[0], w[1])))
-            .filter(|s| s.a != s.b)
-            .collect();
+        let segs = outline_segments(doc);
         o.count = segs.len();
         o.segs = SpatialIndex::bulk_load(segs.iter().map(|s| {
             (
@@ -857,6 +863,47 @@ pub fn check_candidate(
                 if let Some(v) = pair_violation(doc, c, &other) {
                     out.push(v);
                 }
+            }
+        }
+    }
+    out
+}
+
+/// Edge-related violations (copper-to-edge, outside board) of candidate copper, for the router.
+pub fn candidate_edge_violations(doc: &PcbDoc, candidate: &[CopperItem]) -> Vec<DrcViolation> {
+    let outline = Outline::build(doc);
+    if outline.count == 0 {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for it in candidate {
+        let at = center(&it.bbox());
+        if outline.contains(it.anchor()) == Some(false) {
+            out.push(vio(
+                DrcRule::OutsideBoard,
+                format!("{} is outside the board outline", it.label),
+                vec![it.owner],
+                at,
+                Some(it.layer),
+                None,
+                None,
+            ));
+        } else if let Some((d, _)) = outline.nearest(&it.shape, doc.rules.copper_to_edge) {
+            if d < doc.rules.copper_to_edge as f64 {
+                out.push(vio(
+                    DrcRule::CopperToEdge,
+                    format!(
+                        "{} is {:.3} mm from the board edge; {:.3} mm required",
+                        it.label,
+                        mm(d.max(0.0)),
+                        mm(doc.rules.copper_to_edge as f64)
+                    ),
+                    vec![it.owner],
+                    at,
+                    Some(it.layer),
+                    Some(d.max(0.0).round() as Coord),
+                    Some(doc.rules.copper_to_edge),
+                ));
             }
         }
     }

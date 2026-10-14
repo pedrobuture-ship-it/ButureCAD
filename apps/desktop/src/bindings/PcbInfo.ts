@@ -14,6 +14,10 @@ route_width_mm: string,
  */
 route_width_auto: boolean, 
 /**
+ * `walk` (walk around obstacles) or `ignore`.
+ */
+route_obstacles: string, 
+/**
  * Class of the net being routed (or Default).
  */
 route_class: string, route_mode: string, via_size: string, via_size_auto: boolean, 

@@ -8,5 +8,8 @@ pub mod copper;
 pub mod drc;
 pub mod erc;
 
-pub use drc::{run_drc, DrcEngine, DrcReport, DrcRule, DrcSeverity, DrcViolation};
+pub use drc::{
+    candidate_edge_violations, check_candidate, outline_segments, run_drc, DrcEngine, DrcReport,
+    DrcRule, DrcSeverity, DrcViolation,
+};
 pub use erc::{pin_conflict, run_erc, ErcCounts, ErcReport, Rule, Severity, Violation};

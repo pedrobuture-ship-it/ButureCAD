@@ -3,4 +3,8 @@
 /**
  * A route in progress.
  */
-export type RouteInfo = { net: string, layer: string, length_mm: string, vias: number, };
+export type RouteInfo = { 
+/**
+ * Why the leg to the pointer cannot be routed (walk-around found no way), if so.
+ */
+problem: string | null, net: string, layer: string, length_mm: string, vias: number, };

@@ -56,6 +56,11 @@ try {
   await b.key("Escape"); await b.wait(200);
 
   // Route from pad 1 of the left part (local -2.7, 1.905) to pad 8 of the right one (+2.7, 1.905).
+  // This scenario draws across footprint pads on purpose: switch the router to "Ignore obstacles"
+  // through the bar (walk-around is the default and would refuse these legs).
+  await b.eval(`(() => { const s = document.querySelector('select[aria-label="Obstacle mode"]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(s, "ignore"); s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await b.wait(300);
+  check("the obstacle mode can be switched in the bar", (await b.eval(`document.querySelector('select[aria-label="Obstacle mode"]')?.value`)) === "ignore");
   await b.key("x"); await b.wait(200);
   check("the route tool is armed", (await b.eval("document.querySelector('.statusbar').innerText")).includes("Route"));
   await b.click(...at(-15 + 2.7, 1.905)); await b.wait(300);

@@ -186,6 +186,7 @@ describe("Symbol Editor commands", () => {
         unrouted: 0,
         route_width_mm: "0.25",
         route_width_auto: true,
+        route_obstacles: "walk",
         route_class: "Default",
         via_size_auto: true,
         route_mode: "45",

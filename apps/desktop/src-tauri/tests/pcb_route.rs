@@ -4,6 +4,7 @@
 use buturecad_desktop_lib::ui_types::*;
 use buturecad_desktop_lib::workspace::Workspace;
 use buturecad_eda_core::commands::*;
+use buturecad_eda_core::model::{PcbChange, PcbObject, Track, Via, ViaKind};
 use buturecad_eda_core::ROOT_SHEET;
 use buturecad_geometry::{Point, Segment};
 use buturecad_pcb::layer;
@@ -78,6 +79,9 @@ fn board(dir: &std::path::Path, second_net: bool) -> Workspace {
     ws.pcb_update_preview().unwrap();
     ws.pcb_update_apply().unwrap();
     ws.fit_view();
+    // These scenarios test angles, widths, vias and editing on a board whose footprints sit in
+    // the way; obstacle avoidance has its own scenarios below.
+    ws.pcb_command("route_obstacles", Some("ignore")).unwrap();
     ws
 }
 
@@ -545,5 +549,122 @@ fn the_router_uses_the_net_class_and_a_manual_width_overrides_it() {
         ws.pcb_rules_info().unwrap().classes.len(),
         1,
         "undo removed the class"
+    );
+}
+
+fn obstacle_between(ws: &mut Workspace) -> Point {
+    let (a, b) = (pads(ws, "R1", "2"), pads(ws, "R2", "1"));
+    // Halfway between R1's right pad column and R2's left one.
+    let mid = Point::new((pads(ws, "R1", "5").x + b.x) / 2, (a.y + b.y) / 2);
+    let e = &mut ws.open.as_mut().unwrap().engine;
+    let id = e.new_id();
+    e.execute(PcbEditCommand::new(
+        "wall",
+        vec![PcbChange::create(
+            id,
+            PcbObject::Track(Track {
+                layer: layer::F_CU,
+                segment: Segment::new(
+                    Point::new(mid.x, mid.y - 6 * MM),
+                    Point::new(mid.x, mid.y + 6 * MM),
+                ),
+                width: 300_000,
+                net: None,
+            }),
+        )],
+    ))
+    .unwrap();
+    mid
+}
+
+#[test]
+fn walk_around_routes_around_copper_and_the_result_passes_drc() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut ws = board(dir.path(), false);
+    ws.pcb_command("route_obstacles", Some("walk")).unwrap();
+    obstacle_between(&mut ws);
+    view(&mut ws);
+    let (from, to) = (pads(&ws, "R1", "2"), pads(&ws, "R2", "1"));
+    let before = tracks(&ws).len();
+    ws.editor_command("tool:route").unwrap();
+    click(&mut ws, from);
+    click(&mut ws, to);
+    let t = tracks(&ws);
+    assert!(
+        t.len() > before + 1,
+        "detours produce several segments: {}",
+        t.len()
+    );
+    ws.drc_run().unwrap();
+    let drc = ws.snapshot().drc.unwrap();
+    let bad: Vec<_> = drc
+        .violations
+        .iter()
+        .filter(|v| ["clearance", "short", "copper_to_edge"].contains(&v.rule.as_str()))
+        .map(|v| v.message.clone())
+        .collect();
+    assert!(bad.is_empty(), "{bad:?}");
+    assert!(
+        !drc.violations.iter().any(|v| v.rule == "unconnected"),
+        "the connection was completed"
+    );
+}
+
+#[test]
+fn ignore_mode_draws_through_copper_and_drc_reports_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut ws = board(dir.path(), false);
+    obstacle_between(&mut ws);
+    view(&mut ws);
+    let (from, to) = (pads(&ws, "R1", "2"), pads(&ws, "R2", "1"));
+    ws.editor_command("tool:route").unwrap();
+    click(&mut ws, from);
+    click(&mut ws, to);
+    ws.drc_run().unwrap();
+    let drc = ws.snapshot().drc.unwrap();
+    assert!(
+        drc.violations.iter().any(|v| v.rule == "short"),
+        "{:?}",
+        drc.violations
+    );
+}
+
+#[test]
+fn walk_around_refuses_a_target_that_is_closed_off_and_says_why() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut ws = board(dir.path(), false);
+    ws.pcb_command("route_obstacles", Some("walk")).unwrap();
+    let to = pads(&ws, "R2", "1");
+    // A netless via sitting on the target pad: the target violates clearance.
+    let e = &mut ws.open.as_mut().unwrap().engine;
+    let id = e.new_id();
+    e.execute(PcbEditCommand::new(
+        "via",
+        vec![PcbChange::create(
+            id,
+            PcbObject::Via(Via {
+                position: Point::new(to.x, to.y + 400_000),
+                diameter: 800_000,
+                drill: 400_000,
+                net: None,
+                kind: ViaKind::Through,
+            }),
+        )],
+    ))
+    .unwrap();
+    view(&mut ws);
+    let from = pads(&ws, "R1", "2");
+    ws.editor_command("tool:route").unwrap();
+    click(&mut ws, from);
+    hover(&mut ws, to);
+    let info = ws.snapshot().pcb.unwrap();
+    assert!(
+        info.route.unwrap().problem.is_some(),
+        "the bar says the target cannot be reached"
+    );
+    click(&mut ws, to);
+    assert!(
+        tracks(&ws).is_empty(),
+        "nothing is created for an impossible leg"
     );
 }

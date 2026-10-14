@@ -4,8 +4,12 @@
 //! grows vertex by vertex following the 45°/90°/free mode, may change copper layer through a
 //! through via (`V`), and finishes on a pad/via/track of the same net, with Enter or a double
 //! click. Everything created by one route (tracks and vias) is **one** `PcbEditCommand`, so one
-//! undo removes the whole route. Obstacles are not avoided yet and clearance is only displayed
-//! (rule checking arrives with DRC, roadmap 19; walk-around routing with roadmap 21).
+//! undo removes the whole route.
+//!
+//! **Obstacle modes:** *Walk around* (default) routes every leg around the copper, keepouts and
+//! board edge of other nets with the net class clearance (`buturecad-router`), and refuses to
+//! commit a route that fails the same DRC rules the DRC panel applies; *Ignore obstacles* draws
+//! exactly what you click (DRC reports the consequences afterwards).
 
 use super::pcb_editor::{mm_str, parse_mm, Drag};
 use super::*;
@@ -15,8 +19,41 @@ use buturecad_eda_core::routing::{self, AngleMode};
 use buturecad_geometry::Circle;
 use buturecad_pcb::{layer, LayerId};
 use buturecad_renderer::{Rgba, Shape};
+use buturecad_router::{ObstacleSet, RouteCandidate, RouteParams};
+
+/// How the interactive router treats obstacles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum ObstacleMode {
+    #[default]
+    WalkAround,
+    Ignore,
+}
+
+impl ObstacleMode {
+    pub(crate) fn id(self) -> &'static str {
+        match self {
+            ObstacleMode::WalkAround => "walk",
+            ObstacleMode::Ignore => "ignore",
+        }
+    }
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "walk" => Some(ObstacleMode::WalkAround),
+            "ignore" => Some(ObstacleMode::Ignore),
+            _ => None,
+        }
+    }
+}
+
+/// Obstacles built for one `(revision, params)`.
+pub(crate) struct ObstacleCache {
+    revision: u64,
+    params: RouteParams,
+    set: ObstacleSet,
+}
 
 /// A route in progress.
+#[derive(Clone)]
 pub(crate) struct Route {
     net: Option<Id>,
     layer: LayerId,
@@ -69,6 +106,49 @@ impl Workspace {
             .map_or(buturecad_eda_core::routing::DEFAULT_CLEARANCE, |d| {
                 d.rules.class_of(net).clearance
             })
+    }
+
+    fn route_params(&self, net: Option<Id>, layer: LayerId) -> RouteParams {
+        RouteParams {
+            net,
+            layer,
+            width: self.route_width_for(net),
+        }
+    }
+
+    /// One leg of the route from `from` to `to` on `layer`, honouring the obstacle mode. The
+    /// error is a sentence for the user.
+    pub(crate) fn route_leg_pts(
+        &self,
+        net: Option<Id>,
+        layer: LayerId,
+        from: Point,
+        to: Point,
+    ) -> Result<Vec<Point>, String> {
+        let (mode, flip) = (self.pcb_ed.route_mode, self.pcb_ed.route_flip);
+        if self.pcb_ed.obstacles == ObstacleMode::Ignore {
+            return Ok(routing::path(from, to, mode, flip));
+        }
+        let (Some(doc), Some(open)) = (self.pcb_doc(), self.open.as_ref()) else {
+            return Ok(routing::path(from, to, mode, flip));
+        };
+        let revision = open.engine.revision();
+        let params = self.route_params(net, layer);
+        let mut cache = self.pcb_ed.obstacle_cache.borrow_mut();
+        let stale = cache
+            .as_ref()
+            .is_none_or(|c| c.revision != revision || c.params != params);
+        if stale {
+            *cache = Some(ObstacleCache {
+                revision,
+                params,
+                set: ObstacleSet::collect(doc, params),
+            });
+        }
+        let Some(c) = cache.as_ref() else {
+            return Ok(routing::path(from, to, mode, flip));
+        };
+        buturecad_router::route_leg(&c.set, from, to, mode, flip).map_err(|e| e.to_string())
     }
 
     fn route_tolerance(&self) -> f64 {
@@ -271,8 +351,13 @@ impl Workspace {
                 return;
             }
         }
-        let (mode, flip) = (self.pcb_ed.route_mode, self.pcb_ed.route_flip);
-        let path = routing::path(last, end, mode, flip);
+        let path = match self.route_leg_pts(r.net, r.layer, last, end) {
+            Ok(p) => p,
+            Err(why) => {
+                self.log(MessageLevel::Warn, format!("Cannot route there: {why}"));
+                return;
+            }
+        };
         let target = hit
             .as_ref()
             .is_some_and(|h| h.net.is_some() && (r.net.is_none() || h.net == r.net));
@@ -301,14 +386,22 @@ impl Workspace {
         let doc = self.pcb_doc().ok_or("no project is open")?;
         let stack = doc.stackup;
         let (end, _) = self.route_end(raw, snapped);
-        let (mode, flip) = (self.pcb_ed.route_mode, self.pcb_ed.route_flip);
+        let (net, layer_now, last) = {
+            let r = self
+                .pcb_ed
+                .route
+                .as_ref()
+                .ok_or("start a route first (X, then click a pad)")?;
+            (r.net, r.layer, *r.pts.last().unwrap_or(&end))
+        };
+        let path = self
+            .route_leg_pts(net, layer_now, last, end)
+            .map_err(|why| format!("Cannot place the via there: {why}"))?;
         let r = self
             .pcb_ed
             .route
             .as_mut()
             .ok_or("start a route first (X, then click a pad)")?;
-        let last = *r.pts.last().unwrap_or(&end);
-        let path = routing::path(last, end, mode, flip);
         r.pts.extend(path.into_iter().skip(1));
         let poly = routing::simplify(&r.pts);
         if poly.len() >= 2 {
@@ -336,10 +429,10 @@ impl Workspace {
         let raw = self.raw_cursor();
         let snapped = self.cursor;
         let (end, _) = self.route_end(raw, snapped);
-        let (mode, flip) = (self.pcb_ed.route_mode, self.pcb_ed.route_flip);
         let Some(mut r) = self.pcb_ed.route.take() else {
             return;
         };
+        let backup = r.clone();
         // Include the leg to the pointer only when nothing was clicked since the last vertex.
         if r.pts.len() == 1 && r.done.is_empty() && r.vias.is_empty() {
             out.redraw = true;
@@ -347,8 +440,15 @@ impl Workspace {
         }
         let last = *r.pts.last().unwrap_or(&end);
         if r.pts.len() == 1 && !r.done.is_empty() && end != last {
-            r.pts
-                .extend(routing::path(last, end, mode, flip).into_iter().skip(1));
+            match self.route_leg_pts(r.net, r.layer, last, end) {
+                Ok(p) => r.pts.extend(p.into_iter().skip(1)),
+                Err(why) => {
+                    self.log(MessageLevel::Warn, format!("Cannot finish there: {why}"));
+                    self.pcb_ed.route = Some(backup);
+                    out.redraw = true;
+                    return;
+                }
+            }
         }
         let poly = routing::simplify(&r.pts);
         if poly.len() >= 2 {
@@ -356,6 +456,30 @@ impl Workspace {
         }
         let width = self.route_width_for(r.net);
         let (vd, vdr) = self.via_size_for(r.net);
+        if self.pcb_ed.obstacles != ObstacleMode::Ignore {
+            let problems = self.pcb_doc().map(|doc| {
+                buturecad_router::validate_route(
+                    doc,
+                    &RouteCandidate {
+                        net: r.net,
+                        width,
+                        tracks: &r.done,
+                        vias: &r.vias,
+                        via_diameter: vd,
+                    },
+                )
+            });
+            if let Some(first) = problems.as_ref().and_then(|p| p.first()) {
+                let msg = format!(
+                    "The route would break a design rule ({}); nothing was created. Move it, or switch to “Ignore obstacles”",
+                    first.message
+                );
+                self.log(MessageLevel::Warn, msg);
+                self.pcb_ed.route = Some(backup);
+                out.redraw = true;
+                return;
+            }
+        }
         let mut changes: Vec<PcbChange> = Vec::new();
         let mut created: BTreeSet<Id> = BTreeSet::new();
         for (l, poly) in &r.done {
@@ -494,6 +618,11 @@ impl Workspace {
                 self.pcb_ed.via_size = Some((d, dr));
                 Ok(true)
             }
+            "route_obstacles" => {
+                self.pcb_ed.obstacles = ObstacleMode::parse(arg.unwrap_or("").trim())
+                    .ok_or("obstacle mode is walk or ignore")?;
+                Ok(true)
+            }
             "route_via" => self.route_via().map(|()| true),
             "route_finish" => {
                 let mut out = Outcome::default();
@@ -526,16 +655,29 @@ impl Workspace {
         let mut out: Vec<(Shape, Rgba)> = r.highlight.iter().cloned().map(|s| (s, white)).collect();
         let mut polylines: Vec<(LayerId, Vec<Point>)> = r.done.clone();
         let mut cur = r.pts.clone();
+        let mut blocked = false;
         if let Some(last) = r.pts.last() {
-            cur.extend(
-                routing::path(*last, end, self.pcb_ed.route_mode, self.pcb_ed.route_flip)
-                    .into_iter()
-                    .skip(1),
-            );
+            match self.route_leg_pts(r.net, r.layer, *last, end) {
+                Ok(p) => cur.extend(p.into_iter().skip(1)),
+                Err(_) => {
+                    // Show what a plain elbow would do, in red, so it is clear why it is refused.
+                    blocked = true;
+                    cur.extend(
+                        routing::path(*last, end, self.pcb_ed.route_mode, self.pcb_ed.route_flip)
+                            .into_iter()
+                            .skip(1),
+                    );
+                }
+            }
         }
         polylines.push((r.layer, cur));
-        for (l, poly) in &polylines {
-            let col = ps::layer_color(*l, theme);
+        let last_poly = polylines.len().saturating_sub(1);
+        for (n, (l, poly)) in polylines.iter().enumerate() {
+            let col = if blocked && n == last_poly {
+                Rgba::rgb(230, 60, 60)
+            } else {
+                ps::layer_color(*l, theme)
+            };
             for w in poly.windows(2) {
                 let seg = buturecad_geometry::Segment::new(w[0], w[1]);
                 out.push((
@@ -607,7 +749,12 @@ impl Workspace {
         let r = self.pcb_ed.route.as_ref()?;
         let mut len: f64 = r.done.iter().map(|(_, p)| routing::length(p)).sum();
         len += routing::length(&r.pts);
+        let problem = r.pts.last().and_then(|last| {
+            let (end, _) = self.route_end(self.raw_cursor(), self.cursor);
+            self.route_leg_pts(r.net, r.layer, *last, end).err()
+        });
         Some(RouteInfo {
+            problem,
             net: self.net_name(r.net),
             layer: layer::name(r.layer),
             length_mm: mm_str(len.round() as i64),

@@ -12,3 +12,10 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+buturecad-eda-core = { path = "../eda-core" }
+buturecad-geometry = { path = "../geometry" }
+buturecad-pcb = { path = "../pcb" }
+buturecad-rules = { path = "../rules" }
+
+[dev-dependencies]
+proptest = "1"

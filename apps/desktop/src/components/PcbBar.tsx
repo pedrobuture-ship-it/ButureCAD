@@ -78,6 +78,17 @@ export function PcbBar() {
         />
         Ratsnest ({info.unrouted})
       </label>
+      <label title="Walk around: routes detour around other copper, keepouts and the board edge; Ignore: draws exactly what you click (DRC reports problems)">
+        Obstacles
+        <select
+          value={info.route_obstacles}
+          aria-label="Obstacle mode"
+          onChange={(e) => cmd("route_obstacles", e.target.value)}
+        >
+          <option value="walk">Walk around</option>
+          <option value="ignore">Ignore obstacles</option>
+        </select>
+      </label>
       <CommitInput
         label={info.route_width_auto ? `Width (mm) · ${info.route_class}` : "Track width (mm)"}
         value={info.route_width_mm}
@@ -110,6 +121,11 @@ export function PcbBar() {
         <span role="status" className="route-status">
           Routing {info.route.net} on {info.route.layer} · {info.route.length_mm} mm
           {info.route.vias > 0 ? ` · ${info.route.vias} via(s)` : ""}
+        </span>
+      )}
+      {info.route?.problem && (
+        <span className="warn" role="status">
+          Cannot route there: {info.route.problem}
         </span>
       )}
       {info.warnings.map((w) => (

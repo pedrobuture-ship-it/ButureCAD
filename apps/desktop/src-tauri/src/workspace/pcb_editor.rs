@@ -80,6 +80,10 @@ pub(crate) struct PcbEditor {
     /// Ratsnest lines of the nets affected by the move in progress.
     pub(crate) rat_preview: BTreeMap<Id, Vec<RatLine>>,
     pub(crate) route: Option<super::pcb_route::Route>,
+    /// How the router treats obstacles.
+    pub(crate) obstacles: super::pcb_route::ObstacleMode,
+    /// Obstacles of the route in progress, rebuilt when the board, net, layer or width changes.
+    pub(crate) obstacle_cache: std::cell::RefCell<Option<super::pcb_route::ObstacleCache>>,
     /// Manual track width; `None` follows the net class of the net being routed.
     pub(crate) route_width: Option<i64>,
     pub(crate) route_mode: buturecad_eda_core::routing::AngleMode,
@@ -101,6 +105,8 @@ impl Default for PcbEditor {
             show_ratsnest: true,
             rat_preview: BTreeMap::new(),
             route: None,
+            obstacles: Default::default(),
+            obstacle_cache: Default::default(),
             route_width: None,
             route_mode: Default::default(),
             route_flip: false,
@@ -551,6 +557,7 @@ impl Workspace {
             warnings,
             ratsnest_visible: self.pcb_ed.show_ratsnest,
             route_width_mm: mm_str(self.route_width_for(self.route_net())),
+            route_obstacles: self.pcb_ed.obstacles.id().into(),
             route_width_auto: self.pcb_ed.route_width.is_none(),
             route_class: doc.rules.class_of(self.route_net()).name.clone(),
             route_mode: self.pcb_ed.route_mode.id().into(),

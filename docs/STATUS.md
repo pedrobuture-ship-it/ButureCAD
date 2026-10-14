@@ -1,6 +1,6 @@
 # Working
 
-*Roadmap stages 01–20 (last checkpoint after 18). Everything below is implemented, tested and used by the
+*Roadmap stages 01–21 (last checkpoint after 18). Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -30,11 +30,13 @@ desktop app; limits are stated in the sections that follow.*
 
 - **Net classes** (roadmap 20): Default/Power/USB/Differential/HighCurrent presets, per-net assignment, board limits, undoable, persisted (PCB schema 4); the router takes width and via size from the net class and DRC its clearance.
 
+- **Router walk-around** (roadmap 21): `buturecad-router` (collision, obstacles, A* path finding, DRC validation of the result); Walk around / Ignore obstacles modes, live preview with refusal reason, routes validated with the DRC rules before they are committed. See `docs/routing.md`.
+
 # Partial
 
-- **PCB:** the model, placement, routing and vias exist; routing does not avoid obstacles (DRC reports what it violates; walk-around is stage 21); zones/keepouts have no tools and are not checked by DRC (25).
+- **PCB:** the model, placement, routing and vias exist; routing walks around obstacles but does not push them (stage 22); zones/keepouts have no tools and are not checked by DRC (25).
 - **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
-- **Router:** obstacles are not avoided and clearance is not enforced while drawing (only displayed; DRC checks afterwards). Width and via size follow the net class.
+- **Router:** Walk Around avoids copper, keepouts and the board edge with the class clearance; detours run at any angle (no 45° clean-up), existing tracks are never pushed (stage 22) and zones are not obstacles yet. Width and via size follow the net class.
 - **DRC:** the app runs a full check on demand (and marks it stale after edits); the incremental `DrcEngine::update` is not yet driven per edit. No hole-to-hole, silkscreen or mask rules.
 - **Hierarchy:** only the root sheet can be drawn and edited; hierarchical sheets exist in the model and connectivity but have no UI tools. ERC findings inside child sheets are listed but cannot be focused.
 - **Symbol edits and placed parts:** changing a symbol's pins moves the pins but not the wires attached to them in the schematic; ERC shows what became unconnected. There is no "update symbol from library" command: the project copy is authoritative once opened.
@@ -60,7 +62,7 @@ desktop app; limits are stated in the sections that follow.*
 - The desktop crate's `workspace/` module is ~8.3 k lines; the schematic, symbol, footprint and PCB editors each carry their own select/move/draw state machine with similar structure. A shared item-editor abstraction is worth extracting before more editors (zones, 3D) add copies.
 - The DRC panel and the Net Classes dialog are covered by IPC tests but have no end-to-end browser scenario yet.
 - The end-to-end harness needs Chromium and a GPU, so it is not run in CI; React components are covered by it and by the command-registry tests only.
-- Reserved crates (`router`, `manufacturing`, `simulation`, `viewer3d`, `scripting`, `plugin-runtime`, `agent-api`) are empty on purpose.
+- Reserved crates (`manufacturing`, `simulation`, `viewer3d`, `scripting`, `plugin-runtime`, `agent-api`) are empty on purpose.
 - `PinType::Unspecified` exists beyond the ten types the roadmap lists (kept for legacy and imported data).
 
 # Known Bugs

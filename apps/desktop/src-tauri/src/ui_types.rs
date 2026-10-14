@@ -359,6 +359,8 @@ pub struct PcbInfo {
     pub route_width_mm: String,
     /// The width follows the net class (no manual override).
     pub route_width_auto: bool,
+    /// `walk` (walk around obstacles) or `ignore`.
+    pub route_obstacles: String,
     /// Class of the net being routed (or Default).
     pub route_class: String,
     pub route_mode: String,
@@ -374,6 +376,8 @@ pub struct PcbInfo {
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 pub struct RouteInfo {
+    /// Why the leg to the pointer cannot be routed (walk-around found no way), if so.
+    pub problem: Option<String>,
     pub net: String,
     pub layer: String,
     pub length_mm: String,

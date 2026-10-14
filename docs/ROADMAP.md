@@ -23,7 +23,8 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 16 | Ratsnest | done (`docs/ratsnest.md`) |
 | 17–18 | Tracks, vias and layer change | done (`docs/routing.md`) |
 | 19–20 | DRC engine, net classes | done (`docs/drc.md`) |
-| 21–26 | Walk-around, push & shove, differential pairs, length tuning, zones, stackup | planned |
+| 21 | Router walk-around | done (`docs/routing.md`) |
+| 22–26 | Push & shove, differential pairs, length tuning, zones, stackup | planned |
 | 27–30 | 3D, STEP/MCAD, manufacturing, Gerber viewer | planned |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
 | 35–37 | ButureScript, parametric ButureScript, code ↔ visual | planned |

@@ -277,6 +277,7 @@ dependencies = [
  "buturecad-libraries",
  "buturecad-pcb",
  "buturecad-renderer",
+ "buturecad-router",
  "buturecad-rules",
  "buturecad-schematic",
  "serde",
@@ -372,6 +373,13 @@ dependencies = [
 [[package]]
 name = "buturecad-router"
 version = "0.1.0"
+dependencies = [
+ "buturecad-eda-core",
+ "buturecad-geometry",
+ "buturecad-pcb",
+ "buturecad-rules",
+ "proptest",
+]
 
 [[package]]
 name = "buturecad-rules"
