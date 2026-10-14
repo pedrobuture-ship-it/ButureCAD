@@ -24,7 +24,8 @@ Desktop GUI (Tauri + React)   buturecad-cli (planned)
 | `viewer3d` | Decoupled 3D viewer: plain model → mesh → software rasteriser, camera | done (27) |
 | `mcad` | Mechanical/STEP exchange abstraction: neutral model, backend trait, registry, `.bmech`, Part 21 reader | partial (28): no STEP geometry |
 | `manufacturing` | Decoupled Gerber, Excellon, BOM, pick and place, assembly info, preflight, production.zip | done (29) |
-| `simulation`, `scripting`, `plugin-runtime`, `agent-api` | reserved slots | not implemented |
+| `plugin-runtime` | WASM (wasmi) sandbox, manifest, permissions, manager, ComponentProvider API | done (32–33) |
+| `simulation`, `scripting`, `agent-api` | reserved slots | not implemented |
 | `apps/desktop` | Tauri 2 shell + React UI; the Rust `Workspace` owns all state and tools | done through stage 26 |
 
 ## Rules

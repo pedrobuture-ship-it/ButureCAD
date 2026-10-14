@@ -34,6 +34,8 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 29 | Manufacturing export | done (`docs/manufacturing.md`) |
 | 30 | Gerber viewer | done (`docs/gerber-viewer.md`) |
 | 31 | Local libraries / Library Manager | done (`docs/library-manager.md`) |
+| 32 | Plugin system (WASM sandbox, permissions, manager) | done (`docs/plugin-sdk/README.md`); network/project-write permissions have no backend yet |
+| 33 | Component Provider API | done (`docs/plugin-sdk/README.md`) |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
 | 35–37 | ButureScript, parametric ButureScript, code ↔ visual | planned |
 | 38–42 | CLI, headless, Agent API, AI workspace, protocol | planned |

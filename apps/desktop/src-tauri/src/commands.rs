@@ -401,6 +401,16 @@ pub fn library_place_symbol(state: State<'_, AppState>, key: String) -> Result<S
     state.with(|ws| ws.library_place_symbol(&key))
 }
 
+/// Plugin Manager and provider actions (install, enable, permissions, search, import).
+#[tauri::command]
+pub fn plugin_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.plugin_command(&name, arg.as_deref()))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

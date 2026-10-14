@@ -90,6 +90,7 @@ export const MODE_TITLES: Record<Mode, string> = {
   viewer3d: "3D Viewer",
   gerber_viewer: "Gerber Viewer",
   library_manager: "Libraries",
+  plugins: "Plugins",
 };
 
 /** Roadmap stage that will implement a mode that has no canvas yet. */

@@ -64,6 +64,7 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::fab_export,
         commands::gerber_command,
         commands::library_command,
+        commands::plugin_command,
         commands::library_place_symbol,
         commands::drc_run,
         commands::drc_focus,
@@ -91,7 +92,9 @@ pub fn run() {
                     .map(|d| d.join("recent-projects.json"));
                 let mut ws = workspace::Workspace::new(recent);
                 if let Ok(dir) = app.path().app_data_dir() {
-                    ws = ws.with_user_libraries(dir.join("libraries"));
+                    ws = ws
+                        .with_user_libraries(dir.join("libraries"))
+                        .with_plugin_dir(dir.join("plugins"));
                 }
                 // `buturecad /path/to/project` opens that project at startup.
                 if let Some(path) = std::env::args().nth(1) {

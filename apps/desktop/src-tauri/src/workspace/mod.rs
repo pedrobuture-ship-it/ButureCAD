@@ -27,6 +27,7 @@ mod pcb_pair;
 mod pcb_route;
 mod pcb_tune;
 mod pcb_zone;
+mod plugins;
 mod rules;
 mod stackup;
 mod symbol_editor;
@@ -97,6 +98,8 @@ pub struct Workspace {
     fab: fab::FabState,
     gv: gerber_view::GerberViewer,
     libm: library_manager::LibraryManager,
+    plugins: plugins::Plugins,
+    pub(crate) plugin_dir: Option<PathBuf>,
     pub(crate) view3d: viewer3d::Viewer3d,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
@@ -152,6 +155,8 @@ impl Workspace {
             fab: fab::FabState::default(),
             gv: gerber_view::GerberViewer::default(),
             libm: library_manager::LibraryManager::default(),
+            plugins: plugins::Plugins::default(),
+            plugin_dir: None,
             view3d: Default::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
@@ -1111,6 +1116,7 @@ impl Workspace {
             fab: self.fab_info(),
             gerber: (self.mode == Mode::GerberViewer).then(|| self.gerber_info()),
             library_manager: (self.mode == Mode::LibraryManager).then(|| self.library_info()),
+            plugins: (self.mode == Mode::Plugins).then(|| self.plugins_info()),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }

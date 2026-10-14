@@ -11,6 +11,7 @@ import type { Message } from "./Message";
 import type { Mode } from "./Mode";
 import type { ObjectSummary } from "./ObjectSummary";
 import type { PcbInfo } from "./PcbInfo";
+import type { PluginManagerInfo } from "./PluginManagerInfo";
 import type { ProjectInfo } from "./ProjectInfo";
 import type { RecentProject } from "./RecentProject";
 import type { SymbolEditorInfo } from "./SymbolEditorInfo";
@@ -81,4 +82,8 @@ gerber: GerberViewerInfo | null,
 /**
  * Library Manager state (only in the Library Manager mode).
  */
-library_manager: LibraryManagerInfo | null, };
+library_manager: LibraryManagerInfo | null, 
+/**
+ * Plugin Manager state (only in the Plugins mode).
+ */
+plugins: PluginManagerInfo | null, };

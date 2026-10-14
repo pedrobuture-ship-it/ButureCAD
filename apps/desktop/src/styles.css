@@ -942,3 +942,10 @@ textarea {
   flex-wrap: wrap;
   align-items: flex-end;
 }
+
+.plugin-card {
+  border: 1px solid var(--border, #2a2f3a);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}

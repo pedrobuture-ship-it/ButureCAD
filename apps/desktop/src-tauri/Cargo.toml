@@ -24,6 +24,7 @@ buturecad-pcb = { path = "../../../crates/pcb" }
 buturecad-renderer = { path = "../../../crates/renderer" }
 buturecad-viewer3d = { path = "../../../crates/viewer3d" }
 buturecad-mcad = { path = "../../../crates/mcad" }
+buturecad-plugin-runtime = { path = "../../../crates/plugin-runtime" }
 buturecad-manufacturing = { path = "../../../crates/manufacturing" }
 buturecad-router = { path = "../../../crates/router" }
 buturecad-rules = { path = "../../../crates/rules" }
@@ -36,6 +37,7 @@ ts-rs = "12"
 
 [dev-dependencies]
 tempfile = "3"
+wat = "1"
 tauri = { version = "2", features = ["test"] }
 
 [build-dependencies]

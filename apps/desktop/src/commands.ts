@@ -737,6 +737,7 @@ export function buildCommands(): AppCommand[] {
     modeCommand("viewer3d", "3D Viewer", "Ctrl+5"),
     modeCommand("gerber_viewer", "Gerber Viewer", "Ctrl+6"),
     modeCommand("library_manager", "Libraries", "Ctrl+7"),
+    modeCommand("plugins", "Plugins", "Ctrl+8"),
 
     {
       id: "tools.palette",

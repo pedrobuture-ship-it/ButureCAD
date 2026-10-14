@@ -17,6 +17,7 @@ pub enum Mode {
     Viewer3d,
     GerberViewer,
     LibraryManager,
+    Plugins,
 }
 
 impl Mode {
@@ -182,6 +183,8 @@ pub struct Snapshot {
     pub gerber: Option<GerberViewerInfo>,
     /// Library Manager state (only in the Library Manager mode).
     pub library_manager: Option<LibraryManagerInfo>,
+    /// Plugin Manager state (only in the Plugins mode).
+    pub plugins: Option<PluginManagerInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -810,4 +813,50 @@ pub struct LibraryManagerInfo {
     pub detail: Option<LibraryDetail>,
     /// Folders that can receive new components: `project`, `user`.
     pub writable_scopes: Vec<String>,
+}
+
+/// An installed plugin.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct PluginRow {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub categories: Vec<String>,
+    /// Permissions the manifest asks for.
+    pub requested: Vec<String>,
+    /// Permissions the user granted (a subset of `requested`).
+    pub granted: Vec<String>,
+    pub enabled: bool,
+    pub loaded: bool,
+    pub error: Option<String>,
+}
+
+/// A search hit returned by a component provider plugin.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct PluginHit {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub manufacturer: String,
+    pub mpn: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, TS)]
+#[ts(export)]
+pub struct PluginManagerInfo {
+    /// A plugin folder exists in this session.
+    pub available: bool,
+    pub plugins: Vec<PluginRow>,
+    /// Enabled component providers.
+    pub providers: Vec<String>,
+    pub provider: String,
+    pub query: String,
+    pub hits: Vec<PluginHit>,
+    pub error: String,
+    /// Host requests the sandbox refused during the last search.
+    pub audit: Vec<String>,
+    pub last_import: String,
 }

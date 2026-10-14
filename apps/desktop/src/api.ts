@@ -90,6 +90,7 @@ export const api = {
   libraryCommand: (name: string, arg?: string) =>
     invoke<Snapshot>("library_command", { name, arg }),
   libraryPlaceSymbol: (key: string) => invoke<string>("library_place_symbol", { key }),
+  pluginCommand: (name: string, arg?: string) => invoke<Snapshot>("plugin_command", { name, arg }),
   fabPreview: () => invoke<Snapshot>("fab_preview"),
   fabExport: (path: string) => invoke<Snapshot>("fab_export", { path }),
   drcFocus: (index: number) => invoke<Snapshot>("drc_focus", { index }),

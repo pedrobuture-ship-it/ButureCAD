@@ -5,6 +5,7 @@ import { call, closeWindowNow, refreshSnapshot, toast } from "./actions";
 import { availability } from "./commands";
 import { BottomPanel } from "./components/BottomPanel";
 import { CanvasView } from "./components/CanvasView";
+import { PluginsPanel } from "./components/PluginsPanel";
 import { LibraryManager } from "./components/LibraryManager";
 import { GerberViewerBar } from "./components/GerberViewerBar";
 import { Viewer3dBar } from "./components/Viewer3dBar";
@@ -141,6 +142,8 @@ export function App() {
               <SymbolEditorHome />
             ) : mode === "footprint_editor" && !snap.footprint_editor ? (
               <FootprintEditorHome />
+            ) : mode === "plugins" ? (
+              <PluginsPanel />
             ) : mode === "library_manager" ? (
               <LibraryManager />
             ) : hasCanvasMode ? (
