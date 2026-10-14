@@ -85,6 +85,19 @@ pub fn summarize(
                     props.push(prop("reference", "Reference", &c.reference, true));
                     props.push(prop("value", "Value", &c.value, true));
                     props.push(prop("footprint", "Footprint", &c.footprint, true));
+                    for (k, label) in [
+                        ("Spice_Model", "SPICE model"),
+                        ("Spice_Value", "SPICE value"),
+                        ("Spice_Nodes", "SPICE pin order"),
+                        ("Spice_Enable", "SPICE enable (0 = skip)"),
+                    ] {
+                        props.push(prop(
+                            k,
+                            label,
+                            c.properties.get(k).map_or("", String::as_str),
+                            true,
+                        ));
+                    }
                     if let Some(sym) = sch.symbol(&c.lib_id) {
                         if sym.unit_count > 1 {
                             let units: Vec<(String, String)> = (1..=sym.unit_count)

@@ -25,7 +25,8 @@ Desktop GUI (Tauri + React)   buturecad-cli (planned)
 | `mcad` | Mechanical/STEP exchange abstraction: neutral model, backend trait, registry, `.bmech`, Part 21 reader | partial (28): no STEP geometry |
 | `manufacturing` | Decoupled Gerber, Excellon, BOM, pick and place, assembly info, preflight, production.zip | done (29) |
 | `plugin-runtime` | WASM (wasmi) sandbox, manifest, permissions, manager, ComponentProvider API | done (32–33) |
-| `simulation`, `scripting`, `agent-api` | reserved slots | not implemented |
+| `simulation` | Backend trait, circuit/netlist, built-in linear MNA engine, ngspice external-process backend | partial (34) |
+| `scripting`, `agent-api` | reserved slots | not implemented |
 | `apps/desktop` | Tauri 2 shell + React UI; the Rust `Workspace` owns all state and tools | done through stage 26 |
 
 ## Rules

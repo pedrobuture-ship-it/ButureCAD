@@ -411,6 +411,16 @@ pub fn plugin_command(
     state.act(|ws| ws.plugin_command(&name, arg.as_deref()))
 }
 
+/// Simulation actions (`set key=value`, `run`).
+#[tauri::command]
+pub fn simulation_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.simulation_command(&name, arg.as_deref()))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

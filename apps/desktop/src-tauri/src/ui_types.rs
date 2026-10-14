@@ -18,6 +18,7 @@ pub enum Mode {
     GerberViewer,
     LibraryManager,
     Plugins,
+    Simulation,
 }
 
 impl Mode {
@@ -185,6 +186,8 @@ pub struct Snapshot {
     pub library_manager: Option<LibraryManagerInfo>,
     /// Plugin Manager state (only in the Plugins mode).
     pub plugins: Option<PluginManagerInfo>,
+    /// Simulation state (only in the Simulation mode).
+    pub simulation: Option<SimulationInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -859,4 +862,64 @@ pub struct PluginManagerInfo {
     /// Host requests the sandbox refused during the last search.
     pub audit: Vec<String>,
     pub last_import: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct SimulationBackendInfo {
+    pub id: String,
+    pub name: String,
+    pub available: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct SimulationSeriesInfo {
+    pub name: String,
+    pub unit: String,
+    pub values: Vec<f64>,
+}
+
+/// A simulation result, decimated to at most 1500 points per curve for plotting.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct SimulationResultInfo {
+    /// The schematic changed after the run.
+    pub stale: bool,
+    pub analysis: String,
+    pub backend: String,
+    pub x_label: String,
+    pub x_unit: String,
+    pub x_log: bool,
+    pub x: Vec<f64>,
+    /// The data had more points than shown.
+    pub decimated: bool,
+    pub points: u32,
+    pub series: Vec<SimulationSeriesInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct SimulationInfo {
+    pub backends: Vec<SimulationBackendInfo>,
+    pub backend: String,
+    /// `op`, `dc`, `ac` or `tran`.
+    pub analysis: String,
+    pub source: String,
+    pub sources: Vec<String>,
+    pub start: String,
+    pub stop: String,
+    pub step: String,
+    pub ppd: String,
+    pub fstart: String,
+    pub fstop: String,
+    pub tstep: String,
+    pub tstop: String,
+    /// The generated SPICE netlist.
+    pub netlist: String,
+    pub notes: Vec<String>,
+    /// Problems that stop the simulation.
+    pub problems: Vec<String>,
+    pub error: String,
+    pub result: Option<SimulationResultInfo>,
 }

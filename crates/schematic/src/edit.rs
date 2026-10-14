@@ -1065,6 +1065,20 @@ pub fn set_property(sch: &Schematic, id: Id, key: &str, value: &str) -> Result<C
                 }
             }
         }
+        // SPICE associations (`Spice_Model`, `Spice_Value`, `Spice_Nodes`, `Spice_Enable`).
+        (Object::Component(c), k) if k.starts_with("Spice_") => {
+            let v = value.trim();
+            if v.len() > 4000 || v.chars().any(|ch| ch.is_control() && ch != '\n') {
+                return Err(EditError::Invalid(
+                    "a SPICE property is too long or has control characters".into(),
+                ));
+            }
+            if v.is_empty() {
+                c.properties.remove(k);
+            } else {
+                c.properties.insert(k.to_owned(), v.to_owned());
+            }
+        }
         (Object::NetLabel(l), "name") => l.name = value.trim().to_owned(),
         (Object::GlobalLabel(l), "name") => l.name = value.trim().to_owned(),
         (Object::HierLabel(l), "name") => l.name = value.trim().to_owned(),

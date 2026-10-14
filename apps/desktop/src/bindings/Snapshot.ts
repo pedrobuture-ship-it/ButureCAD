@@ -14,6 +14,7 @@ import type { PcbInfo } from "./PcbInfo";
 import type { PluginManagerInfo } from "./PluginManagerInfo";
 import type { ProjectInfo } from "./ProjectInfo";
 import type { RecentProject } from "./RecentProject";
+import type { SimulationInfo } from "./SimulationInfo";
 import type { SymbolEditorInfo } from "./SymbolEditorInfo";
 import type { ThemeName } from "./ThemeName";
 import type { Units } from "./Units";
@@ -86,4 +87,8 @@ library_manager: LibraryManagerInfo | null,
 /**
  * Plugin Manager state (only in the Plugins mode).
  */
-plugins: PluginManagerInfo | null, };
+plugins: PluginManagerInfo | null, 
+/**
+ * Simulation state (only in the Simulation mode).
+ */
+simulation: SimulationInfo | null, };

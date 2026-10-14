@@ -1,6 +1,8 @@
 # Working
 
-*Checkpoint after roadmap stages 01–26; stages 27–33 added after it. Everything below is implemented, tested and used by the
+*Checkpoint note (after stage 34): workspace compiles, `fmt`/`clippy -D warnings` clean, 637 Rust tests and 21 frontend tests pass, a search for TODO/FIXME/mock/placeholder/temporary/fake/stub found only documented items (`builtin.rs` bootstrap symbols, UI input placeholders). The e2e screenshot scenarios (`apps/desktop/e2e`) were not re-run for stages 28–34.*
+
+*Checkpoint after roadmap stages 01–26; stages 27–34 added after it. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -43,6 +45,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Layer stack** (roadmap 26): physical stack model (copper/dielectric thickness, material, core/prepreg, εr/tan δ, solder mask, flex flag), Layer Stack Manager with built-in templates (2/4/6/8 layers, HDI, rigid-flex) and local presets (`*.bstack.json`), inner-layer exchange, one undo step; PCB schema 8. See `docs/stackup.md`.
 
 - **3D viewer** (roadmap 27): decoupled `buturecad-viewer3d` (model → mesh → software rasteriser, orbit/pan/zoom, perspective/orthographic); substrate, solder mask, copper, pads, vias, zone fills, silkscreen and component boxes; follows every PCB edit/undo; layer toggles and preset views. Component 3D models are referenced but not parsed (stage 28). See `docs/viewer3d.md`.
+- **Simulation** (roadmap 34): schematic connectivity → netlist; OP, DC sweep, AC, transient with the built-in linear engine (verified against analytic circuits); SPICE properties per component (Inspector); built-in V/I source symbols; plots in the UI. See `docs/simulation.md`.
 - **Plugins and Component Provider API** (roadmap 32–33): WASM sandbox (wasmi) with fuel/memory limits and no WASI; manifest; install/enable/disable/reload/remove; explicit grant/revoke of `filesystem`, `project-read`, `network`, `project-write` with audit of refusals; provider panel with search and import into user libraries. See `docs/plugin-sdk/README.md`.
 - **Library Manager** (roadmap 31): symbol, footprint, 3D model (manifest) and component libraries; local inverted-index search with filters, favorites and recents; component editor; place symbol. See `docs/library-manager.md`.
 - **Gerber viewer** (roadmap 30): independent Gerber/Excellon readers + 2D rasteriser; layers, apertures, drill tools, toggles, zip/folder loading, verification of the generated files against the board. See `docs/gerber-viewer.md`.
@@ -51,6 +54,7 @@ desktop app; limits are stated in the sections that follow.*
 
 # Partial
 
+- **Simulation:** the built-in engine is linear only; nonlinear devices need ngspice, whose backend has never been run against a real ngspice here (only its raw-file parser is tested); no cursors/measurements/CSV export.
 - **Plugins:** `network` can be granted/revoked but there is no network client (requests fail explicitly); `project-write` never edits the project (no proposal flow yet); only `ComponentProvider` has a defined method set; no plugin SDK crate/examples beyond test fixtures; no signature/trust verification of plugin files.
 - **Manufacturing:** silkscreen text is not exported, no per-fabricator rules, no inner-plane negatives, no BOM supplier/MPN data; the Gerber viewer verifies positions/counts/drills but is not a third-party CAM check.
 - **STEP/MCAD:** abstraction, neutral `.bmech` and Part 21 inspection work; STEP geometry import/export is not implemented (no kernel chosen, licence review pending); mechanical constraints are stored but not evaluated; no UI button for `mcad_export`; no import back into the board.

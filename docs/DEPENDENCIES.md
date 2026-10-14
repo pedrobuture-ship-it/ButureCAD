@@ -41,3 +41,12 @@ unsafe in our code) we use `wasmi`; plugins here are glue (searching catalogues,
 not compute kernels, so interpreter speed is acceptable. **WASI is deliberately not provided**:
 the only door out of the sandbox is `buturecad.host_request`, gated by user-granted permissions.
 `portable-dispatch` avoids stack overflows of the tail-call dispatcher in debug builds.
+
+Decision record — simulation (roadmap 34): the prompt asks for a mature solver with a compatible
+licence rather than a new one. Candidates: **ngspice** (maintained for decades; BSD-style
+licence for the core, but some optional components and build configurations carry other terms —
+needs legal review before any redistribution), **Xyce** (GPL-3: incompatible with a proprietary
+distribution), **LTspice** (proprietary, not redistributable), embedding **libngspice** through FFI
+(needs `unsafe`, a shared library per platform, and ties the licence to our binary). Chosen: run
+the *user's installed* `ngspice` as a separate process (no linking, nothing bundled, offline), plus a small in-house linear engine so basic
+analyses work with no external tool. Nothing was added to `Cargo.toml` for this beyond `thiserror`.

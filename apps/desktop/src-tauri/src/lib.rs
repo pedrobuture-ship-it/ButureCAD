@@ -65,6 +65,7 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::gerber_command,
         commands::library_command,
         commands::plugin_command,
+        commands::simulation_command,
         commands::library_place_symbol,
         commands::drc_run,
         commands::drc_focus,

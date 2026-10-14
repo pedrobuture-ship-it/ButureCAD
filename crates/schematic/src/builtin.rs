@@ -7,7 +7,7 @@
 
 use crate::model::*;
 use crate::schematic::Schematic;
-use buturecad_geometry::{Arc, Point, Rectangle, Segment};
+use buturecad_geometry::{Arc, Circle, Point, Rectangle, Segment};
 
 const MM: f64 = 1_000_000.0;
 const LINE: i64 = 150_000;
@@ -130,6 +130,34 @@ fn inductor() -> Symbol {
         }
     }
     passive_two_pin("L", "L", "10u", 1.27, g)
+}
+
+/// Independent source symbol (circle). Pin 1 is the positive terminal. The value is a SPICE
+/// source specification (`DC 5`, `AC 1`, `SIN(0 1 1k)`, `PULSE(...)`), see `docs/simulation.md`.
+fn source(name: &str, prefix: &str, value: &str, mark: &str) -> Symbol {
+    let mut g = vec![text((-0.5, -0.4), mark)];
+    if let Ok(circle) = Circle::new(p(0.0, 0.0), u(2.54)) {
+        g.push(Graphic::Circle {
+            circle,
+            filled: false,
+            width: LINE,
+        });
+    }
+    let mut s = passive_two_pin(name, prefix, value, 1.27, g);
+    s.pins[0].kind = PinType::Passive;
+    s.pins[0].name = "+".into();
+    s.pins[1].name = "-".into();
+    s.meta.description = "Independent source for simulation (pin 1 = +)".into();
+    s.meta.keywords = "source simulation spice".into();
+    s
+}
+
+fn vsource() -> Symbol {
+    source("V", "V", "DC 5", "V")
+}
+
+fn isource() -> Symbol {
+    source("I", "I", "DC 1m", "I")
 }
 
 fn diode_graphics() -> Vec<Graphic> {
@@ -313,6 +341,8 @@ pub fn symbols() -> Vec<Symbol> {
         resistor(),
         capacitor(),
         inductor(),
+        vsource(),
+        isource(),
         diode(),
         led(),
         connector(2),

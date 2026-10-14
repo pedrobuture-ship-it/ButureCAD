@@ -12,6 +12,7 @@ const ORDER: Mode[] = [
   "gerber_viewer",
   "library_manager",
   "plugins",
+  "simulation",
 ];
 
 export function DocTabs() {
