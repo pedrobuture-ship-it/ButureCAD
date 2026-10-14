@@ -218,3 +218,76 @@ fn incremental_matches_from_scratch_over_an_edit_sequence() {
         assert_eq!(eng.report(), run_drc(e.project().pcb()), "after delete");
     }
 }
+
+#[test]
+fn the_legs_of_a_differential_pair_keep_only_the_pair_gap() {
+    let (mut e, a, b) = board();
+    // 0.1 mm edge to edge: closer than the 0.2 mm class clearance.
+    track(&mut e, Some(a), p(5., 5.), p(15., 5.), mm(0.25));
+    track(&mut e, Some(b), p(5., 5.35), p(15., 5.35), mm(0.25));
+    assert_eq!(rules(&e), vec![DrcRule::Clearance]);
+    // Declared a pair with a 0.1 mm gap: the same copper is now fine.
+    let before = e.project().pcb().rules.clone();
+    let mut after = before.clone();
+    after.diff_pairs.insert(
+        "D".into(),
+        buturecad_pcb::DiffPair {
+            name: "D".into(),
+            positive: a,
+            negative: b,
+            width: Some(mm(0.25)),
+            gap: Some(mm(0.1)),
+            max_skew: mm(0.5),
+        },
+    );
+    e.execute(SetRulesCommand::new("pair", before, after))
+        .unwrap();
+    assert!(rules(&e).is_empty(), "{:?}", rules(&e));
+    // A third net next to the pair still needs the full clearance.
+    let c = {
+        let id = e.new_id();
+        e.execute(PcbEditCommand::new(
+            "n",
+            vec![PcbChange::create(
+                id,
+                PcbObject::Net(Net { name: "C".into() }),
+            )],
+        ))
+        .unwrap();
+        id
+    };
+    track(&mut e, Some(c), p(5., 4.65), p(15., 4.65), mm(0.25));
+    assert!(rules(&e).contains(&DrcRule::Clearance));
+}
+
+#[test]
+fn skew_between_the_legs_of_a_pair_is_a_warning_once_both_are_routed() {
+    let (mut e, a, b) = board();
+    let before = e.project().pcb().rules.clone();
+    let mut after = before.clone();
+    after.diff_pairs.insert(
+        "D".into(),
+        buturecad_pcb::DiffPair {
+            name: "D".into(),
+            positive: a,
+            negative: b,
+            width: None,
+            gap: None,
+            max_skew: mm(0.5),
+        },
+    );
+    e.execute(SetRulesCommand::new("pair", before, after))
+        .unwrap();
+    track(&mut e, Some(a), p(5., 5.), p(15., 5.), mm(0.25));
+    assert!(rules(&e).is_empty(), "an unrouted leg is not judged");
+    track(&mut e, Some(b), p(5., 8.), p(14., 8.), mm(0.25));
+    let report = run_drc(e.project().pcb());
+    let v = report
+        .violations
+        .iter()
+        .find(|v| v.rule == DrcRule::PairSkew)
+        .unwrap();
+    assert_eq!(v.severity, buturecad_rules::DrcSeverity::Warning);
+    assert_eq!(v.actual, Some(mm(1.0)));
+    assert_eq!(v.objects.len(), 2);
+}

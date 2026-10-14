@@ -415,13 +415,33 @@ fn the_board_round_trips_and_older_pcb_files_still_load() {
         .classes
         .insert("Power".into(), buturecad_pcb::NetClass::new("Power"));
     after.assignments.insert(net, "Power".into());
+    let other = e.new_id();
+    e.execute(PcbEditCommand::new(
+        "n",
+        vec![PcbChange::create(
+            other,
+            PcbObject::Net(Net { name: "X-".into() }),
+        )],
+    ))
+    .unwrap();
+    after.diff_pairs.insert(
+        "X".into(),
+        buturecad_pcb::DiffPair {
+            name: "X".into(),
+            positive: net,
+            negative: other,
+            width: None,
+            gap: Some(150_000),
+            max_skew: 250_000,
+        },
+    );
     e.execute(buturecad_eda_core::commands::SetRulesCommand::new(
         "rules", before, after,
     ))
     .unwrap();
     engine::save(&opened.session, &mut e).unwrap();
     let text = fs::read_to_string(dir.path().join(PCB_FILE)).unwrap();
-    assert!(text.contains("\"schema_version\": 4") && text.contains("NE555"));
+    assert!(text.contains("\"schema_version\": 5") && text.contains("NE555"));
     let net_field = format!("\"net\": {}", net.0);
     assert!(text.contains(&net_field));
     assert_eq!(

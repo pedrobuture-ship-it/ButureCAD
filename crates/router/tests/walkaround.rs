@@ -75,11 +75,7 @@ impl Board {
     fn set(&self, net: Id) -> ObstacleSet {
         ObstacleSet::collect(
             self.doc(),
-            RouteParams {
-                net: Some(net),
-                layer: layer::F_CU,
-                width: mm(0.25),
-            },
+            RouteParams::new(Some(net), layer::F_CU, mm(0.25)),
         )
     }
     fn violations(&self, net: Id, poly: &[Point]) -> usize {

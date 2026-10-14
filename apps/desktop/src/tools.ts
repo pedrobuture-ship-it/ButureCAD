@@ -75,6 +75,7 @@ export const TOOLS: Partial<Record<Mode, ToolDef[]>> = {
     tool("outline_rect", "Board Outline (rectangle)", "Square", "O"),
     tool("outline_line", "Board Outline (polyline)", "PenLine"),
     tool("route", "Route Track", "Route", "X"),
+    tool("route_pair", "Route Differential Pair", "Equal", "Shift+X"),
     tool("via", "Place Via", "CircleSlash", "V"),
   ],
 };

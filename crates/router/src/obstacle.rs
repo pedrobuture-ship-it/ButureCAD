@@ -11,8 +11,23 @@ use std::f64::consts::PI;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RouteParams {
     pub net: Option<Id>,
+    /// The second net when a differential pair is routed as one thick track (its copper is not
+    /// an obstacle either).
+    pub also_net: Option<Id>,
     pub layer: LayerId,
+    /// Width of the routed copper: a track's width, or the whole pair (2 × width + gap).
     pub width: Coord,
+}
+
+impl RouteParams {
+    pub fn new(net: Option<Id>, layer: LayerId, width: Coord) -> Self {
+        Self {
+            net,
+            also_net: None,
+            layer,
+            width,
+        }
+    }
 }
 
 /// A convex obstacle (counter-clockwise hull) with the board object it came from.
@@ -76,16 +91,21 @@ impl ObstacleSet {
     pub fn collect_with(doc: &PcbDoc, params: RouteParams, include_tracks: bool) -> Self {
         let mut obstacles = Vec::new();
         let half = params.width as f64 / 2.0;
-        let own_clearance = doc.rules.class_of(params.net).clearance;
         for id in doc.ids() {
             if !include_tracks && doc.tracks.contains_key(&id) {
                 continue;
             }
             for it in copper::items_of(doc, id) {
-                if it.layer != params.layer || (params.net.is_some() && it.net == params.net) {
+                if it.layer != params.layer
+                    || (params.net.is_some() && it.net == params.net)
+                    || (params.also_net.is_some() && it.net == params.also_net)
+                {
                     continue;
                 }
-                let clearance = own_clearance.max(doc.rules.class_of(it.net).clearance);
+                let clearance = doc
+                    .rules
+                    .clearance_between(params.net, it.net)
+                    .max(doc.rules.clearance_between(params.also_net, it.net));
                 let d = clearance as f64 + half;
                 let hull = match &it.shape {
                     CShape::Cap { seg, r } => inflate(&[seg.a, seg.b], r + d),

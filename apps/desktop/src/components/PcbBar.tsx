@@ -129,6 +129,18 @@ export function PcbBar() {
           {info.route.note}
         </span>
       )}
+      {info.route?.pair && (
+        <span
+          role="status"
+          className={info.route.pair.over_skew ? "warn" : "route-status"}
+          title="Length of each leg, their difference and the smallest gap, live. Corners make the outer leg longer; length tuning removes the difference (roadmap 24)."
+        >
+          {info.route.pair.name}: + {info.route.pair.length_p_mm} mm · −{" "}
+          {info.route.pair.length_n_mm} mm · Δ {info.route.pair.skew_mm} mm (max{" "}
+          {info.route.pair.max_skew_mm}) · gap {info.route.pair.gap_mm || "–"} mm (target{" "}
+          {info.route.pair.gap_target_mm})
+        </span>
+      )}
       {info.route?.problem && (
         <span className="warn" role="status">
           Cannot route there: {info.route.problem}

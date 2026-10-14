@@ -16,9 +16,7 @@ pub struct RouteCandidate<'a> {
     pub via_diameter: Coord,
 }
 
-/// The clearance, short and board-edge violations the candidate would create. Empty means the
-/// route is valid under the same rules the DRC panel applies.
-pub fn validate_route(doc: &PcbDoc, c: &RouteCandidate<'_>) -> Vec<DrcViolation> {
+fn candidate_items(doc: &PcbDoc, c: &RouteCandidate<'_>) -> Vec<CopperItem> {
     let owner = Id(u64::MAX);
     let mut items = Vec::new();
     for (layer, poly) in c.tracks {
@@ -51,7 +49,45 @@ pub fn validate_route(doc: &PcbDoc, c: &RouteCandidate<'_>) -> Vec<DrcViolation>
             });
         }
     }
+    items
+}
+
+/// The clearance, short and board-edge violations the candidate would create. Empty means the
+/// route is valid under the same rules the DRC panel applies.
+pub fn validate_route(doc: &PcbDoc, c: &RouteCandidate<'_>) -> Vec<DrcViolation> {
+    let items = candidate_items(doc, c);
     let mut v = check_candidate(doc, &items, &BTreeSet::new());
     v.extend(candidate_edge_violations(doc, &items));
     v
+}
+
+/// Validation of a differential pair about to be committed: each leg against the board, and the
+/// legs against each other (they must keep the pair's gap and must not touch). Messages only.
+pub fn validate_pair(
+    doc: &PcbDoc,
+    pos: &RouteCandidate<'_>,
+    neg: &RouteCandidate<'_>,
+) -> Vec<String> {
+    let mut out: Vec<String> = validate_route(doc, pos)
+        .into_iter()
+        .map(|v| v.message)
+        .collect();
+    out.extend(validate_route(doc, neg).into_iter().map(|v| v.message));
+    let (a, b) = (candidate_items(doc, pos), candidate_items(doc, neg));
+    let required = doc.rules.clearance_between(pos.net, neg.net) as f64;
+    'outer: for x in &a {
+        for y in b.iter().filter(|y| y.layer == x.layer) {
+            let d = buturecad_rules::copper::distance(&x.shape, &y.shape);
+            if d + 1.0 < required {
+                out.push(format!(
+                    "the two legs of the pair are {:.3} mm apart on {}; {:.3} mm required",
+                    d.max(0.0) / 1e6,
+                    buturecad_pcb::layer::name(x.layer),
+                    required / 1e6
+                ));
+                break 'outer;
+            }
+        }
+    }
+    out
 }

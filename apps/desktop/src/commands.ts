@@ -217,6 +217,7 @@ function pcbCommands(): AppCommand[] {
       run: (a) => a.pcbCommand("toggle_ratsnest"),
     },
     tool("route", "Route Track", "X"),
+    tool("route_pair", "Route Differential Pair", "Shift+X"),
     tool("via", "Place Via", "Shift+V"),
     {
       id: "pcb.routeVia",

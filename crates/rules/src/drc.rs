@@ -12,6 +12,7 @@
 //! | `outside_board` | Error | copper outside the closed board outline |
 //! | `unconnected` | Error | a ratsnest connection that is not routed |
 //! | `courtyard_overlap` | Warning | courtyards of footprints on the same side overlap |
+//! | `pair_skew` | Warning | the routed lengths of a differential pair's legs differ by more than its maximum skew (track length per net; vias and stubs of other topologies are not modelled) |
 //!
 //! The engine is **incremental**: [`DrcEngine::update`] re-checks only the objects a change set
 //! touched (against a per-layer R-tree) and the nets it affected; [`run_drc`] is the from-scratch
@@ -45,6 +46,7 @@ pub enum DrcRule {
     OutsideBoard,
     Unconnected,
     CourtyardOverlap,
+    PairSkew,
 }
 
 impl DrcRule {
@@ -60,6 +62,7 @@ impl DrcRule {
             DrcRule::OutsideBoard => "outside_board",
             DrcRule::Unconnected => "unconnected",
             DrcRule::CourtyardOverlap => "courtyard_overlap",
+            DrcRule::PairSkew => "pair_skew",
         }
     }
     pub fn title(self) -> &'static str {
@@ -74,11 +77,12 @@ impl DrcRule {
             DrcRule::OutsideBoard => "Copper outside the board",
             DrcRule::Unconnected => "Unconnected net",
             DrcRule::CourtyardOverlap => "Courtyards overlap",
+            DrcRule::PairSkew => "Differential pair skew",
         }
     }
     pub fn severity(self) -> DrcSeverity {
         match self {
-            DrcRule::CourtyardOverlap => DrcSeverity::Warning,
+            DrcRule::CourtyardOverlap | DrcRule::PairSkew => DrcSeverity::Warning,
             _ => DrcSeverity::Error,
         }
     }
@@ -318,6 +322,7 @@ pub struct DrcEngine {
     unconnected: BTreeMap<Id, Vec<DrcViolation>>,
     court: BTreeMap<Id, Courtyard>,
     court_v: Vec<DrcViolation>,
+    skew_v: Vec<DrcViolation>,
     rats: RatsnestEngine,
     outline: Outline,
     max_clearance: Coord,
@@ -375,6 +380,7 @@ impl DrcEngine {
             unconnected: BTreeMap::new(),
             court: BTreeMap::new(),
             court_v: Vec::new(),
+            skew_v: Vec::new(),
             rats: RatsnestEngine::default(),
             outline: Outline::default(),
             max_clearance: 0,
@@ -392,6 +398,7 @@ impl DrcEngine {
         self.unconnected.clear();
         self.court.clear();
         self.court_v.clear();
+        self.skew_v = skew_violations(doc);
         self.outline = Outline::build(doc);
         self.max_clearance = doc
             .rules
@@ -748,6 +755,7 @@ impl DrcEngine {
         for id in &ids {
             self.check_courtyard(*id, &mut seen);
         }
+        self.skew_v = skew_violations(doc);
         let dirty = affected_nets(changes);
         self.rats.update(doc, &dirty);
         for net in &dirty {
@@ -775,6 +783,7 @@ impl DrcEngine {
             .chain(&self.single_v)
             .chain(self.unconnected.values().flatten())
             .chain(&self.court_v)
+            .chain(&self.skew_v)
             .cloned()
             .collect();
         v.sort_by(|a, b| {
@@ -792,13 +801,10 @@ impl DrcEngine {
 
 /// The clearance/short verdict for two copper items on one layer.
 fn pair_violation(doc: &PcbDoc, a: &CopperItem, b: &CopperItem) -> Option<DrcViolation> {
-    let required = doc
-        .rules
-        .class_of(a.net)
-        .clearance
-        .max(doc.rules.class_of(b.net).clearance);
+    let required = doc.rules.clearance_between(a.net, b.net);
     let d = copper::distance(&a.shape, &b.shape);
-    if d >= required as f64 {
+    // 1 nm of slack: coordinates are rounded to nanometres.
+    if d + 1.0 >= required as f64 {
         return None;
     }
     let at = mid(center(&a.bbox()), center(&b.bbox()));
@@ -905,6 +911,51 @@ pub fn candidate_edge_violations(doc: &PcbDoc, candidate: &[CopperItem]) -> Vec<
                     Some(doc.rules.copper_to_edge),
                 ));
             }
+        }
+    }
+    out
+}
+
+/// `pair_skew`: routed length per leg (sum of the net's track lengths) compared with the pair's
+/// maximum skew. Pairs where a leg has no track yet are not judged (the unrouted connection is
+/// already reported).
+fn skew_violations(doc: &PcbDoc) -> Vec<DrcViolation> {
+    let mut out = Vec::new();
+    for pair in doc.rules.diff_pairs.values() {
+        let stats = |net: Id| -> Option<(f64, Id, Point)> {
+            let mut total = 0.0;
+            let mut longest: Option<(f64, Id, Point)> = None;
+            for (id, t) in doc.tracks.iter().filter(|(_, t)| t.net == Some(net)) {
+                let l = t.segment.length();
+                total += l;
+                if longest.as_ref().is_none_or(|b| l > b.0) {
+                    longest = Some((l, *id, mid(t.segment.a, t.segment.b)));
+                }
+            }
+            longest.map(|(_, id, at)| (total, id, at))
+        };
+        let (Some((lp, ip, at)), Some((ln, in_, _))) = (stats(pair.positive), stats(pair.negative))
+        else {
+            continue;
+        };
+        let skew = (lp - ln).abs();
+        if skew > pair.max_skew as f64 {
+            out.push(vio(
+                DrcRule::PairSkew,
+                format!(
+                    "Pair {}: legs are {:.3} mm and {:.3} mm long, {:.3} mm apart; maximum {:.3} mm",
+                    pair.name,
+                    mm(lp),
+                    mm(ln),
+                    mm(skew),
+                    mm(pair.max_skew as f64)
+                ),
+                vec![ip, in_],
+                at,
+                None,
+                Some(skew.round() as Coord),
+                Some(pair.max_skew),
+            ));
         }
     }
     out

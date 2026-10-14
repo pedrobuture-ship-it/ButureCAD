@@ -16,6 +16,7 @@ distances. The UI only lists what the core reports.
 | `outside_board` | Error | copper outside the closed outline (or inside a cut-out) |
 | `unconnected` | Error | a ratsnest connection that is not routed |
 | `courtyard_overlap` | Warning | courtyards of footprints on the same side overlap (touching is fine) |
+| `pair_skew` | Warning | the track lengths of a differential pair's legs differ by more than its maximum skew (`docs/diff-pairs.md`) |
 
 Pads of the **same footprint** are checked against each other (different pads, different nets);
 copper of the same net never conflicts with itself. Every violation lists the offending **real
@@ -50,7 +51,7 @@ from-scratch `run_drc` after every edit of a sequence.
   Typing a width / via size in the PCB bar overrides it; clearing the field (empty or `auto`)
   returns to the class.
 * **DRC** uses the class clearances as above.
-* Differential pair values are stored and validated but nothing uses them until stage 23.
+* Differential pairs (`docs/diff-pairs.md`) use the pair gap as the clearance between their legs.
 
 ## Limits
 

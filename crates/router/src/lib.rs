@@ -17,6 +17,7 @@
 //! obstacles are straight segments at any angle (no 45° clean-up yet).
 
 pub mod collision;
+pub mod diffpair;
 pub mod obstacle;
 pub mod pathfind;
 pub mod shove;
@@ -25,5 +26,5 @@ pub mod walkaround;
 
 pub use obstacle::{ObstacleSet, RouteParams};
 pub use shove::{shove, NewCopper, ShoveError, ShoveResult};
-pub use validate::{validate_route, RouteCandidate};
+pub use validate::{validate_pair, validate_route, RouteCandidate};
 pub use walkaround::{route_leg, walk_around, RouteError};

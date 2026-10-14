@@ -8,6 +8,7 @@ import type { LibraryInfo } from "../bindings/LibraryInfo";
 import type { SymbolInfo } from "../bindings/SymbolInfo";
 import type { CoreInfo } from "../bindings/CoreInfo";
 import type { NetClassInfo } from "../bindings/NetClassInfo";
+import type { PairInfo } from "../bindings/PairInfo";
 import type { RulesInfo } from "../bindings/RulesInfo";
 import { store, useUi } from "../store";
 
@@ -869,6 +870,19 @@ function NetClassesDialog() {
     setRules({ ...rules, classes: [...rules.classes, { ...base, ...presets[n], name: n }] });
     setNewName("");
   };
+  const setPair = (i: number, patch: Partial<PairInfo>) =>
+    setRules({
+      ...rules,
+      pairs: rules.pairs.map((p, j) => (j === i ? { ...p, ...patch } : p)),
+    });
+  const removePair = (i: number) =>
+    setRules({ ...rules, pairs: rules.pairs.filter((_, j) => j !== i) });
+  const addPair = (p: PairInfo) =>
+    setRules({
+      ...rules,
+      pairs: [...rules.pairs, p],
+      suggested_pairs: rules.suggested_pairs.filter((s) => s.name !== p.name),
+    });
   const removeClass = (name: string) =>
     setRules({
       ...rules,
@@ -955,6 +969,75 @@ function NetClassesDialog() {
             </select>
           </label>
         ))}
+      </div>
+      <h3>Differential pairs</h3>
+      <table className="rules-table">
+        <thead>
+          <tr>
+            <th>Pair</th>
+            <th>+ net</th>
+            <th>− net</th>
+            <th>Width</th>
+            <th>Gap</th>
+            <th>Max skew</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rules.pairs.map((p, i) => (
+            <tr key={p.name}>
+              <td>
+                <strong>{p.name}</strong>
+              </td>
+              {(["positive", "negative"] as const).map((side) => (
+                <td key={side}>
+                  <select
+                    aria-label={`${p.name} ${side} net`}
+                    value={p[side]}
+                    onChange={(e) => setPair(i, { [side]: Number(e.target.value) })}
+                  >
+                    {rules.nets.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {n.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+              ))}
+              {(["width", "gap", "max_skew"] as const).map((k) => (
+                <td key={k}>
+                  <input
+                    aria-label={`${p.name} ${k}`}
+                    value={p[k]}
+                    placeholder={k === "max_skew" ? "" : "class"}
+                    onChange={(e) => setPair(i, { [k]: e.target.value })}
+                  />
+                </td>
+              ))}
+              <td>
+                <button className="link" onClick={() => removePair(i)}>
+                  Remove
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="actions">
+        {rules.suggested_pairs.map((p) => (
+          <button
+            key={p.name}
+            title="Add the pair found from the net names"
+            onClick={() => addPair(p)}
+          >
+            + {p.name}
+          </button>
+        ))}
+        {rules.suggested_pairs.length === 0 && (
+          <span className="muted">
+            Nets named like USB_D+ / USB_D-, X_P / X_N are offered here to add as pairs.
+          </span>
+        )}
       </div>
       <h3>Board limits (DRC)</h3>
       <div className="rules-limits">

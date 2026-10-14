@@ -5,7 +5,7 @@
 use super::pcb_editor::{mm_str, parse_mm};
 use super::*;
 use buturecad_eda_core::commands::SetRulesCommand;
-use buturecad_pcb::{DesignRules, NetClass};
+use buturecad_pcb::{DesignRules, DiffPair, NetClass};
 
 impl Workspace {
     pub fn pcb_rules_info(&self) -> Result<RulesInfo, String> {
@@ -44,6 +44,33 @@ impl Workspace {
                 })
                 .collect(),
             presets: NetClass::presets().into_iter().map(|c| c.name).collect(),
+            pairs: r
+                .diff_pairs
+                .values()
+                .map(|p| PairInfo {
+                    name: p.name.clone(),
+                    positive: p.positive.0,
+                    negative: p.negative.0,
+                    width: p.width.map(mm_str).unwrap_or_default(),
+                    gap: p.gap.map(mm_str).unwrap_or_default(),
+                    max_skew: mm_str(p.max_skew),
+                })
+                .collect(),
+            suggested_pairs: {
+                let nets: Vec<(Id, String)> =
+                    doc.nets.iter().map(|(i, n)| (*i, n.name.clone())).collect();
+                buturecad_pcb::detect_pairs(&nets, &r.diff_pairs)
+                    .into_iter()
+                    .map(|(name, p, n)| PairInfo {
+                        name,
+                        positive: p.0,
+                        negative: n.0,
+                        width: String::new(),
+                        gap: String::new(),
+                        max_skew: "0.25".into(),
+                    })
+                    .collect()
+            },
         })
     }
 
@@ -58,6 +85,7 @@ impl Workspace {
             copper_to_edge: parse_mm(&info.copper_to_edge, "copper to edge")?,
             classes: Default::default(),
             assignments: Default::default(),
+            diff_pairs: Default::default(),
         };
         for c in &info.classes {
             let name = c.name.trim().to_owned();
@@ -77,6 +105,27 @@ impl Workspace {
         for n in &info.nets {
             if n.class != buturecad_pcb::DEFAULT_CLASS {
                 after.assignments.insert(Id(n.id), n.class.clone());
+            }
+        }
+        for p in &info.pairs {
+            let name = p.name.trim().to_owned();
+            let opt = |s: &str, what: &str| -> Result<Option<i64>, String> {
+                if s.trim().is_empty() {
+                    Ok(None)
+                } else {
+                    parse_mm(s, what).map(Some)
+                }
+            };
+            let pair = DiffPair {
+                name: name.clone(),
+                positive: Id(p.positive),
+                negative: Id(p.negative),
+                width: opt(&p.width, "pair width")?,
+                gap: opt(&p.gap, "pair gap")?,
+                max_skew: parse_mm(&p.max_skew, "maximum skew")?,
+            };
+            if after.diff_pairs.insert(name.clone(), pair).is_some() {
+                return Err(format!("two differential pairs are named “{name}”"));
             }
         }
         after.validate().map_err(|e| e.to_string())?;

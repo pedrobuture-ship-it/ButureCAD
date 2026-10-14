@@ -287,11 +287,7 @@ impl<'a> Shover<'a> {
     }
 
     fn required(&self, a: Option<Id>, b: Option<Id>) -> Coord {
-        self.doc
-            .rules
-            .class_of(a)
-            .clearance
-            .max(self.doc.rules.class_of(b).clearance)
+        self.doc.rules.clearance_between(a, b)
     }
 
     fn anchored(&self, layer: LayerId, p: Point) -> bool {
@@ -606,11 +602,7 @@ fn verify(doc: &PcbDoc, new: &NewCopper<'_>, r: &ShoveResult) -> Result<(), Shov
             if a.layer != b.layer || a.owner == b.owner || (a.net.is_some() && a.net == b.net) {
                 continue;
             }
-            let required = doc
-                .rules
-                .class_of(a.net)
-                .clearance
-                .max(doc.rules.class_of(b.net).clearance) as f64;
+            let required = doc.rules.clearance_between(a.net, b.net) as f64;
             if copper::distance(&a.shape, &b.shape) < required - 0.5 {
                 return unresolvable("pushed tracks would end up too close to the new route");
             }

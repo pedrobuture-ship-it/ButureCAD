@@ -762,6 +762,76 @@ impl NetClass {
     }
 }
 
+/// Two nets routed together as a differential pair.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiffPair {
+    pub name: String,
+    pub positive: Id,
+    pub negative: Id,
+    /// Track width of each leg; `None` = the `diff_pair_width` of the positive net's class.
+    #[serde(default)]
+    pub width: Option<Coord>,
+    /// Edge-to-edge gap between the legs; `None` = the class `diff_pair_gap`.
+    #[serde(default)]
+    pub gap: Option<Coord>,
+    /// Largest accepted length difference between the legs.
+    pub max_skew: Coord,
+}
+
+/// Suffix pairs recognised by [`detect_pairs`] (positive, negative).
+const PAIR_SUFFIXES: [(&str, &str); 6] = [
+    ("+", "-"),
+    ("_P", "_N"),
+    ("_p", "_n"),
+    ("_DP", "_DN"),
+    ("_DP", "_DM"),
+    ("_TXP", "_TXN"),
+];
+
+/// Pairs of nets whose names differ only by a polarity suffix (`USB_D+`/`USB_D-`, `ETH_TX_P`/
+/// `ETH_TX_N`, …) and that are not in a pair yet: `(pair name, positive, negative)`.
+pub fn detect_pairs(
+    nets: &[(Id, String)],
+    taken: &BTreeMap<String, DiffPair>,
+) -> Vec<(String, Id, Id)> {
+    let used: std::collections::BTreeSet<Id> = taken
+        .values()
+        .flat_map(|p| [p.positive, p.negative])
+        .collect();
+    let mut out = Vec::new();
+    for (id, name) in nets {
+        if used.contains(id) {
+            continue;
+        }
+        for (p, n) in PAIR_SUFFIXES {
+            let Some(base) = name.strip_suffix(p) else {
+                continue;
+            };
+            if base.is_empty() {
+                continue;
+            }
+            let other = format!("{base}{n}");
+            if let Some((nid, _)) = nets
+                .iter()
+                .find(|(i, nm)| *nm == other && !used.contains(i))
+            {
+                let label = base.trim_end_matches(['_', '-', '/']).to_owned();
+                out.push((
+                    if label.is_empty() {
+                        base.to_owned()
+                    } else {
+                        label
+                    },
+                    *id,
+                    *nid,
+                ));
+                break;
+            }
+        }
+    }
+    out
+}
+
 /// Board-wide limits and the net classes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DesignRules {
@@ -775,6 +845,9 @@ pub struct DesignRules {
     pub classes: BTreeMap<String, NetClass>,
     /// Net id → class name (nets not listed use [`DEFAULT_CLASS`]).
     pub assignments: BTreeMap<Id, String>,
+    /// Differential pairs by name.
+    #[serde(default)]
+    pub diff_pairs: BTreeMap<String, DiffPair>,
 }
 
 impl Default for DesignRules {
@@ -789,6 +862,7 @@ impl Default for DesignRules {
             copper_to_edge: 300_000,
             classes,
             assignments: BTreeMap::new(),
+            diff_pairs: BTreeMap::new(),
         }
     }
 }
@@ -807,7 +881,65 @@ impl DesignRules {
             })
     }
 
+    /// The pair a net belongs to.
+    pub fn pair_of(&self, net: Option<Id>) -> Option<&DiffPair> {
+        let net = net?;
+        self.diff_pairs
+            .values()
+            .find(|p| p.positive == net || p.negative == net)
+    }
+
+    /// The pair formed by exactly these two nets, in either order.
+    pub fn pair_between(&self, a: Option<Id>, b: Option<Id>) -> Option<&DiffPair> {
+        let (a, b) = (a?, b?);
+        self.diff_pairs
+            .values()
+            .find(|p| (p.positive == a && p.negative == b) || (p.positive == b && p.negative == a))
+    }
+
+    /// `(track width, gap)` of a pair: its own values, else its class's.
+    pub fn pair_dims(&self, p: &DiffPair) -> (Coord, Coord) {
+        let c = self.class_of(Some(p.positive));
+        (
+            p.width.unwrap_or(c.diff_pair_width),
+            p.gap.unwrap_or(c.diff_pair_gap),
+        )
+    }
+
+    /// Required clearance between copper of nets `a` and `b`: the larger class clearance, except
+    /// between the two legs of one differential pair where the pair's gap is the rule.
+    pub fn clearance_between(&self, a: Option<Id>, b: Option<Id>) -> Coord {
+        let base = self.class_of(a).clearance.max(self.class_of(b).clearance);
+        match self.pair_between(a, b) {
+            Some(p) => base.min(self.pair_dims(p).1),
+            None => base,
+        }
+    }
+
     pub fn validate(&self) -> Result<(), BoardError> {
+        let mut seen = std::collections::BTreeSet::new();
+        for (k, p) in &self.diff_pairs {
+            if k != &p.name || p.name.trim().is_empty() || p.name.chars().any(char::is_control) {
+                return bad("a differential pair needs a name");
+            }
+            if p.positive == p.negative {
+                return bad(format!("pair “{k}” uses the same net twice"));
+            }
+            if !seen.insert(p.positive) || !seen.insert(p.negative) {
+                return bad(format!("a net of pair “{k}” is already in another pair"));
+            }
+            let lim = |v: Coord| (1..=100_000_000).contains(&v);
+            if p.width.is_some_and(|v| !lim(v)) || p.gap.is_some_and(|v| !lim(v)) {
+                return bad(format!(
+                    "pair “{k}”: width and gap must be between 1 nm and 100 mm"
+                ));
+            }
+            if !(0..=100_000_000).contains(&p.max_skew) {
+                return bad(format!(
+                    "pair “{k}”: the maximum skew must be between 0 and 100 mm"
+                ));
+            }
+        }
         if !self.classes.contains_key(DEFAULT_CLASS) {
             return bad("the Default net class cannot be removed");
         }

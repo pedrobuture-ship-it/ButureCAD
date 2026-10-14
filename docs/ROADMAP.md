@@ -25,7 +25,8 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 19–20 | DRC engine, net classes | done (`docs/drc.md`) |
 | 21 | Router walk-around | done (`docs/routing.md`) |
 | 22 | Push & shove | done (`docs/routing.md`) |
-| 23–26 | Differential pairs, length tuning, zones, stackup | planned |
+| 23 | Differential pairs | done (`docs/diff-pairs.md`) |
+| 24–26 | Length tuning, zones, stackup | planned |
 | 27–30 | 3D, STEP/MCAD, manufacturing, Gerber viewer | planned |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
 | 35–37 | ButureScript, parametric ButureScript, code ↔ visual | planned |

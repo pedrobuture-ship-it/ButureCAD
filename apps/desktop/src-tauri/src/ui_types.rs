@@ -382,6 +382,8 @@ pub struct RouteInfo {
     pub note: Option<String>,
     /// Tracks the current route would displace (Push & Shove).
     pub pushed: u32,
+    /// Set while a differential pair is being routed.
+    pub pair: Option<PairLive>,
     pub net: String,
     pub layer: String,
     pub length_mm: String,
@@ -491,4 +493,36 @@ pub struct RulesInfo {
     pub nets: Vec<NetAssignInfo>,
     /// Names of the preset classes the dialog can add.
     pub presets: Vec<String>,
+    pub pairs: Vec<PairInfo>,
+    /// Pairs found from net names that are not defined yet.
+    pub suggested_pairs: Vec<PairInfo>,
+}
+
+/// A differential pair; empty width/gap mean “follow the net class”.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct PairInfo {
+    pub name: String,
+    #[ts(type = "number")]
+    pub positive: u64,
+    #[ts(type = "number")]
+    pub negative: u64,
+    pub width: String,
+    pub gap: String,
+    pub max_skew: String,
+}
+
+/// Live numbers of a differential pair route.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct PairLive {
+    pub name: String,
+    pub length_p_mm: String,
+    pub length_n_mm: String,
+    pub skew_mm: String,
+    pub max_skew_mm: String,
+    /// Smallest edge-to-edge gap of the coupled part (empty before there is one).
+    pub gap_mm: String,
+    pub gap_target_mm: String,
+    pub over_skew: bool,
 }

@@ -11,7 +11,7 @@
 //! commit a route that fails the same DRC rules the DRC panel applies; *Ignore obstacles* draws
 //! exactly what you click (DRC reports the consequences afterwards).
 
-use super::pcb_editor::{mm_str, parse_mm, Drag};
+use super::pcb_editor::{mm_str, parse_mm, Drag, PcbTool};
 use super::*;
 use crate::pcb_scene as ps;
 use buturecad_eda_core::model::{PcbChange, PcbObject, Track, Via, ViaKind};
@@ -58,13 +58,23 @@ pub(crate) struct ObstacleCache {
     set: ObstacleSet,
 }
 
+impl Resolved {
+    pub(super) fn new(leg: Result<Vec<Point>, String>, note: Option<String>) -> Self {
+        Self {
+            leg,
+            shove: None,
+            note,
+        }
+    }
+}
+
 /// What a route resolved to for the current pointer position (computed once per change, then
 /// read by the preview, the bar and the click handlers).
 #[derive(Clone)]
 pub(crate) struct Resolved {
-    leg: Result<Vec<Point>, String>,
-    shove: Option<ShoveResult>,
-    note: Option<String>,
+    pub(super) leg: Result<Vec<Point>, String>,
+    pub(super) shove: Option<ShoveResult>,
+    pub(super) note: Option<String>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -87,24 +97,27 @@ pub(crate) struct ResolveKey {
 /// A route in progress.
 #[derive(Clone)]
 pub(crate) struct Route {
-    net: Option<Id>,
-    layer: LayerId,
+    pub(super) net: Option<Id>,
+    pub(super) layer: LayerId,
     /// Vertices on the current layer since the start or the last via.
-    pts: Vec<Point>,
+    pub(super) pts: Vec<Point>,
     /// Finished polylines on earlier layers.
-    done: Vec<(LayerId, Vec<Point>)>,
-    vias: Vec<Point>,
+    pub(super) done: Vec<(LayerId, Vec<Point>)>,
+    pub(super) vias: Vec<Point>,
     /// Outlines of the net's copper, computed once per route (and after each via).
-    highlight: Vec<Shape>,
-    resolved: Option<(ResolveKey, Resolved)>,
+    pub(super) highlight: Vec<Shape>,
+    pub(super) resolved: Option<(ResolveKey, Resolved)>,
+    /// Set for a differential pair route: `net` is the positive net and `pts`/`done` the centre
+    /// path of the pair.
+    pub(super) pair: Option<super::pcb_pair::PairRoute>,
 }
 
 /// What is under the pointer that a route can start on or end at.
-struct Hit {
-    net: Option<Id>,
-    at: Point,
-    layers: Vec<LayerId>,
-    what: &'static str,
+pub(super) struct Hit {
+    pub(super) net: Option<Id>,
+    pub(super) at: Point,
+    pub(super) layers: Vec<LayerId>,
+    pub(super) what: &'static str,
 }
 
 impl Workspace {
@@ -141,20 +154,15 @@ impl Workspace {
             })
     }
 
-    fn route_params(&self, net: Option<Id>, layer: LayerId) -> RouteParams {
-        RouteParams {
-            net,
-            layer,
-            width: self.route_width_for(net),
-        }
+    pub(super) fn route_params(&self, net: Option<Id>, layer: LayerId) -> RouteParams {
+        RouteParams::new(net, layer, self.route_width_for(net))
     }
 
     /// One obstacle-aware leg (walk around). `fixed_only` leaves other nets' tracks out of the
     /// obstacles (Push & Shove moves them instead). The error is a sentence for the user.
-    fn leg_with(
+    pub(super) fn leg_with(
         &self,
-        net: Option<Id>,
-        layer: LayerId,
+        params: RouteParams,
         from: Point,
         to: Point,
         fixed_only: bool,
@@ -164,7 +172,6 @@ impl Workspace {
             return Ok(routing::path(from, to, mode, flip));
         };
         let revision = open.engine.revision();
-        let params = self.route_params(net, layer);
         let mut cache = self.pcb_ed.obstacle_cache.borrow_mut();
         let stale = cache.as_ref().is_none_or(|c| {
             c.revision != revision || c.params != params || c.fixed_only != fixed_only
@@ -205,6 +212,9 @@ impl Workspace {
     }
 
     fn compute_resolved(&self, r: &Route, end: Point) -> Resolved {
+        if let Some(pair) = &r.pair {
+            return self.pair_resolve(r, pair, end);
+        }
         let last = *r.pts.last().unwrap_or(&end);
         let (mode, flip) = (self.pcb_ed.route_mode, self.pcb_ed.route_flip);
         let plain = |leg| Resolved {
@@ -214,9 +224,11 @@ impl Workspace {
         };
         match self.pcb_ed.obstacles {
             ObstacleMode::Ignore => plain(Ok(routing::path(last, end, mode, flip))),
-            ObstacleMode::WalkAround => plain(self.leg_with(r.net, r.layer, last, end, false)),
+            ObstacleMode::WalkAround => {
+                plain(self.leg_with(self.route_params(r.net, r.layer), last, end, false))
+            }
             ObstacleMode::Push => {
-                let leg = match self.leg_with(r.net, r.layer, last, end, true) {
+                let leg = match self.leg_with(self.route_params(r.net, r.layer), last, end, true) {
                     Ok(l) => l,
                     Err(e) => return plain(Err(e)),
                 };
@@ -235,14 +247,16 @@ impl Workspace {
                             note,
                         }
                     }
-                    Err(why) => match self.leg_with(r.net, r.layer, last, end, false) {
-                        Ok(l) => Resolved {
-                            leg: Ok(l),
-                            shove: None,
-                            note: Some(format!("cannot push ({why}); walking around")),
-                        },
-                        Err(_) => plain(Err(why)),
-                    },
+                    Err(why) => {
+                        match self.leg_with(self.route_params(r.net, r.layer), last, end, false) {
+                            Ok(l) => Resolved {
+                                leg: Ok(l),
+                                shove: None,
+                                note: Some(format!("cannot push ({why}); walking around")),
+                            },
+                            Err(_) => plain(Err(why)),
+                        }
+                    }
                 }
             }
         }
@@ -266,7 +280,10 @@ impl Workspace {
             revision: self.open.as_ref().map_or(0, |o| o.engine.revision()),
             flip: self.pcb_ed.route_flip,
             angle: self.pcb_ed.route_mode,
-            width: self.route_width_for(r.net),
+            width: r
+                .pair
+                .as_ref()
+                .map_or_else(|| self.route_width_for(r.net), |p| 2 * p.width + p.gap),
             via: self.via_size_for(r.net),
             obstacles: self.pcb_ed.obstacles,
         };
@@ -317,26 +334,26 @@ impl Workspace {
     }
 
     /// The resolved continuation of the route (call [`Self::route_refresh`] first).
-    fn route_resolved(&self) -> Option<&Resolved> {
+    pub(super) fn route_resolved(&self) -> Option<&Resolved> {
         self.pcb_ed
             .route
             .as_ref()
             .and_then(|r| r.resolved.as_ref().map(|(_, v)| v))
     }
 
-    fn route_tolerance(&self) -> f64 {
+    pub(super) fn route_tolerance(&self) -> f64 {
         self.views
             .get(&Mode::Pcb)
             .map_or(100_000.0, |v| v.px_to_nm(6.0))
     }
 
-    fn raw_cursor(&self) -> Point {
+    pub(super) fn raw_cursor(&self) -> Point {
         self.views.get(&Mode::Pcb).map_or(self.cursor, |v| {
             v.screen_to_world(self.last_pointer.0, self.last_pointer.1)
         })
     }
 
-    fn pcb_hit(&self, raw: Point) -> Option<Hit> {
+    pub(super) fn pcb_hit(&self, raw: Point) -> Option<Hit> {
         let doc = self.pcb_doc()?;
         let tol = self.route_tolerance();
         let stack = &doc.stackup;
@@ -384,12 +401,12 @@ impl Workspace {
         None
     }
 
-    fn net_name(&self, n: Option<Id>) -> String {
+    pub(super) fn net_name(&self, n: Option<Id>) -> String {
         n.and_then(|id| self.pcb_doc()?.nets.get(&id))
             .map_or_else(|| "(no net)".into(), |n| n.name.clone())
     }
 
-    fn net_highlight(&self, net: Id) -> Vec<Shape> {
+    pub(super) fn net_highlight(&self, net: Id) -> Vec<Shape> {
         let Some(doc) = self.pcb_doc() else {
             return Vec::new();
         };
@@ -423,7 +440,7 @@ impl Workspace {
         out
     }
 
-    fn active_copper(&self) -> LayerId {
+    pub(super) fn active_copper(&self) -> LayerId {
         let l = LayerId(self.active_pcb_layer);
         match self.pcb_doc() {
             Some(d) if d.stackup.has_copper(l) => l,
@@ -443,6 +460,10 @@ impl Workspace {
     }
 
     fn route_start(&mut self, raw: Point, at: Point, out: &mut Outcome) {
+        if self.pcb_ed.tool == PcbTool::RoutePair {
+            self.pair_start(raw, out);
+            return;
+        }
         let hit = self.pcb_hit(raw);
         let active = self.active_copper();
         let (net, start, route_layer) = match &hit {
@@ -476,6 +497,7 @@ impl Workspace {
             vias: Vec::new(),
             highlight,
             resolved: None,
+            pair: None,
         });
         out.redraw = true;
         out.selection_changed = true; // refresh the bar: a route is in progress
@@ -483,10 +505,13 @@ impl Workspace {
 
     /// Where the next vertex lands: on a same-net pad/via/track end under the pointer, else the
     /// snapped cursor.
-    fn route_end(&self, raw: Point, snapped: Point) -> (Point, Option<Hit>) {
+    pub(super) fn route_end(&self, raw: Point, snapped: Point) -> (Point, Option<Hit>) {
         let Some(r) = &self.pcb_ed.route else {
             return (snapped, None);
         };
+        if let Some(pair) = &r.pair {
+            return self.pair_end(r, pair, raw, snapped);
+        }
         match self.pcb_hit(raw) {
             Some(h) if r.net.is_some() && h.net == r.net && h.layers.contains(&r.layer) => {
                 (h.at, Some(h))
@@ -583,7 +608,16 @@ impl Workspace {
         r.pts = vec![end];
         let new_layer = r.layer;
         let net = r.net;
-        let hl = net.map(|n| self.net_highlight(n)).unwrap_or_default();
+        let mut hl = net.map(|n| self.net_highlight(n)).unwrap_or_default();
+        if let Some(neg) = self
+            .pcb_ed
+            .route
+            .as_ref()
+            .and_then(|r| r.pair.as_ref())
+            .map(|p| p.neg)
+        {
+            hl.extend(self.net_highlight(neg));
+        }
         if let Some(r) = self.pcb_ed.route.as_mut() {
             r.highlight = hl;
         }
@@ -622,6 +656,10 @@ impl Workspace {
                     return;
                 }
             }
+        }
+        if let Some(pair) = r.pair.clone() {
+            self.pair_commit(r, &pair, backup, out);
+            return;
         }
         let poly = routing::simplify(&r.pts);
         if poly.len() >= 2 {
@@ -770,6 +808,9 @@ impl Workspace {
 
     pub(crate) fn route_hint(&self) -> String {
         match &self.pcb_ed.route {
+            None if self.pcb_ed.tool == PcbTool::RoutePair => {
+                "Route pair: click a pad of a differential pair net (define pairs in Net classes…). Esc stops.".into()
+            }
             None => "Route: click a pad, via or track to start (the net follows). Esc stops.".into(),
             Some(r) => format!(
                 "Routing {} on {}: click for corners, V = via, Space = other elbow, Enter or double click finishes, Esc cancels.",
@@ -857,6 +898,11 @@ impl Workspace {
         let width = self.route_width_for(r.net);
         let clearance = self.clearance_for(r.net);
         let mut out: Vec<(Shape, Rgba)> = r.highlight.iter().cloned().map(|s| (s, white)).collect();
+        if let Some(pair) = &r.pair {
+            let blocked = !matches!(r.resolved.as_ref().map(|(_, v)| &v.leg), Some(Ok(_)));
+            out.extend(self.pair_preview_shapes(r, pair, blocked));
+            return out;
+        }
         let mut polylines: Vec<(LayerId, Vec<Point>)> = r.done.clone();
         let mut cur = r.pts.clone();
         let mut blocked = false;
@@ -958,6 +1004,7 @@ impl Workspace {
         Some(RouteInfo {
             problem,
             note: resolved.and_then(|v| v.note.clone()),
+            pair: r.pair.as_ref().map(|p| self.pair_live(r, p)),
             pushed: resolved
                 .and_then(|v| v.shove.as_ref())
                 .map_or(0, |s| (s.moved.len() + s.removed.len()) as u32),

@@ -24,6 +24,8 @@ pub(crate) enum PcbTool {
     OutlineLine,
     PlaceFootprint(String),
     Route,
+    /// Differential pair routing.
+    RoutePair,
     Via,
 }
 
@@ -35,6 +37,7 @@ impl PcbTool {
             PcbTool::OutlineLine => "outline_line",
             PcbTool::PlaceFootprint(_) => "place_footprint",
             PcbTool::Route => "route",
+            PcbTool::RoutePair => "route_pair",
             PcbTool::Via => "via",
         }
     }
@@ -636,6 +639,7 @@ impl Workspace {
             "outline_rect" => PcbTool::OutlineRect,
             "outline_line" => PcbTool::OutlineLine,
             "route" => PcbTool::Route,
+            "route_pair" => PcbTool::RoutePair,
             "via" => PcbTool::Via,
             "place_footprint" => {
                 let f = arg
@@ -1075,7 +1079,7 @@ impl Workspace {
             PcbTool::OutlineRect => self.pcb_outline_click(at, true, out),
             PcbTool::OutlineLine => self.pcb_outline_click(at, false, out),
             PcbTool::PlaceFootprint(id) => self.pcb_place(&id, at, out),
-            PcbTool::Route => self.pcb_route_click(at, out),
+            PcbTool::Route | PcbTool::RoutePair => self.pcb_route_click(at, out),
             PcbTool::Via => self.pcb_place_via(at, out),
         }
         out.redraw = true;
@@ -1309,7 +1313,7 @@ impl Workspace {
             (PcbTool::OutlineLine, 0) => "Board outline: click the start point.".into(),
             (PcbTool::OutlineLine, _) => "Board outline: click the next corner; click the first point to close. Esc ends.".into(),
             (PcbTool::PlaceFootprint(_), _) => "Place footprint: click to place. R rotates, F flips to the back, Esc stops.".into(),
-            (PcbTool::Route, _) => self.route_hint(),
+            (PcbTool::Route | PcbTool::RoutePair, _) => self.route_hint(),
             (PcbTool::Via, _) => "Via: click to place a through via (it takes the net of the pad or track under it). Esc stops.".into(),
         }
     }

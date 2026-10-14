@@ -1,10 +1,10 @@
 # Working
 
-*Roadmap stages 01–22 (last checkpoint after 18). Everything below is implemented, tested and used by the
+*Roadmap stages 01–23 (last checkpoint after 18). Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
-- **Project format** (`buturecad-io`): create/open/save/save-as, atomic writes, rotating backups, autosave, crash recovery, migration framework. Schemas: manifest 1, schematic 3 (v1→v2→v3 migrations), PCB 4 (v1→v2→v3→v4). See `docs/file-format/`.
+- **Project format** (`buturecad-io`): create/open/save/save-as, atomic writes, rotating backups, autosave, crash recovery, migration framework. Schemas: manifest 1, schematic 3 (v1→v2→v3 migrations), PCB 5 (v1→…→v5). See `docs/file-format/`.
 - **Geometry engine** (`buturecad-geometry`): integer nanometres, exact predicates, nearest point, offset, rotation, R-tree index; unit and property tests.
 - **Command Engine** (`buturecad-eda-core`): undo/redo, nested transactions, exact dirty state, history limit, autosave/recovery hooks; commands for schematic edits, symbols, footprints, ERC waivers, tracks, vias, rename; property tests (undo-all/redo-all is lossless).
 - **Renderer** (`buturecad-renderer`): wgpu offscreen MSAA renderer shown in a canvas; pan/zoom, adaptive grid, snap, layers, picking, selection; verified on a real GPU (GPU tests skip without an adapter).
@@ -34,11 +34,14 @@ desktop app; limits are stated in the sections that follow.*
 
 - **Push & shove** (roadmap 22): existing tracks of other nets are displaced (with connected copper stretching and anchors pivoting), verified with the DRC rules, one undo step, automatic fallback to walk around; mode selectable in the bar (walk around / push & shove / ignore obstacles). See `docs/routing.md`.
 
+- **Differential pairs** (roadmap 23): pair definitions integrated with net classes, coupled routing of both nets as one thick track with mitered legs, live length+/length−/difference/gap, two-via layer changes, one-undo commit validated with the DRC rules, pair gap used as the clearance between the legs, DRC `pair_skew`. PCB schema 5. See `docs/diff-pairs.md`.
+
 # Partial
 
 - **PCB:** the model, placement, routing and vias exist; routing walks around or pushes obstacles; zones/keepouts have no tools and are not checked by DRC (25).
 - **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
 - **Router:** Walk Around avoids copper, keepouts and the board edge with the class clearance; Push & Shove displaces tracks of other nets (never vias or pads) and falls back to walking around. Detours and pushed tracks run at any angle (no 45° clean-up) and zones are not obstacles yet. Width and via size follow the net class.
+- **Differential pairs:** skew is reported but not removed (length tuning is stage 24); legs are offsets of a single centre path (no independent gap changes or polarity swaps); push & shove does not apply to pairs.
 - **DRC:** the app runs a full check on demand (and marks it stale after edits); the incremental `DrcEngine::update` is not yet driven per edit. No hole-to-hole, silkscreen or mask rules.
 - **Hierarchy:** only the root sheet can be drawn and edited; hierarchical sheets exist in the model and connectivity but have no UI tools. ERC findings inside child sheets are listed but cannot be focused.
 - **Symbol edits and placed parts:** changing a symbol's pins moves the pins but not the wires attached to them in the schematic; ERC shows what became unconnected. There is no "update symbol from library" command: the project copy is authoritative once opened.

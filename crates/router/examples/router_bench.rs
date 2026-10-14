@@ -45,11 +45,7 @@ fn main() {
         ));
     }
     e.execute(PcbEditCommand::new("fill", ch)).unwrap();
-    let params = RouteParams {
-        net: Some(a),
-        layer: layer::F_CU,
-        width: 250_000,
-    };
+    let params = RouteParams::new(Some(a), layer::F_CU, 250_000);
     let t = Instant::now();
     let set = ObstacleSet::collect(e.project().pcb(), params);
     println!("collect {} obstacles: {:?}", set.len(), t.elapsed());
