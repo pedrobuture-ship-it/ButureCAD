@@ -18,6 +18,7 @@ mod drc;
 mod editor;
 mod erc;
 mod footprint_editor;
+mod mcad;
 mod pcb_editor;
 mod pcb_pair;
 mod pcb_route;

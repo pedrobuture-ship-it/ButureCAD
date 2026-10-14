@@ -28,3 +28,5 @@ Run `cargo deny`/license audit before release (not yet configured).
 | i_triangle (eda-core) | triangulation of filled zone regions with holes (drawing, later 3D) | MIT OR Apache-2.0 |
 
 Decision record — polygon booleans (roadmap 25): zone fill needs difference/intersection of polygons with holes, offsetting and triangulation. Writing robust boolean operations in-house is exactly the "fragile geometry hack" CLAUDE.md forbids, so `i_overlay`/`i_triangle` (same author, integer engines, no unsafe-by-default, no network, pure Rust, actively maintained, permissive licence) are used. Fill results are re-checked by our own exact copper distance code in the tests (the fill must keep the clearance from every other-net object), so the dependency is verified, not trusted.
+
+Decision record — STEP/MCAD (roadmap 28): no STEP/geometry-kernel dependency is linked. `buturecad-mcad` uses only serde/serde_json/thiserror. Candidates (OpenCascade LGPL-2.1+exception, truck Apache-2.0, ruststep Apache-2.0) are analysed in `docs/mcad.md`; the choice is deferred behind the `McadBackend` trait.

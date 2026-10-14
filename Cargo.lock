@@ -275,6 +275,7 @@ dependencies = [
  "buturecad-geometry",
  "buturecad-io",
  "buturecad-libraries",
+ "buturecad-mcad",
  "buturecad-pcb",
  "buturecad-renderer",
  "buturecad-router",
@@ -345,6 +346,15 @@ dependencies = [
 [[package]]
 name = "buturecad-manufacturing"
 version = "0.1.0"
+
+[[package]]
+name = "buturecad-mcad"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "buturecad-pcb"

@@ -12,6 +12,7 @@ members = [
     "crates/manufacturing",
     "crates/simulation",
     "crates/viewer3d",
+    "crates/mcad",
     "crates/io",
     "crates/scripting",
     "crates/plugin-runtime",

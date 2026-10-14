@@ -30,7 +30,8 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 25 | Copper zones | done (`docs/zones.md`) |
 | 26 | Layer stack manager | done (`docs/stackup.md`) |
 | 27 | PCB 3D viewer | done (`docs/viewer3d.md`) |
-| 27–30 | 3D, STEP/MCAD, manufacturing, Gerber viewer | planned |
+| 28 | STEP/MCAD abstraction layer | partial (`docs/mcad.md`): architecture, `.bmech` and Part 21 inspection; STEP geometry import/export not implemented |
+| 29–30 | manufacturing, Gerber viewer | planned |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
 | 35–37 | ButureScript, parametric ButureScript, code ↔ visual | planned |
 | 38–42 | CLI, headless, Agent API, AI workspace, protocol | planned |

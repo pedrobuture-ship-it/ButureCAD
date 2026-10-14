@@ -357,6 +357,12 @@ pub fn viewer3d_command(
     state.act(|ws| ws.viewer3d_command(&name, arg.as_deref()))
 }
 
+/// Exports the board's mechanical model (`.bmech`; STEP is reported as unsupported).
+#[tauri::command]
+pub fn mcad_export(state: State<'_, AppState>, path: String) -> Result<Snapshot, String> {
+    state.act(|ws| ws.mcad_export(&path))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())
