@@ -22,6 +22,7 @@ mod pcb_editor;
 mod pcb_pair;
 mod pcb_route;
 mod pcb_tune;
+mod pcb_zone;
 mod rules;
 mod symbol_editor;
 use editor::EditorState;

@@ -28,6 +28,8 @@ pub(crate) enum PcbTool {
     RoutePair,
     /// Length tuning (serpentine / accordion).
     Tune,
+    /// Copper zone outline.
+    Zone,
     Via,
 }
 
@@ -41,6 +43,7 @@ impl PcbTool {
             PcbTool::Route => "route",
             PcbTool::RoutePair => "route_pair",
             PcbTool::Tune => "tune",
+            PcbTool::Zone => "zone",
             PcbTool::Via => "via",
         }
     }
@@ -92,6 +95,10 @@ pub(crate) struct PcbEditor {
     pub(crate) obstacle_cache: std::cell::RefCell<Option<super::pcb_route::ObstacleCache>>,
     /// Manual track width; `None` follows the net class of the net being routed.
     pub(crate) route_width: Option<i64>,
+    /// Refill zones after every edit that changes copper near them.
+    pub(crate) auto_fill: bool,
+    /// Net the Zone tool assigns to new zones.
+    pub(crate) zone_net: Option<Id>,
     pub(crate) tune: super::pcb_tune::TuneSettings,
     pub(crate) tune_preview: Option<super::pcb_tune::TunePreview>,
     pub(crate) route_mode: buturecad_eda_core::routing::AngleMode,
@@ -116,6 +123,8 @@ impl Default for PcbEditor {
             obstacles: Default::default(),
             obstacle_cache: Default::default(),
             route_width: None,
+            auto_fill: true,
+            zone_net: None,
             tune: Default::default(),
             tune_preview: None,
             route_mode: Default::default(),
@@ -195,8 +204,39 @@ impl Workspace {
             return false;
         };
         let revision_before = open.engine.revision();
-        let dirty = ratsnest::affected_nets(&changes);
-        let result = open.engine.execute(PcbEditCommand::new(label, changes));
+        let mut dirty = ratsnest::affected_nets(&changes);
+        // With zones on the board, the pour is refilled around the edit in the same undo step.
+        let adds_zone = changes
+            .iter()
+            .any(|c| matches!(c.after, Some(PcbObject::Zone(_))));
+        let with_zones =
+            self.pcb_ed.auto_fill && (adds_zone || !open.engine.project().pcb().zones.is_empty());
+        if with_zones {
+            open.engine.begin_transaction(label);
+        }
+        let mut result = open.engine.execute(PcbEditCommand::new(label, changes));
+        if with_zones {
+            if result.is_ok() {
+                let fills = buturecad_eda_core::zonefill::fill_changes(
+                    open.engine.project().pcb(),
+                    None,
+                    false,
+                );
+                if !fills.is_empty() {
+                    dirty.extend(ratsnest::affected_nets(&fills));
+                    result = open
+                        .engine
+                        .execute(PcbEditCommand::new("Refill zones", fills));
+                }
+            }
+            result = match result {
+                Ok(()) => open.engine.commit_transaction(),
+                Err(e) => {
+                    let _ = open.engine.rollback_transaction();
+                    Err(e)
+                }
+            };
+        }
         self.built_for = None;
         self.pcb_ed.touched.clear();
         self.pcb_ed.rat_preview.clear();
@@ -412,6 +452,52 @@ impl Workspace {
                     vec![
                         prop("layer_name", "Layer", layer::name(z.layer), false),
                         choice("net", "Net", net_name(z.net), net_options.clone()),
+                        prop("priority", "Priority", z.priority.to_string(), true),
+                        prop(
+                            "clearance_mm",
+                            "Clearance (mm, empty = net class)",
+                            z.clearance.map(mm_str).unwrap_or_default(),
+                            true,
+                        ),
+                        prop(
+                            "min_width_mm",
+                            "Minimum width (mm)",
+                            mm_str(z.min_width),
+                            true,
+                        ),
+                        choice(
+                            "connection",
+                            "Pad connection",
+                            z.connection.id(),
+                            Self::zone_pad_connection_options(),
+                        ),
+                        prop(
+                            "thermal_gap_mm",
+                            "Thermal gap (mm)",
+                            mm_str(z.thermal_gap),
+                            true,
+                        ),
+                        prop(
+                            "thermal_spoke_mm",
+                            "Thermal spoke (mm)",
+                            mm_str(z.thermal_spoke),
+                            true,
+                        ),
+                        choice(
+                            "remove_islands",
+                            "Remove islands",
+                            z.remove_islands.to_string(),
+                            vec![("true".into(), "Yes".into()), ("false".into(), "No".into())],
+                        ),
+                        prop(
+                            "fill_regions",
+                            "Fill",
+                            match &z.fill {
+                                Some(f) => format!("{} piece(s)", f.regions.len()),
+                                None => "not filled".to_owned(),
+                            },
+                            false,
+                        ),
                         prop(
                             "points",
                             "Outline points",
@@ -513,6 +599,28 @@ impl Workspace {
             (PcbObject::Via(v), "x_mm") => v.position.x = parse_mm(value, "X")?,
             (PcbObject::Via(v), "y_mm") => v.position.y = parse_mm(value, "Y")?,
             (PcbObject::Zone(z), "net") => z.net = net_by_name(value)?,
+            (PcbObject::Zone(z), "priority") => {
+                z.priority = value.trim().parse().map_err(|_| "priority is 0 to 255")?
+            }
+            (PcbObject::Zone(z), "clearance_mm") => {
+                z.clearance = if value.trim().is_empty() {
+                    None
+                } else {
+                    Some(parse_mm(value, "clearance")?)
+                }
+            }
+            (PcbObject::Zone(z), "min_width_mm") => z.min_width = parse_mm(value, "minimum width")?,
+            (PcbObject::Zone(z), "connection") => {
+                z.connection = buturecad_pcb::PadConnection::parse(value.trim())
+                    .ok_or("connection is thermal, solid or none")?
+            }
+            (PcbObject::Zone(z), "thermal_gap_mm") => {
+                z.thermal_gap = parse_mm(value, "thermal gap")?
+            }
+            (PcbObject::Zone(z), "thermal_spoke_mm") => {
+                z.thermal_spoke = parse_mm(value, "thermal spoke")?
+            }
+            (PcbObject::Zone(z), "remove_islands") => z.remove_islands = value == "true",
             (PcbObject::Text(t), "text") => t.text = value.to_owned(),
             (PcbObject::Text(t), "height_mm") => t.height = parse_mm(value, "height")?,
             (PcbObject::Text(t), "x_mm") => t.position.x = parse_mm(value, "X")?,
@@ -578,6 +686,19 @@ impl Workspace {
             via_size_auto: self.pcb_ed.via_size.is_none(),
             route: self.route_info(),
             length: self.length_info(),
+            zone_drawing: self.zone_drawing(),
+            zone_net: self.pcb_ed.zone_net.map(|n| n.0),
+            auto_fill: self.pcb_ed.auto_fill,
+            stale_zones: self.stale_zone_count(),
+            zones: doc.zones.len() as u32,
+            net_choices: doc
+                .nets
+                .iter()
+                .map(|(id, n)| NetChoice {
+                    id: id.0,
+                    name: n.name.clone(),
+                })
+                .collect(),
             unrouted: self.ratsnest(|e| e.count() as u32).unwrap_or(0),
         })
     }
@@ -616,7 +737,11 @@ impl Workspace {
             "tune_selected" => self.tune_selected()?,
             "route_finish" => {
                 let mut out = Outcome::default();
-                self.route_finish(&mut out);
+                if self.pcb_ed.tool == PcbTool::Zone {
+                    self.zone_close(&mut out);
+                } else {
+                    self.route_finish(&mut out);
+                }
             }
             "flip" => {
                 if matches!(self.pcb_ed.tool, PcbTool::PlaceFootprint(_)) {
@@ -650,6 +775,7 @@ impl Workspace {
             "route" => PcbTool::Route,
             "route_pair" => PcbTool::RoutePair,
             "tune" => PcbTool::Tune,
+            "zone" => PcbTool::Zone,
             "via" => PcbTool::Via,
             "place_footprint" => {
                 let f = arg
@@ -1026,6 +1152,11 @@ impl Workspace {
                 }
                 out.redraw = true;
             }
+            PointerKind::DoubleClick if self.pcb_ed.tool == PcbTool::Zone => {
+                if self.zone_drawing() {
+                    self.zone_close(out);
+                }
+            }
             PointerKind::DoubleClick => self.route_double_click(out),
             _ => {}
         }
@@ -1092,6 +1223,7 @@ impl Workspace {
             PcbTool::PlaceFootprint(id) => self.pcb_place(&id, at, out),
             PcbTool::Route | PcbTool::RoutePair => self.pcb_route_click(at, out),
             PcbTool::Tune => self.tune_click(out),
+            PcbTool::Zone => self.zone_click(at, out),
             PcbTool::Via => self.pcb_place_via(at, out),
         }
         out.redraw = true;
@@ -1226,6 +1358,7 @@ impl Workspace {
         let at = self.cursor;
         let mut out: Vec<(Shape, Rgba)> = self.ratsnest_shapes();
         out.extend(self.tune_preview_shapes());
+        out.extend(self.zone_preview_shapes(colour));
         out.extend(self.drc_marker_shapes(colour));
         out.extend(self.route_preview_shapes());
         match (&self.pcb_ed.tool, self.pcb_ed.pts.as_slice()) {
@@ -1327,6 +1460,7 @@ impl Workspace {
             (PcbTool::OutlineLine, _) => "Board outline: click the next corner; click the first point to close. Esc ends.".into(),
             (PcbTool::PlaceFootprint(_), _) => "Place footprint: click to place. R rotates, F flips to the back, Esc stops.".into(),
             (PcbTool::Route | PcbTool::RoutePair, _) => self.route_hint(),
+            (PcbTool::Zone, _) => "Zone: click the corners of the outline, click the first corner (or Enter, or double click) to close. The net is chosen in the bar; the zone fills when closed.".into(),
             (PcbTool::Tune, _) => "Tune length: point at a track of a net with a length target, click to place the meander. Set the target in the bar.".into(),
             (PcbTool::Via, _) => "Via: click to place a through via (it takes the net of the pad or track under it). Esc stops.".into(),
         }

@@ -104,8 +104,10 @@ fn map_geometry(o: &PcbObject, f: &impl Fn(Point) -> Point, flips: bool) -> Opti
             v.position = f(v.position);
             PcbObject::Via(v)
         }
+        // A moved zone's old fill no longer matches: drop it (it is refilled on demand).
         PcbObject::Zone(z) => PcbObject::Zone(Zone {
             outline: z.outline.iter().map(|p| f(*p)).collect(),
+            fill: None,
             ..z.clone()
         }),
         PcbObject::Keepout(k) => {

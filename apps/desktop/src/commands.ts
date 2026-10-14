@@ -219,6 +219,23 @@ function pcbCommands(): AppCommand[] {
     tool("route", "Route Track", "X"),
     tool("route_pair", "Route Differential Pair", "Shift+X"),
     tool("tune", "Tune Length", "T"),
+    tool("zone", "Copper Zone", "Z"),
+    {
+      id: "pcb.fillZones",
+      title: "Fill All Zones (PCB)",
+      category: "Edit",
+      shortcut: "B",
+      available: (s) => (s.snapshot?.pcb?.zones ? true : "There are no zones on the board"),
+      run: (a) => a.pcbCommand("fill_zones"),
+    },
+    {
+      id: "pcb.unfillZones",
+      title: "Clear All Zone Fills (PCB)",
+      category: "Edit",
+      shortcut: "Ctrl+B",
+      available: (s) => (s.snapshot?.pcb?.zones ? true : "There are no zones on the board"),
+      run: (a) => a.pcbCommand("unfill_zones"),
+    },
     {
       id: "pcb.tuneSelected",
       title: "Tune Length of the Selected Track (PCB)",
@@ -237,10 +254,13 @@ function pcbCommands(): AppCommand[] {
     },
     {
       id: "pcb.finishRoute",
-      title: "Finish Route (PCB)",
+      title: "Finish Route or Zone Outline (PCB)",
       category: "Edit",
       shortcut: "Enter",
-      available: (s) => (s.snapshot?.pcb?.route ? true : "No route in progress"),
+      available: (s) =>
+        s.snapshot?.pcb?.route || s.snapshot?.pcb?.zone_drawing
+          ? true
+          : "No route or zone in progress",
       run: (a) => a.editor("route_finish"),
     },
     tool("place_footprint", "Place Footprint…", "A"),

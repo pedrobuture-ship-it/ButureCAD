@@ -129,6 +129,37 @@ export function PcbBar() {
           {info.route.note}
         </span>
       )}
+      <label title="Net the Zone tool assigns to new zones">
+        Zone net
+        <select
+          value={info.zone_net ?? ""}
+          aria-label="Zone net"
+          onChange={(e) => cmd("zone_net", e.target.value === "" ? "none" : e.target.value)}
+        >
+          <option value="">(none)</option>
+          {info.net_choices.map((n) => (
+            <option key={n.id} value={n.id}>
+              {n.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {info.zones > 0 && (
+        <>
+          <button title="Recompute every zone fill (B)" onClick={() => cmd("fill_zones")}>
+            Fill zones
+          </button>
+          <label title="Refill zones in the same undo step after every edit near them">
+            <input type="checkbox" checked={info.auto_fill} onChange={() => cmd("auto_fill")} />
+            Auto fill
+          </label>
+          {info.stale_zones > 0 && (
+            <span className="warn" role="status">
+              {info.stale_zones} zone(s) need a refill
+            </span>
+          )}
+        </>
+      )}
       {info.length && (
         <>
           <span

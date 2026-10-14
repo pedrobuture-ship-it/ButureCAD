@@ -874,7 +874,12 @@ impl Workspace {
                 self.route_finish(&mut out);
                 Ok(true)
             }
-            other => self.pcb_tune_command(other, arg),
+            other => {
+                if self.pcb_zone_command(other, arg)? {
+                    return Ok(true);
+                }
+                self.pcb_tune_command(other, arg)
+            }
         }
     }
 

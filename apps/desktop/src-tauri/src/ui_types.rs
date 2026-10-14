@@ -370,6 +370,17 @@ pub struct PcbInfo {
     pub route: Option<RouteInfo>,
     /// Length against the goal of the net under the tuner / of the selected tracks.
     pub length: Option<LengthInfo>,
+    /// A zone outline is being drawn.
+    pub zone_drawing: bool,
+    /// Net the Zone tool assigns.
+    #[ts(type = "number | null")]
+    pub zone_net: Option<u64>,
+    /// Zones are refilled automatically after edits.
+    pub auto_fill: bool,
+    /// Zones whose fill is missing or out of date.
+    pub stale_zones: u32,
+    pub zones: u32,
+    pub net_choices: Vec<NetChoice>,
     /// Connections still to route (ratsnest lines).
     pub unrouted: u32,
 }
@@ -552,4 +563,13 @@ pub struct LengthInfo {
     pub style: String,
     pub amplitude_mm: String,
     pub pitch_mm: String,
+}
+
+/// A net the UI can pick.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct NetChoice {
+    #[ts(type = "number")]
+    pub id: u64,
+    pub name: String,
 }

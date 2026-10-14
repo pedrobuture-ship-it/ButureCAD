@@ -20,6 +20,30 @@ pub const L_PADCENTER: SceneLayer = SceneLayer(2003);
 pub const L_RATS: SceneLayer = SceneLayer(2004);
 pub const L_KEEPOUT: SceneLayer = SceneLayer(2005);
 
+/// Scene layer of the zone fill of a copper layer: below every board layer, drawn but inert.
+pub fn fill_scene_layer(l: layer::LayerId, doc: &PcbDoc) -> SceneLayer {
+    SceneLayer(scene_layer(l, doc).0 - 500)
+}
+
+/// The colour a pour is drawn in: the layer colour, subdued so tracks and pads stand out.
+pub fn fill_color(l: layer::LayerId, theme: ThemeKind) -> Rgba {
+    let c = layer_color(l, theme).0;
+    let mix = |v: u8| -> u8 {
+        if theme == ThemeKind::Dark {
+            (f32::from(v) * 0.42 + 11.0 * 0.58) as u8
+        } else {
+            (f32::from(v) * 0.40 + 248.0 * 0.60) as u8
+        }
+    };
+    Rgba::rgb(mix(c[0]), mix(c[1]), mix(c[2]))
+}
+
+/// Scene id of the `n`th fill triangle of zone `owner` (far from the shape ids of objects, which
+/// are `owner << 12 | n`; fill triangles are not pickable so they never resolve to an owner).
+fn fill_id(owner: Id, n: u64) -> ObjectId {
+    ObjectId((1 << 63) | (owner.0 << 24) | (n & 0xFF_FFFF))
+}
+
 /// Scene layer of a board layer.
 pub fn scene_layer(l: layer::LayerId, doc: &PcbDoc) -> SceneLayer {
     let pos = doc
@@ -356,6 +380,10 @@ fn footprint_shapes(
 pub struct PcbScene {
     pub scene: Scene,
     owners: BTreeMap<Id, Vec<ObjectId>>,
+    /// Zone fill triangles per zone (kept apart from `owners`: they are not selectable parts).
+    fills: BTreeMap<Id, Vec<ObjectId>>,
+    /// Triangulation of each zone's fill, reused while its signature is unchanged.
+    triangles: BTreeMap<Id, (u64, Vec<[Point; 3]>)>,
 }
 
 impl PcbScene {
@@ -363,6 +391,8 @@ impl PcbScene {
     pub fn rebuild(&mut self, doc: &PcbDoc, theme: ThemeKind, hidden: &BTreeSet<u16>) {
         self.scene = Scene::new();
         self.owners.clear();
+        self.fills.clear();
+        self.triangles.clear();
         let dark = theme == ThemeKind::Dark;
         self.scene.set_layer(
             L_HIT,
@@ -380,6 +410,14 @@ impl PcbScene {
                 layer = layer.not_snappable();
             }
             self.scene.set_layer(scene_layer(l, doc), layer);
+            if layer::is_copper(l) {
+                self.scene.set_layer(
+                    fill_scene_layer(l, doc),
+                    Layer::new(format!("{} fill", layer::name(l)), fill_color(l, theme))
+                        .with_visible(!hidden.contains(&l.0))
+                        .draw_only(),
+                );
+            }
         }
         let gold = if dark {
             Rgba::rgb(212, 175, 55)
@@ -456,7 +494,45 @@ impl PcbScene {
         for old in self.owners.remove(&id).unwrap_or_default() {
             self.scene.remove(old);
         }
+        for old in self.fills.remove(&id).unwrap_or_default() {
+            self.scene.remove(old);
+        }
         let Some(obj) = obj else { return };
+        if let PcbObject::Zone(z) = obj {
+            if let Some(fill) = &z.fill {
+                let layer = fill_scene_layer(z.layer, doc);
+                let mut ids = Vec::new();
+                let cached = self
+                    .triangles
+                    .get(&id)
+                    .filter(|(sig, _)| *sig == fill.signature)
+                    .map(|(_, t)| t.clone());
+                let tris = cached.unwrap_or_else(|| {
+                    let t = buturecad_eda_core::zonefill::triangulate(&fill.regions);
+                    self.triangles.insert(id, (fill.signature, t.clone()));
+                    t
+                });
+                for (n, tri) in tris.into_iter().enumerate() {
+                    if let Ok(polygon) = Polygon::new(tri.to_vec()) {
+                        let sid = fill_id(id, n as u64);
+                        self.scene.insert(
+                            sid,
+                            Item {
+                                layer,
+                                shape: Shape::Polygon {
+                                    polygon,
+                                    filled: true,
+                                    stroke: 0,
+                                },
+                                color: None,
+                            },
+                        );
+                        ids.push(sid);
+                    }
+                }
+                self.fills.insert(id, ids);
+            }
+        }
         let mut ids = Vec::new();
         for (n, (layer, shape)) in object_shapes(doc, obj).into_iter().enumerate() {
             let sid = shape_id(id, n as u64);

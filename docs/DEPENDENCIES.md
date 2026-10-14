@@ -23,3 +23,8 @@ Run `cargo deny`/license audit before release (not yet configured).
 | tauri-plugin-dialog (desktop) | native folder pickers | MIT OR Apache-2.0 |
 | lucide-react (desktop UI) | icons | ISC |
 | @tauri-apps/plugin-dialog, @tauri-apps/api | JS side of the Tauri bridge | MIT OR Apache-2.0 |
+
+| i_overlay (eda-core) | exact integer (i64) polygon booleans and offsets for copper zone fill | MIT OR Apache-2.0 |
+| i_triangle (eda-core) | triangulation of filled zone regions with holes (drawing, later 3D) | MIT OR Apache-2.0 |
+
+Decision record — polygon booleans (roadmap 25): zone fill needs difference/intersection of polygons with holes, offsetting and triangulation. Writing robust boolean operations in-house is exactly the "fragile geometry hack" CLAUDE.md forbids, so `i_overlay`/`i_triangle` (same author, integer engines, no unsafe-by-default, no network, pure Rust, actively maintained, permissive licence) are used. Fill results are re-checked by our own exact copper distance code in the tests (the fill must keep the clearance from every other-net object), so the dependency is verified, not trusted.

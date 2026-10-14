@@ -96,6 +96,67 @@ pub struct Net {
     pub name: String,
 }
 
+/// How a zone connects to pads and vias of its own net.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PadConnection {
+    /// The copper flows straight into the pad.
+    Solid,
+    /// A gap around the pad crossed by four spokes (thermal relief).
+    #[default]
+    Thermal,
+    /// No connection: the pad is isolated like copper of another net.
+    None,
+}
+
+impl PadConnection {
+    pub fn id(self) -> &'static str {
+        match self {
+            PadConnection::Solid => "solid",
+            PadConnection::Thermal => "thermal",
+            PadConnection::None => "none",
+        }
+    }
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "solid" => Some(PadConnection::Solid),
+            "thermal" => Some(PadConnection::Thermal),
+            "none" => Some(PadConnection::None),
+            _ => None,
+        }
+    }
+}
+
+/// One filled piece of a zone: an outer contour and the holes inside it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FilledRegion {
+    pub outer: Vec<Point>,
+    #[serde(default)]
+    pub holes: Vec<Vec<Point>>,
+}
+
+/// The computed copper of a zone. Derived data, stored so that the board, DRC, connectivity and
+/// manufacturing agree on exactly the same copper; `signature` identifies the inputs it was
+/// computed from, so a fill that no longer matches the board is detected as stale.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ZoneFill {
+    pub regions: Vec<FilledRegion>,
+    pub signature: u64,
+}
+
+fn default_min_width() -> Coord {
+    200_000
+}
+fn default_thermal_gap() -> Coord {
+    500_000
+}
+fn default_spoke() -> Coord {
+    500_000
+}
+fn yes_() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Zone {
     pub layer: LayerId,
@@ -105,6 +166,43 @@ pub struct Zone {
     /// Higher priority zones fill first.
     #[serde(default)]
     pub priority: u8,
+    /// Clearance to copper of other nets; `None` = the net class clearance.
+    #[serde(default)]
+    pub clearance: Option<Coord>,
+    /// Copper narrower than this is removed from the fill.
+    #[serde(default = "default_min_width")]
+    pub min_width: Coord,
+    /// Connection to pads and vias of the zone's net.
+    #[serde(default)]
+    pub connection: PadConnection,
+    #[serde(default = "default_thermal_gap")]
+    pub thermal_gap: Coord,
+    #[serde(default = "default_spoke")]
+    pub thermal_spoke: Coord,
+    /// Remove filled pieces that touch no copper of the zone's net.
+    #[serde(default = "yes_")]
+    pub remove_islands: bool,
+    /// The last computed fill, if any.
+    #[serde(default)]
+    pub fill: Option<ZoneFill>,
+}
+
+impl Zone {
+    pub fn new(layer: LayerId, outline: Vec<Point>, net: Option<Id>) -> Self {
+        Self {
+            layer,
+            outline,
+            net,
+            priority: 0,
+            clearance: None,
+            min_width: default_min_width(),
+            connection: PadConnection::default(),
+            thermal_gap: default_thermal_gap(),
+            thermal_spoke: default_spoke(),
+            remove_islands: true,
+            fill: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,7 +277,28 @@ impl Zone {
         if !layer::is_copper(self.layer) {
             return bad("a zone lives on a copper layer");
         }
-        poly_ok(&self.outline, "zone outline")
+        poly_ok(&self.outline, "zone outline")?;
+        let lim = |v: Coord| (1..=100_000_000).contains(&v);
+        if self
+            .clearance
+            .is_some_and(|c| !(0..=100_000_000).contains(&c))
+        {
+            return bad("the zone clearance must be between 0 and 100 mm");
+        }
+        if !(lim(self.min_width) && lim(self.thermal_gap) && lim(self.thermal_spoke)) {
+            return bad("zone widths and gaps must be between 1 nm and 100 mm");
+        }
+        if let Some(f) = &self.fill {
+            let ring_ok = |r: &[Point]| r.len() >= 3 && r.len() <= 1_000_000;
+            if f.regions.len() > 100_000
+                || f.regions
+                    .iter()
+                    .any(|r| !ring_ok(&r.outer) || r.holes.iter().any(|h| !ring_ok(h)))
+            {
+                return bad("the zone fill is malformed");
+            }
+        }
+        Ok(())
     }
 }
 
@@ -617,30 +736,13 @@ mod tests {
     #[test]
     fn board_objects_validate() {
         let sq = vec![Point::new(0, 0), Point::new(10, 0), Point::new(10, 10)];
-        assert!(Zone {
-            layer: layer::F_CU,
-            outline: sq.clone(),
-            net: None,
-            priority: 0
-        }
-        .validate()
-        .is_ok());
-        assert!(Zone {
-            layer: layer::F_SILK,
-            outline: sq.clone(),
-            net: None,
-            priority: 0
-        }
-        .validate()
-        .is_err());
-        assert!(Zone {
-            layer: layer::F_CU,
-            outline: sq[..2].to_vec(),
-            net: None,
-            priority: 0
-        }
-        .validate()
-        .is_err());
+        assert!(Zone::new(layer::F_CU, sq.clone(), None).validate().is_ok());
+        assert!(Zone::new(layer::F_SILK, sq.clone(), None)
+            .validate()
+            .is_err());
+        assert!(Zone::new(layer::F_CU, sq[..2].to_vec(), None)
+            .validate()
+            .is_err());
         assert!(Keepout {
             outline: sq.clone(),
             layers: vec![],

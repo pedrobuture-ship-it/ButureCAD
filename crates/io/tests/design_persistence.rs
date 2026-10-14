@@ -448,7 +448,7 @@ fn the_board_round_trips_and_older_pcb_files_still_load() {
     .unwrap();
     engine::save(&opened.session, &mut e).unwrap();
     let text = fs::read_to_string(dir.path().join(PCB_FILE)).unwrap();
-    assert!(text.contains("\"schema_version\": 6") && text.contains("NE555"));
+    assert!(text.contains("\"schema_version\": 7") && text.contains("NE555"));
     let net_field = format!("\"net\": {}", net.0);
     assert!(text.contains(&net_field));
     assert_eq!(
@@ -470,4 +470,51 @@ fn the_board_round_trips_and_older_pcb_files_still_load() {
         fs::write(dir.path().join(PCB_FILE), bad).unwrap();
         assert!(ProjectSession::open(dir.path()).is_err());
     }
+}
+
+#[test]
+fn zone_fills_round_trip_and_malformed_fills_are_refused() {
+    use buturecad_pcb::{layer, FilledRegion, Zone, ZoneFill};
+    let dir = tempfile::tempdir().unwrap();
+    let (session, project) = ProjectSession::create(dir.path(), "Z").unwrap();
+    let mut e = CommandEngine::new(project);
+    let id = e.new_id();
+    let sq = |x0: i64, x1: i64| {
+        vec![
+            Point::new(x0, x0),
+            Point::new(x1, x0),
+            Point::new(x1, x1),
+            Point::new(x0, x1),
+        ]
+    };
+    let mut zone = Zone::new(layer::F_CU, sq(0, 10_000_000), None);
+    zone.fill = Some(ZoneFill {
+        regions: vec![FilledRegion {
+            outer: sq(0, 10_000_000),
+            holes: vec![sq(3_000_000, 4_000_000)],
+        }],
+        signature: 0xDEAD_BEEF,
+    });
+    zone.connection = buturecad_pcb::PadConnection::Solid;
+    zone.priority = 4;
+    e.execute(PcbEditCommand::new(
+        "zone",
+        vec![PcbChange::create(id, PcbObject::Zone(zone))],
+    ))
+    .unwrap();
+    engine::save(&session, &mut e).unwrap();
+    let text = fs::read_to_string(dir.path().join(PCB_FILE)).unwrap();
+    assert!(text.contains("\"solid\"") && text.contains("\"holes\""));
+    assert_eq!(
+        ProjectSession::open(dir.path()).unwrap().project,
+        e.into_project()
+    );
+    // A fill with a two-point ring is refused as a whole.
+    let bad = text.replace(
+        "\"holes\": [",
+        "\"holes\": [[{\"x\": 1, \"y\": 1}, {\"x\": 2, \"y\": 2}],",
+    );
+    assert_ne!(bad, text);
+    fs::write(dir.path().join(PCB_FILE), bad).unwrap();
+    assert!(ProjectSession::open(dir.path()).is_err());
 }

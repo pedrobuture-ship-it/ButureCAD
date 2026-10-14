@@ -7,17 +7,20 @@
 //! report it, roadmap 19).
 //!
 //! [`RatsnestEngine`] keeps one result per net and recomputes **only the nets that changed**
-//! ([`affected_nets`] derives them from a change set). Zones are not considered connected until
-//! zone filling exists (roadmap 25).
+//! ([`affected_nets`] derives them from a change set). The filled copper of a **zone** is copper
+//! of its net like any other: pads, vias and tracks that touch a piece of the fill are in the same
+//! island, so a ground pour completes the connections it really makes.
 //!
 //! Complexity: islands are found with a spatial index (no all-pairs scan of copper); the
 //! spanning tree is exact for nets with up to [`EXACT_LIMIT`] anchors and approximated with
 //! k-nearest candidate edges (always completed to a spanning tree) beyond that.
 
+use crate::copper::{self, CShape, Region};
 use crate::model::{Id, PcbChange, PcbDoc, PcbObject};
 use buturecad_geometry::{BoundingBox, Coord, Point, Segment, SpatialIndex};
 use buturecad_pcb::{LayerId, WorldPad};
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 /// Nets with more anchors than this use the approximate spanning tree.
 pub const EXACT_LIMIT: usize = 800;
@@ -48,9 +51,30 @@ enum Item {
         radius: Coord,
         layers: Vec<LayerId>,
     },
+    /// A piece of a zone fill.
+    Zone {
+        layer: LayerId,
+        region: Arc<Region>,
+    },
 }
 
 impl Item {
+    /// The copper shape, for exact overlap tests against a zone.
+    fn shape(&self) -> Option<CShape> {
+        Some(match self {
+            Item::Pad(p) => copper::pad_shape(p)?,
+            Item::Track { seg, width, .. } => CShape::Cap {
+                seg: *seg,
+                r: *width as f64 / 2.0,
+            },
+            Item::Via { at, radius, .. } => CShape::Cap {
+                seg: Segment::new(*at, *at),
+                r: *radius as f64,
+            },
+            Item::Zone { region, .. } => CShape::Region(region.clone()),
+        })
+    }
+
     fn bbox(&self) -> BoundingBox {
         let pad = |a: Point, r: Coord| {
             BoundingBox::new(Point::new(a.x - r, a.y - r), Point::new(a.x + r, a.y + r))
@@ -68,6 +92,7 @@ impl Item {
                 b.inflate(*width / 2 + 1).unwrap_or(b)
             }
             Item::Via { at, radius, .. } => pad(*at, *radius),
+            Item::Zone { region, .. } => region.bbox(),
         }
     }
 
@@ -76,6 +101,7 @@ impl Item {
             Item::Pad(p) => p.copper_layers(stack),
             Item::Track { layer, .. } => vec![*layer],
             Item::Via { layers, .. } => layers.clone(),
+            Item::Zone { layer, .. } => vec![*layer],
         }
     }
 
@@ -87,6 +113,13 @@ impl Item {
                 (seg.distance_to_point(p) - *width as f64 / 2.0).max(0.0)
             }
             Item::Via { at, radius, .. } => (at.distance(p) - *radius as f64).max(0.0),
+            Item::Zone { region, .. } => {
+                if region.contains(p) {
+                    0.0
+                } else {
+                    region.boundary_distance(&Segment::new(p, p))
+                }
+            }
         }
     }
 
@@ -96,6 +129,8 @@ impl Item {
             Item::Pad(p) => vec![p.center],
             Item::Via { at, .. } => vec![*at],
             Item::Track { seg, .. } => vec![seg.a, seg.b],
+            // Pieces of a pour are never the end of a flying wire.
+            Item::Zone { .. } => Vec::new(),
         }
     }
 
@@ -114,11 +149,19 @@ impl Item {
             }
             Item::Via { at, .. } => vec![*at],
             Item::Track { seg, .. } => vec![seg.a, seg.b],
+            Item::Zone { .. } => Vec::new(),
         }
     }
 }
 
 fn touches(a: &Item, b: &Item) -> bool {
+    // A zone piece touches whatever overlaps it (exact shape test, not just probe points).
+    if matches!(a, Item::Zone { .. }) || matches!(b, Item::Zone { .. }) {
+        return match (a.shape(), b.shape()) {
+            (Some(x), Some(y)) => copper::distance(&x, &y) <= 0.0,
+            _ => false,
+        };
+    }
     // Two copper items touch if a probe point of one is covered by the other.
     a.probes().into_iter().any(|p| b.distance(p) <= 0.0)
         || b.probes().into_iter().any(|p| a.distance(p) <= 0.0)
@@ -188,10 +231,24 @@ fn gather(doc: &PcbDoc, net: Id, overrides: &BTreeMap<Id, Option<PcbObject>>) ->
                 radius: v.diameter / 2,
                 layers: v.kind.layers(stack),
             }),
+            PcbObject::Zone(z) if z.net == Some(net) => zone_items(&z, &mut items),
             _ => {}
         }
     }
     items
+}
+
+fn zone_items(z: &buturecad_pcb::Zone, items: &mut Vec<Item>) {
+    if let Some(fill) = &z.fill {
+        for r in &fill.regions {
+            if let Some(region) = Region::new(r.outer.clone(), r.holes.clone()) {
+                items.push(Item::Zone {
+                    layer: z.layer,
+                    region: Arc::new(region),
+                });
+            }
+        }
+    }
 }
 
 /// The ratsnest of one net.
@@ -241,6 +298,11 @@ fn gather_all(doc: &PcbDoc, only: Option<&BTreeSet<Id>>) -> BTreeMap<Id, Vec<Ite
             });
         }
     }
+    for z in doc.zones.values() {
+        if let Some(net) = z.net.filter(wanted) {
+            zone_items(z, out.entry(net).or_default());
+        }
+    }
     out
 }
 
@@ -255,12 +317,15 @@ fn solve(doc: &PcbDoc, net: Id, mut items: Vec<Item>) -> Vec<RatLine> {
             Item::Pad(_) => 0u8,
             Item::Via { .. } => 1,
             Item::Track { .. } => 2,
+            Item::Zone { .. } => 3,
         };
+        let lo = i.bbox().min;
+        let first = a.first().copied().unwrap_or(lo);
         (
-            a[0].x,
-            a[0].y,
-            a.last().map_or(0, |p| p.x),
-            a.last().map_or(0, |p| p.y),
+            first.x,
+            first.y,
+            a.last().map_or(lo.x, |p| p.x),
+            a.last().map_or(lo.y, |p| p.y),
             k,
         )
     });
@@ -287,6 +352,7 @@ fn solve(doc: &PcbDoc, net: Id, mut items: Vec<Item>) -> Vec<RatLine> {
         let r = uf.find(i);
         match it {
             Item::Track { .. } => fallback.entry(r).or_default().extend(it.anchors()),
+            Item::Zone { .. } => {}
             _ => islands.entry(r).or_default().extend(it.anchors()),
         }
     }
@@ -303,7 +369,12 @@ fn solve(doc: &PcbDoc, net: Id, mut items: Vec<Item>) -> Vec<RatLine> {
                 .or_else(|| fallback.remove(r))
                 .unwrap_or_default()
         })
+        // A piece of pour that touches nothing with an end to draw to is not a place to connect.
+        .filter(|g| !g.is_empty())
         .collect();
+    if groups.len() < 2 {
+        return Vec::new();
+    }
     spanning_tree(net, &groups)
 }
 
@@ -396,6 +467,7 @@ pub fn affected_nets(changes: &[PcbChange]) -> BTreeSet<Id> {
             Some(PcbObject::Footprint(f)) => f.pad_nets.values().copied().collect(),
             Some(PcbObject::Track(t)) => t.net.into_iter().collect(),
             Some(PcbObject::Via(v)) => v.net.into_iter().collect(),
+            Some(PcbObject::Zone(z)) => z.net.into_iter().collect(),
             _ => Vec::new(),
         }
     }

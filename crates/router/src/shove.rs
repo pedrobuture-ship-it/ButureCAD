@@ -261,6 +261,7 @@ impl<'a> Shover<'a> {
             let bb = match &f.shape {
                 CShape::Cap { seg, r } => seg_bbox(seg, r.ceil() as Coord + 1),
                 CShape::Poly(p) => buturecad_geometry::Bounded::bounding_box(p),
+                CShape::Region(g) => g.bbox(),
             };
             (bb, i)
         }));

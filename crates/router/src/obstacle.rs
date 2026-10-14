@@ -96,6 +96,10 @@ impl ObstacleSet {
                 continue;
             }
             for it in copper::items_of(doc, id) {
+                // Zones are refilled around the new copper, they are not obstacles.
+                if it.kind == buturecad_rules::copper::ItemKind::Zone {
+                    continue;
+                }
                 if it.layer != params.layer
                     || (params.net.is_some() && it.net == params.net)
                     || (params.also_net.is_some() && it.net == params.also_net)
@@ -110,6 +114,7 @@ impl ObstacleSet {
                 let hull = match &it.shape {
                     CShape::Cap { seg, r } => inflate(&[seg.a, seg.b], r + d),
                     CShape::Poly(p) => inflate(p.vertices(), d),
+                    CShape::Region(_) => continue,
                 };
                 if hull.len() >= 3 {
                     obstacles.push(Obstacle {

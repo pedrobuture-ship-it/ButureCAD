@@ -12,15 +12,19 @@
 //! | `outside_board` | Error | copper outside the closed board outline |
 //! | `unconnected` | Error | a ratsnest connection that is not routed |
 //! | `courtyard_overlap` | Warning | courtyards of footprints on the same side overlap |
+//! | `zone_stale` | Warning | a zone has no fill, or its fill no longer matches the board (refill with `B`) |
 //! | `length_target` | Warning | a net with a length target is routed outside target ± tolerance (track lengths only) |
 //! | `pair_skew` | Warning | the routed lengths of a differential pair's legs differ by more than its maximum skew (track length per net; vias and stubs of other topologies are not modelled) |
 //!
 //! The engine is **incremental**: [`DrcEngine::update`] re-checks only the objects a change set
 //! touched (against a per-layer R-tree) and the nets it affected; [`run_drc`] is the from-scratch
-//! reference and the two are property-tested to agree. Zones are not copper yet (roadmap 25).
+//! reference and the two are property-tested to agree. The fill of a zone is copper like any other
+//! (its pieces are checked with exact distances to the filled area); the DRC never "fixes" a zone:
+//! a stale fill is reported (`zone_stale`) so that you refill.
 
-use crate::copper::{self, CShape, CopperItem};
+use buturecad_eda_core::copper::{self, CShape, CopperItem};
 use buturecad_eda_core::model::{Id, PcbChange, PcbDoc, PcbObject};
+use buturecad_eda_core::outline::outline_segments;
 use buturecad_eda_core::ratsnest::{affected_nets, RatsnestEngine};
 use buturecad_geometry::Bounded;
 use buturecad_geometry::{
@@ -49,6 +53,7 @@ pub enum DrcRule {
     CourtyardOverlap,
     PairSkew,
     LengthTarget,
+    ZoneStale,
 }
 
 impl DrcRule {
@@ -66,6 +71,7 @@ impl DrcRule {
             DrcRule::CourtyardOverlap => "courtyard_overlap",
             DrcRule::PairSkew => "pair_skew",
             DrcRule::LengthTarget => "length_target",
+            DrcRule::ZoneStale => "zone_stale",
         }
     }
     pub fn title(self) -> &'static str {
@@ -82,13 +88,15 @@ impl DrcRule {
             DrcRule::CourtyardOverlap => "Courtyards overlap",
             DrcRule::PairSkew => "Differential pair skew",
             DrcRule::LengthTarget => "Length target missed",
+            DrcRule::ZoneStale => "Zone fill out of date",
         }
     }
     pub fn severity(self) -> DrcSeverity {
         match self {
-            DrcRule::CourtyardOverlap | DrcRule::PairSkew | DrcRule::LengthTarget => {
-                DrcSeverity::Warning
-            }
+            DrcRule::CourtyardOverlap
+            | DrcRule::PairSkew
+            | DrcRule::LengthTarget
+            | DrcRule::ZoneStale => DrcSeverity::Warning,
             _ => DrcSeverity::Error,
         }
     }
@@ -144,79 +152,6 @@ struct Outline {
     /// Closed loops: the largest is the board, loops inside it are cut-outs.
     boards: Vec<Polygon>,
     holes: Vec<Polygon>,
-}
-
-fn arc_points(arc: &buturecad_geometry::Arc) -> Vec<Point> {
-    let (c, s, e) = (arc.center, arc.start, arc.end);
-    let r = arc.radius();
-    let a0 = ((s.y - c.y) as f64).atan2((s.x - c.x) as f64);
-    let mut a1 = ((e.y - c.y) as f64).atan2((e.x - c.x) as f64);
-    if arc.ccw {
-        while a1 <= a0 {
-            a1 += std::f64::consts::TAU;
-        }
-    } else {
-        while a1 >= a0 {
-            a1 -= std::f64::consts::TAU;
-        }
-    }
-    let n = (((a1 - a0).abs() / std::f64::consts::TAU) * 48.0)
-        .ceil()
-        .max(4.0) as usize;
-    let mut pts = vec![s];
-    for i in 1..n {
-        let a = a0 + (a1 - a0) * i as f64 / n as f64;
-        pts.push(Point::new(
-            (c.x as f64 + r * a.cos()).round() as i64,
-            (c.y as f64 + r * a.sin()).round() as i64,
-        ));
-    }
-    pts.push(e);
-    pts
-}
-
-/// The straight pieces of the board outline on `Edge.Cuts` (arcs and circles approximated by
-/// polylines of at most 48 segments).
-pub fn outline_segments(doc: &PcbDoc) -> Vec<Segment> {
-    let mut polylines: Vec<Vec<Point>> = Vec::new();
-    for g in doc
-        .graphics
-        .values()
-        .filter(|g| g.layer == layer::EDGE_CUTS)
-    {
-        match &g.shape {
-            FpShape::Line { segment, .. } => polylines.push(vec![segment.a, segment.b]),
-            FpShape::Arc { arc, .. } => polylines.push(arc_points(arc)),
-            FpShape::Polygon { points, .. } => {
-                let mut p = points.clone();
-                p.push(points[0]);
-                polylines.push(p);
-            }
-            FpShape::Rect { rect, .. } => {
-                let (a, b) = (rect.min(), rect.max());
-                polylines.push(vec![a, Point::new(b.x, a.y), b, Point::new(a.x, b.y), a]);
-            }
-            FpShape::Circle { circle, .. } => {
-                let pts: Vec<Point> = (0..=48)
-                    .map(|i| {
-                        let a = i as f64 / 48.0 * std::f64::consts::TAU;
-                        Point::new(
-                            (circle.center.x as f64 + circle.radius as f64 * a.cos()).round()
-                                as i64,
-                            (circle.center.y as f64 + circle.radius as f64 * a.sin()).round()
-                                as i64,
-                        )
-                    })
-                    .collect();
-                polylines.push(pts);
-            }
-        }
-    }
-    polylines
-        .iter()
-        .flat_map(|p| p.windows(2).map(|w| Segment::new(w[0], w[1])))
-        .filter(|s| s.a != s.b)
-        .collect()
 }
 
 impl Outline {
@@ -301,6 +236,7 @@ impl Outline {
                 b.inflate(*r as Coord + within)?
             }
             CShape::Poly(p) => p.bounding_box().inflate(within)?,
+            CShape::Region(g) => g.bbox().inflate(within)?,
         };
         self.segs
             .query_intersecting(&bb)
@@ -927,6 +863,32 @@ pub fn candidate_edge_violations(doc: &PcbDoc, candidate: &[CopperItem]) -> Vec<
 /// already reported).
 fn skew_violations(doc: &PcbDoc) -> Vec<DrcViolation> {
     let mut out = Vec::new();
+    for id in buturecad_eda_core::zonefill::stale_zones(doc) {
+        let Some(z) = doc.zones.get(&id) else {
+            continue;
+        };
+        let lo = z
+            .outline
+            .iter()
+            .fold(z.outline[0], |m, p| Point::new(m.x.min(p.x), m.y.min(p.y)));
+        let hi = z
+            .outline
+            .iter()
+            .fold(z.outline[0], |m, p| Point::new(m.x.max(p.x), m.y.max(p.y)));
+        out.push(vio(
+            DrcRule::ZoneStale,
+            if z.fill.is_some() {
+                "The fill of this zone no longer matches the board; refill the zones".to_string()
+            } else {
+                "This zone has not been filled".to_string()
+            },
+            vec![id],
+            mid(lo, hi),
+            Some(z.layer),
+            None,
+            None,
+        ));
+    }
     for (net, goal) in &doc.rules.length_targets {
         let Some(longest) = doc
             .tracks

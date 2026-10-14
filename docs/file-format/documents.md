@@ -50,7 +50,9 @@ and graphics (`docs/pcb-core.md`). Schema 4 adds `rules`: board limits, net `cla
 net → class `assignments` (`docs/drc.md`); older files load with the default rules (migration 3 → 4
 rewrites nothing). Schema 5 adds `rules.diff_pairs` (name, positive/negative net, optional
 width/gap, max skew; `docs/diff-pairs.md`); migration 4 → 5 rewrites nothing. Schema 6 adds `rules.length_targets` (net → target, tolerance;
-`docs/length-tuning.md`); migration 5 → 6 rewrites nothing.
+`docs/length-tuning.md`); migration 5 → 6 rewrites nothing. Schema 7 adds zone fill parameters (`clearance`, `min_width`,
+`connection`, `thermal_gap`, `thermal_spoke`, `remove_islands`) and the computed `fill` (regions with
+holes + signature; `docs/zones.md`); migration 6 → 7 rewrites nothing.
 
 ## Rules
 

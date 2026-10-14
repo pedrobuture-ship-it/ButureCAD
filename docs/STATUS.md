@@ -1,10 +1,10 @@
 # Working
 
-*Roadmap stages 01–24 (last checkpoint after 18). Everything below is implemented, tested and used by the
+*Roadmap stages 01–25 (last checkpoint after 18). Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
-- **Project format** (`buturecad-io`): create/open/save/save-as, atomic writes, rotating backups, autosave, crash recovery, migration framework. Schemas: manifest 1, schematic 3 (v1→v2→v3 migrations), PCB 6 (v1→…→v6). See `docs/file-format/`.
+- **Project format** (`buturecad-io`): create/open/save/save-as, atomic writes, rotating backups, autosave, crash recovery, migration framework. Schemas: manifest 1, schematic 3 (v1→v2→v3 migrations), PCB 7 (v1→…→v7). See `docs/file-format/`.
 - **Geometry engine** (`buturecad-geometry`): integer nanometres, exact predicates, nearest point, offset, rotation, R-tree index; unit and property tests.
 - **Command Engine** (`buturecad-eda-core`): undo/redo, nested transactions, exact dirty state, history limit, autosave/recovery hooks; commands for schematic edits, symbols, footprints, ERC waivers, tracks, vias, rename; property tests (undo-all/redo-all is lossless).
 - **Renderer** (`buturecad-renderer`): wgpu offscreen MSAA renderer shown in a canvas; pan/zoom, adaptive grid, snap, layers, picking, selection; verified on a real GPU (GPU tests skip without an adapter).
@@ -38,13 +38,16 @@ desktop app; limits are stated in the sections that follow.*
 
 - **Length tuning** (roadmap 24): per-net length targets (or the partner leg of a pair), live current/target/difference, serpentine and accordion meanders added exactly to the missing length, validated with the DRC rules, one undo step; DRC `length_target`. PCB schema 6. See `docs/length-tuning.md`.
 
+- **Copper zones** (roadmap 25): zone tool, net, priority, clearance, thermal relief / solid / none, minimum width, island removal, keepouts; exact integer polygon fill (`i_overlay`), stored with a staleness signature, auto-refilled in the same undo step, ratsnest and DRC aware, filled/drawn by the renderer; 0.7 s for a 200×150 mm pour with 4600 obstacles. PCB schema 7. See `docs/zones.md`.
+
 # Partial
 
-- **PCB:** the model, placement, routing and vias exist; routing walks around or pushes obstacles; zones/keepouts have no tools and are not checked by DRC (25).
+- **PCB:** the model, placement, routing and vias exist; routing walks around or pushes obstacles; keepouts have no drawing tool yet.
 - **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
 - **Router:** Walk Around avoids copper, keepouts and the board edge with the class clearance; Push & Shove displaces tracks of other nets (never vias or pads) and falls back to walking around. Detours and pushed tracks run at any angle (no 45° clean-up) and zones are not obstacles yet. Width and via size follow the net class.
 - **Differential pairs:** skew is reported but not removed (length tuning is stage 24); legs are offsets of a single centre path (no independent gap changes or polarity swaps); push & shove does not apply to pairs.
 - **Length tuning:** meanders only on a single straight track; no length groups, no coupled pair tuning, no interactive amplitude.
+- **Zones:** fills are stored in the file; thermal spokes are axis-aligned; zones are not router obstacles; no hatched fills; no tool to edit a zone outline after creation.
 - **DRC:** the app runs a full check on demand (and marks it stale after edits); the incremental `DrcEngine::update` is not yet driven per edit. No hole-to-hole, silkscreen or mask rules.
 - **Hierarchy:** only the root sheet can be drawn and edited; hierarchical sheets exist in the model and connectivity but have no UI tools. ERC findings inside child sheets are listed but cannot be focused.
 - **Symbol edits and placed parts:** changing a symbol's pins moves the pins but not the wires attached to them in the schematic; ERC shows what became unconnected. There is no "update symbol from library" command: the project copy is authoritative once opened.

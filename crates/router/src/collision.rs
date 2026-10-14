@@ -3,37 +3,7 @@
 use buturecad_geometry::Point;
 use std::cmp::Ordering;
 
-/// Convex hull, counter-clockwise, without collinear points (Andrew's monotone chain).
-pub fn convex_hull(points: &[Point]) -> Vec<Point> {
-    let mut p: Vec<Point> = points.to_vec();
-    p.sort();
-    p.dedup();
-    if p.len() < 3 {
-        return p;
-    }
-    let cross = |o: Point, a: Point, b: Point| -> i128 {
-        i128::from(a.x - o.x) * i128::from(b.y - o.y)
-            - i128::from(a.y - o.y) * i128::from(b.x - o.x)
-    };
-    let mut lower: Vec<Point> = Vec::new();
-    for &q in &p {
-        while lower.len() >= 2 && cross(lower[lower.len() - 2], lower[lower.len() - 1], q) <= 0 {
-            lower.pop();
-        }
-        lower.push(q);
-    }
-    let mut upper: Vec<Point> = Vec::new();
-    for &q in p.iter().rev() {
-        while upper.len() >= 2 && cross(upper[upper.len() - 2], upper[upper.len() - 1], q) <= 0 {
-            upper.pop();
-        }
-        upper.push(q);
-    }
-    lower.pop();
-    upper.pop();
-    lower.extend(upper);
-    lower
-}
+pub use buturecad_geometry::convex_hull;
 
 /// `num/den` with `den > 0`.
 #[derive(Clone, Copy)]

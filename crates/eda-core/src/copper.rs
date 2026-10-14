@@ -2,10 +2,11 @@
 //! capsule (segment + radius: tracks, vias, round and oval pads) or a polygon (rectangular,
 //! rounded and custom pads), with exact-enough edge-to-edge distances.
 
-use buturecad_eda_core::model::{Id, PcbDoc, PcbObject};
-use buturecad_geometry::{Bounded, BoundingBox, Coord, Point, Polygon, Segment};
+use crate::model::{Id, PcbDoc, PcbObject};
+use buturecad_geometry::{Bounded, BoundingBox, Coord, Point, Polygon, Segment, SpatialIndex};
 use buturecad_pcb::{LayerId, PadShape, WorldPad};
 use std::f64::consts::PI;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CShape {
@@ -15,6 +16,8 @@ pub enum CShape {
         r: f64,
     },
     Poly(Polygon),
+    /// A polygon with holes (a piece of a filled zone).
+    Region(Arc<Region>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +25,110 @@ pub enum ItemKind {
     Track,
     Via,
     Pad,
+    /// A piece of a zone fill.
+    Zone,
+}
+
+/// A filled area: an outer contour and holes, with an edge index so distances to very large
+/// fills (thousands of edges) stay local.
+pub struct Region {
+    pub outer: Polygon,
+    pub holes: Vec<Polygon>,
+    edges: SpatialIndex<Segment>,
+    bbox: BoundingBox,
+}
+
+impl std::fmt::Debug for Region {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Region")
+            .field("outer", &self.outer.vertices().len())
+            .field("holes", &self.holes.len())
+            .finish()
+    }
+}
+
+impl PartialEq for Region {
+    fn eq(&self, o: &Self) -> bool {
+        self.outer == o.outer && self.holes == o.holes
+    }
+}
+
+fn seg_box(s: &Segment) -> BoundingBox {
+    BoundingBox::new(
+        Point::new(s.a.x.min(s.b.x), s.a.y.min(s.b.y)),
+        Point::new(s.a.x.max(s.b.x), s.a.y.max(s.b.y)),
+    )
+}
+
+impl Region {
+    pub fn new(outer: Vec<Point>, holes: Vec<Vec<Point>>) -> Option<Self> {
+        let outer = Polygon::new(outer).ok()?;
+        let holes: Vec<Polygon> = holes
+            .into_iter()
+            .filter_map(|h| Polygon::new(h).ok())
+            .collect();
+        let edges = SpatialIndex::bulk_load(
+            outer
+                .edges()
+                .chain(holes.iter().flat_map(|h| h.edges()))
+                .map(|e| (seg_box(&e), e)),
+        );
+        let bbox = outer.bounding_box();
+        Some(Self {
+            outer,
+            holes,
+            edges,
+            bbox,
+        })
+    }
+
+    pub fn bbox(&self) -> BoundingBox {
+        self.bbox
+    }
+
+    /// Is `p` covered by the area (inside the outer contour, outside every hole; boundary counts)?
+    pub fn contains(&self, p: Point) -> bool {
+        if !self.bbox.contains_point(p) {
+            return false;
+        }
+        // Even-odd crossings of a ray towards +x over the edges of every contour (an outer
+        // contour and its holes together), through the edge index: O(log n + crossings).
+        let ray = BoundingBox::new(p, Point::new(self.bbox.max.x, p.y));
+        let mut inside = false;
+        for (_, e) in self.edges.query_intersecting(&ray) {
+            if e.contains_point(p) {
+                return true; // on the boundary
+            }
+            if (e.a.y > p.y) != (e.b.y > p.y) {
+                let side = (e.b - e.a).cross(p - e.a);
+                if (e.b.y > e.a.y && side > 0) || (e.b.y < e.a.y && side < 0) {
+                    inside = !inside;
+                }
+            }
+        }
+        inside
+    }
+
+    /// Smallest distance from `s` to the boundary of the area.
+    pub fn boundary_distance(&self, s: &Segment) -> f64 {
+        let base = seg_box(s);
+        let mut window: Coord = 1_000_000;
+        loop {
+            let area = base.inflate(window).unwrap_or(base);
+            let best = self
+                .edges
+                .query_intersecting(&area)
+                .map(|(_, e)| e.distance_to_segment(s))
+                .fold(f64::INFINITY, f64::min);
+            if best <= window as f64 {
+                return best;
+            }
+            if window > 1 << 40 {
+                return best;
+            }
+            window = window.saturating_mul(4);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +153,7 @@ impl CopperItem {
                 b.inflate(r.ceil() as Coord + 1).unwrap_or(b)
             }
             CShape::Poly(p) => p.bounding_box(),
+            CShape::Region(r) => r.bbox(),
         }
     }
 
@@ -54,6 +162,7 @@ impl CopperItem {
         match &self.shape {
             CShape::Cap { seg, .. } => seg.a,
             CShape::Poly(p) => p.vertices()[0],
+            CShape::Region(r) => r.outer.vertices()[0],
         }
     }
 }
@@ -173,6 +282,22 @@ pub fn items_of(doc: &PcbDoc, id: Id) -> Vec<CopperItem> {
                 }
             }
         }
+        PcbObject::Zone(z) => {
+            if let Some(fill) = &z.fill {
+                for r in &fill.regions {
+                    if let Some(region) = Region::new(r.outer.clone(), r.holes.clone()) {
+                        out.push(CopperItem {
+                            owner: id,
+                            kind: ItemKind::Zone,
+                            net: z.net,
+                            layer: z.layer,
+                            shape: CShape::Region(Arc::new(region)),
+                            label: "zone".into(),
+                        });
+                    }
+                }
+            }
+        }
         _ => {}
     }
     out
@@ -187,6 +312,15 @@ fn seg_poly(poly: &Polygon, s: &Segment) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
+fn poly_region(p: &Polygon, r: &Region) -> f64 {
+    if p.vertices().iter().any(|v| r.contains(*v)) || p.contains_point(r.outer.vertices()[0]) {
+        return 0.0;
+    }
+    p.edges()
+        .map(|e| r.boundary_distance(&e))
+        .fold(f64::INFINITY, f64::min)
+}
+
 /// Edge-to-edge distance of two shapes; `<= 0` means they overlap or touch.
 pub fn distance(a: &CShape, b: &CShape) -> f64 {
     match (a, b) {
@@ -197,6 +331,29 @@ pub fn distance(a: &CShape, b: &CShape) -> f64 {
             seg_poly(p, seg) - r
         }
         (CShape::Poly(p), CShape::Poly(q)) => p.distance_to_polygon(q),
+        (CShape::Cap { seg, r }, CShape::Region(g))
+        | (CShape::Region(g), CShape::Cap { seg, r }) => {
+            if g.contains(seg.a) || g.contains(seg.b) {
+                -r
+            } else {
+                g.boundary_distance(seg) - r
+            }
+        }
+        (CShape::Poly(p), CShape::Region(g)) | (CShape::Region(g), CShape::Poly(p)) => {
+            poly_region(p, g)
+        }
+        (CShape::Region(g), CShape::Region(h)) => {
+            if h.outer.vertices().iter().any(|v| g.contains(*v))
+                || g.outer.vertices().iter().any(|v| h.contains(*v))
+            {
+                return 0.0;
+            }
+            h.outer
+                .edges()
+                .chain(h.holes.iter().flat_map(|x| x.edges()))
+                .map(|e| g.boundary_distance(&e))
+                .fold(f64::INFINITY, f64::min)
+        }
     }
 }
 
@@ -205,5 +362,12 @@ pub fn distance_to_segment(a: &CShape, s: &Segment) -> f64 {
     match a {
         CShape::Cap { seg, r } => seg.distance_to_segment(s) - r,
         CShape::Poly(p) => seg_poly(p, s),
+        CShape::Region(g) => {
+            if g.contains(s.a) || g.contains(s.b) {
+                0.0
+            } else {
+                g.boundary_distance(s)
+            }
+        }
     }
 }

@@ -6,14 +6,17 @@
 
 pub mod command;
 pub mod commands;
+pub mod copper;
 pub mod engine;
 pub mod length;
 pub mod model;
+pub mod outline;
 pub mod pcb_ops;
 pub mod project;
 pub mod ratsnest;
 pub mod routing;
 pub mod sync;
+pub mod zonefill;
 
 pub use command::{Command, CommandError};
 pub use engine::CommandEngine;

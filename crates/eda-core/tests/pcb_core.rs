@@ -88,12 +88,7 @@ fn every_board_object_kind_can_be_created_edited_deleted_and_undone() {
             ),
             PcbChange::create(
                 z,
-                PcbObject::Zone(Zone {
-                    layer: layer::B_CU,
-                    outline: sq.clone(),
-                    net: Some(net),
-                    priority: 0,
-                }),
+                PcbObject::Zone(Zone::new(layer::B_CU, sq.clone(), Some(net))),
             ),
             PcbChange::create(
                 k,

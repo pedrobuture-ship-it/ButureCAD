@@ -16,6 +16,7 @@ distances. The UI only lists what the core reports.
 | `outside_board` | Error | copper outside the closed outline (or inside a cut-out) |
 | `unconnected` | Error | a ratsnest connection that is not routed |
 | `courtyard_overlap` | Warning | courtyards of footprints on the same side overlap (touching is fine) |
+| `zone_stale` | Warning | a zone has no fill, or its fill no longer matches the board (`docs/zones.md`) |
 | `length_target` | Warning | a net with a length target is routed outside target ± tolerance (`docs/length-tuning.md`) |
 | `pair_skew` | Warning | the track lengths of a differential pair's legs differ by more than its maximum skew (`docs/diff-pairs.md`) |
 

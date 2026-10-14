@@ -45,6 +45,9 @@ pub struct Layer {
     pub hit_only: bool,
     /// Whether object snapping considers this layer's characteristic points.
     pub snappable: bool,
+    /// Whether picking and box selection can hit this layer (false: drawn but inert, e.g. the
+    /// fill of a copper zone, which must not swallow clicks meant for what lies on top of it).
+    pub pickable: bool,
 }
 
 impl Layer {
@@ -55,6 +58,7 @@ impl Layer {
             visible: true,
             hit_only: false,
             snappable: true,
+            pickable: true,
         }
     }
     pub fn with_visible(mut self, visible: bool) -> Self {
@@ -63,6 +67,12 @@ impl Layer {
     }
     pub fn hit_only(mut self) -> Self {
         self.hit_only = true;
+        self.snappable = false;
+        self
+    }
+    /// Drawn, but never picked or snapped to.
+    pub fn draw_only(mut self) -> Self {
+        self.pickable = false;
         self.snappable = false;
         self
     }
@@ -249,7 +259,11 @@ impl Scene {
         self.index
             .query_intersecting(area)
             .map(|(_, id)| *id)
-            .filter(|id| self.items.get(id).is_some_and(|i| self.is_visible(i.layer)))
+            .filter(|id| {
+                self.items.get(id).is_some_and(|i| {
+                    self.is_visible(i.layer) && self.layers.get(&i.layer).is_none_or(|l| l.pickable)
+                })
+            })
     }
 
     /// Resolved colour of an item.
