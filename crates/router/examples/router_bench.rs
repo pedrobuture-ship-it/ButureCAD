@@ -6,7 +6,7 @@ use buturecad_eda_core::model::*;
 use buturecad_eda_core::{CommandEngine, Project};
 use buturecad_geometry::{Point, Segment};
 use buturecad_pcb::{layer, Net};
-use buturecad_router::{walk_around, ObstacleSet, RouteParams};
+use buturecad_router::{shove, walk_around, NewCopper, ObstacleSet, RouteParams};
 use std::time::Instant;
 
 fn main() {
@@ -72,6 +72,38 @@ fn main() {
     println!(
         "50 legs of ~22 mm: {ok} routed, mean {:?}, worst {:?}",
         total / 50,
+        worst
+    );
+
+    let mut total = std::time::Duration::ZERO;
+    let mut worst = std::time::Duration::ZERO;
+    let mut ok = 0;
+    for _ in 0..20 {
+        let from = Point::new(
+            (next() % 190_000) as i64 * 1000 + 5_000_000,
+            (next() % 140_000) as i64 * 1000 + 5_000_000,
+        );
+        let to = Point::new(from.x + 15_000_000, from.y);
+        let tracks = vec![(layer::F_CU, vec![from, to])];
+        let t = Instant::now();
+        let r = shove(
+            e.project().pcb(),
+            &NewCopper {
+                net: Some(a),
+                width: 250_000,
+                tracks: &tracks,
+                vias: &[],
+                via_diameter: 800_000,
+            },
+        );
+        let d = t.elapsed();
+        total += d;
+        worst = worst.max(d);
+        ok += usize::from(r.is_ok());
+    }
+    println!(
+        "20 shoves of 15 mm: {ok} accepted, mean {:?}, worst {:?}",
+        total / 20,
         worst
     );
 }

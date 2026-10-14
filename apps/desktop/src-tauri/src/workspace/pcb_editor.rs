@@ -243,7 +243,7 @@ impl Workspace {
         }
     }
 
-    fn pcb_restore_scene(&mut self) {
+    pub(crate) fn pcb_restore_scene(&mut self) {
         self.pcb_ed.rat_preview.clear();
         let touched = std::mem::take(&mut self.pcb_ed.touched);
         let Some(open) = self.open.as_ref() else {

@@ -16,16 +16,18 @@ use super::*;
 use crate::pcb_scene as ps;
 use buturecad_eda_core::model::{PcbChange, PcbObject, Track, Via, ViaKind};
 use buturecad_eda_core::routing::{self, AngleMode};
-use buturecad_geometry::Circle;
+use buturecad_geometry::{Circle, Segment};
 use buturecad_pcb::{layer, LayerId};
 use buturecad_renderer::{Rgba, Shape};
-use buturecad_router::{ObstacleSet, RouteCandidate, RouteParams};
+use buturecad_router::{NewCopper, ObstacleSet, RouteCandidate, RouteParams, ShoveResult};
 
 /// How the interactive router treats obstacles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum ObstacleMode {
     #[default]
     WalkAround,
+    /// Existing tracks of other nets are pushed aside (falls back to walking around).
+    Push,
     Ignore,
 }
 
@@ -33,12 +35,14 @@ impl ObstacleMode {
     pub(crate) fn id(self) -> &'static str {
         match self {
             ObstacleMode::WalkAround => "walk",
+            ObstacleMode::Push => "push",
             ObstacleMode::Ignore => "ignore",
         }
     }
     fn parse(s: &str) -> Option<Self> {
         match s {
             "walk" => Some(ObstacleMode::WalkAround),
+            "push" => Some(ObstacleMode::Push),
             "ignore" => Some(ObstacleMode::Ignore),
             _ => None,
         }
@@ -49,7 +53,35 @@ impl ObstacleMode {
 pub(crate) struct ObstacleCache {
     revision: u64,
     params: RouteParams,
+    /// Built without other nets' tracks (Push & Shove).
+    fixed_only: bool,
     set: ObstacleSet,
+}
+
+/// What a route resolved to for the current pointer position (computed once per change, then
+/// read by the preview, the bar and the click handlers).
+#[derive(Clone)]
+pub(crate) struct Resolved {
+    leg: Result<Vec<Point>, String>,
+    shove: Option<ShoveResult>,
+    note: Option<String>,
+}
+
+#[derive(Clone, PartialEq)]
+pub(crate) struct ResolveKey {
+    end: Point,
+    last: Option<Point>,
+    pts: usize,
+    done: usize,
+    vias: usize,
+    layer: LayerId,
+    net: Option<Id>,
+    revision: u64,
+    flip: bool,
+    angle: AngleMode,
+    width: i64,
+    via: (i64, i64),
+    obstacles: ObstacleMode,
 }
 
 /// A route in progress.
@@ -64,6 +96,7 @@ pub(crate) struct Route {
     vias: Vec<Point>,
     /// Outlines of the net's copper, computed once per route (and after each via).
     highlight: Vec<Shape>,
+    resolved: Option<(ResolveKey, Resolved)>,
 }
 
 /// What is under the pointer that a route can start on or end at.
@@ -116,39 +149,179 @@ impl Workspace {
         }
     }
 
-    /// One leg of the route from `from` to `to` on `layer`, honouring the obstacle mode. The
-    /// error is a sentence for the user.
-    pub(crate) fn route_leg_pts(
+    /// One obstacle-aware leg (walk around). `fixed_only` leaves other nets' tracks out of the
+    /// obstacles (Push & Shove moves them instead). The error is a sentence for the user.
+    fn leg_with(
         &self,
         net: Option<Id>,
         layer: LayerId,
         from: Point,
         to: Point,
+        fixed_only: bool,
     ) -> Result<Vec<Point>, String> {
         let (mode, flip) = (self.pcb_ed.route_mode, self.pcb_ed.route_flip);
-        if self.pcb_ed.obstacles == ObstacleMode::Ignore {
-            return Ok(routing::path(from, to, mode, flip));
-        }
         let (Some(doc), Some(open)) = (self.pcb_doc(), self.open.as_ref()) else {
             return Ok(routing::path(from, to, mode, flip));
         };
         let revision = open.engine.revision();
         let params = self.route_params(net, layer);
         let mut cache = self.pcb_ed.obstacle_cache.borrow_mut();
-        let stale = cache
-            .as_ref()
-            .is_none_or(|c| c.revision != revision || c.params != params);
+        let stale = cache.as_ref().is_none_or(|c| {
+            c.revision != revision || c.params != params || c.fixed_only != fixed_only
+        });
         if stale {
             *cache = Some(ObstacleCache {
                 revision,
                 params,
-                set: ObstacleSet::collect(doc, params),
+                fixed_only,
+                set: ObstacleSet::collect_with(doc, params, !fixed_only),
             });
         }
         let Some(c) = cache.as_ref() else {
             return Ok(routing::path(from, to, mode, flip));
         };
         buturecad_router::route_leg(&c.set, from, to, mode, flip).map_err(|e| e.to_string())
+    }
+
+    /// Pushes existing tracks aside for `tracks`/`vias` of net `net`.
+    fn shove_for(
+        &self,
+        net: Option<Id>,
+        tracks: &[(LayerId, Vec<Point>)],
+        vias: &[Point],
+    ) -> Result<ShoveResult, String> {
+        let doc = self.pcb_doc().ok_or("no project is open")?;
+        buturecad_router::shove(
+            doc,
+            &NewCopper {
+                net,
+                width: self.route_width_for(net),
+                tracks,
+                vias,
+                via_diameter: self.via_size_for(net).0,
+            },
+        )
+        .map_err(|e| e.to_string())
+    }
+
+    fn compute_resolved(&self, r: &Route, end: Point) -> Resolved {
+        let last = *r.pts.last().unwrap_or(&end);
+        let (mode, flip) = (self.pcb_ed.route_mode, self.pcb_ed.route_flip);
+        let plain = |leg| Resolved {
+            leg,
+            shove: None,
+            note: None,
+        };
+        match self.pcb_ed.obstacles {
+            ObstacleMode::Ignore => plain(Ok(routing::path(last, end, mode, flip))),
+            ObstacleMode::WalkAround => plain(self.leg_with(r.net, r.layer, last, end, false)),
+            ObstacleMode::Push => {
+                let leg = match self.leg_with(r.net, r.layer, last, end, true) {
+                    Ok(l) => l,
+                    Err(e) => return plain(Err(e)),
+                };
+                let mut poly = r.pts.clone();
+                poly.extend(leg.iter().skip(1));
+                let mut tracks = r.done.clone();
+                tracks.push((r.layer, poly));
+                match self.shove_for(r.net, &tracks, &r.vias) {
+                    Ok(res) => {
+                        let note = (!res.moved.is_empty() || !res.removed.is_empty()).then(|| {
+                            format!("pushing {} track(s)", res.moved.len() + res.removed.len())
+                        });
+                        Resolved {
+                            leg: Ok(leg),
+                            shove: Some(res),
+                            note,
+                        }
+                    }
+                    Err(why) => match self.leg_with(r.net, r.layer, last, end, false) {
+                        Ok(l) => Resolved {
+                            leg: Ok(l),
+                            shove: None,
+                            note: Some(format!("cannot push ({why}); walking around")),
+                        },
+                        Err(_) => plain(Err(why)),
+                    },
+                }
+            }
+        }
+    }
+
+    /// Recomputes how the route in progress continues to the pointer (cached per change) and
+    /// shows pushed tracks in their new place. Called wherever the pointer or the route changes.
+    pub(crate) fn route_refresh(&mut self) {
+        let Some(r) = self.pcb_ed.route.as_ref() else {
+            return;
+        };
+        let (end, _) = self.route_end(self.raw_cursor(), self.cursor);
+        let key = ResolveKey {
+            end,
+            last: r.pts.last().copied(),
+            pts: r.pts.len(),
+            done: r.done.len(),
+            vias: r.vias.len(),
+            layer: r.layer,
+            net: r.net,
+            revision: self.open.as_ref().map_or(0, |o| o.engine.revision()),
+            flip: self.pcb_ed.route_flip,
+            angle: self.pcb_ed.route_mode,
+            width: self.route_width_for(r.net),
+            via: self.via_size_for(r.net),
+            obstacles: self.pcb_ed.obstacles,
+        };
+        if r.resolved.as_ref().is_some_and(|(k, _)| *k == key) {
+            return;
+        }
+        let resolved = self.compute_resolved(r, end);
+        self.route_show_pushed(resolved.shove.as_ref());
+        if let Some(r) = self.pcb_ed.route.as_mut() {
+            r.resolved = Some((key, resolved));
+        }
+    }
+
+    /// Draws the tracks a push moves at their new place (the model is untouched until commit).
+    fn route_show_pushed(&mut self, shove: Option<&ShoveResult>) {
+        let mut now: BTreeMap<Id, Option<Segment>> = BTreeMap::new();
+        if let Some(s) = shove {
+            for (id, seg) in &s.moved {
+                now.insert(*id, Some(*seg));
+            }
+            for id in &s.removed {
+                now.insert(*id, None);
+            }
+        }
+        let Some(open) = self.open.as_ref() else {
+            return;
+        };
+        let doc = open.engine.project().pcb();
+        let previous: Vec<Id> = self.pcb_ed.touched.iter().copied().collect();
+        for id in previous {
+            if !now.contains_key(&id) {
+                let o = doc.object(id);
+                self.pcb_scene.sync(doc, id, o.as_ref());
+                self.pcb_ed.touched.remove(&id);
+            }
+        }
+        for (id, seg) in now {
+            let moved = seg.and_then(|seg| {
+                doc.tracks.get(&id).map(|t| {
+                    let mut t = t.clone();
+                    t.segment = seg;
+                    PcbObject::Track(t)
+                })
+            });
+            self.pcb_scene.sync(doc, id, moved.as_ref());
+            self.pcb_ed.touched.insert(id);
+        }
+    }
+
+    /// The resolved continuation of the route (call [`Self::route_refresh`] first).
+    fn route_resolved(&self) -> Option<&Resolved> {
+        self.pcb_ed
+            .route
+            .as_ref()
+            .and_then(|r| r.resolved.as_ref().map(|(_, v)| v))
     }
 
     fn route_tolerance(&self) -> f64 {
@@ -302,6 +475,7 @@ impl Workspace {
             done: Vec::new(),
             vias: Vec::new(),
             highlight,
+            resolved: None,
         });
         out.redraw = true;
         out.selection_changed = true; // refresh the bar: a route is in progress
@@ -322,6 +496,7 @@ impl Workspace {
     }
 
     fn route_add(&mut self, raw: Point, snapped: Point, out: &mut Outcome) {
+        self.route_refresh();
         let (end, hit) = self.route_end(raw, snapped);
         let Some(r) = self.pcb_ed.route.as_ref() else {
             return;
@@ -351,12 +526,13 @@ impl Workspace {
                 return;
             }
         }
-        let path = match self.route_leg_pts(r.net, r.layer, last, end) {
-            Ok(p) => p,
-            Err(why) => {
+        let path = match self.route_resolved().map(|v| v.leg.clone()) {
+            Some(Ok(p)) => p,
+            Some(Err(why)) => {
                 self.log(MessageLevel::Warn, format!("Cannot route there: {why}"));
                 return;
             }
+            None => return,
         };
         let target = hit
             .as_ref()
@@ -386,17 +562,12 @@ impl Workspace {
         let doc = self.pcb_doc().ok_or("no project is open")?;
         let stack = doc.stackup;
         let (end, _) = self.route_end(raw, snapped);
-        let (net, layer_now, last) = {
-            let r = self
-                .pcb_ed
-                .route
-                .as_ref()
-                .ok_or("start a route first (X, then click a pad)")?;
-            (r.net, r.layer, *r.pts.last().unwrap_or(&end))
+        self.route_refresh();
+        let path = match self.route_resolved().map(|v| v.leg.clone()) {
+            Some(Ok(p)) => p,
+            Some(Err(why)) => return Err(format!("Cannot place the via there: {why}")),
+            None => return Err("start a route first (X, then click a pad)".into()),
         };
-        let path = self
-            .route_leg_pts(net, layer_now, last, end)
-            .map_err(|why| format!("Cannot place the via there: {why}"))?;
         let r = self
             .pcb_ed
             .route
@@ -429,6 +600,8 @@ impl Workspace {
         let raw = self.raw_cursor();
         let snapped = self.cursor;
         let (end, _) = self.route_end(raw, snapped);
+        self.route_refresh();
+        let resolved_leg = self.route_resolved().map(|v| v.leg.clone());
         let Some(mut r) = self.pcb_ed.route.take() else {
             return;
         };
@@ -440,7 +613,7 @@ impl Workspace {
         }
         let last = *r.pts.last().unwrap_or(&end);
         if r.pts.len() == 1 && !r.done.is_empty() && end != last {
-            match self.route_leg_pts(r.net, r.layer, last, end) {
+            match resolved_leg.unwrap_or_else(|| Err("nothing to route".into())) {
                 Ok(p) => r.pts.extend(p.into_iter().skip(1)),
                 Err(why) => {
                     self.log(MessageLevel::Warn, format!("Cannot finish there: {why}"));
@@ -456,7 +629,13 @@ impl Workspace {
         }
         let width = self.route_width_for(r.net);
         let (vd, vdr) = self.via_size_for(r.net);
-        if self.pcb_ed.obstacles != ObstacleMode::Ignore {
+        // Push & Shove: the committed route and the displaced tracks are verified together.
+        let moves: Option<ShoveResult> = if self.pcb_ed.obstacles == ObstacleMode::Push {
+            self.shove_for(r.net, &r.done, &r.vias).ok()
+        } else {
+            None
+        };
+        if self.pcb_ed.obstacles != ObstacleMode::Ignore && moves.is_none() {
             let problems = self.pcb_doc().map(|doc| {
                 buturecad_router::validate_route(
                     doc,
@@ -482,6 +661,24 @@ impl Workspace {
         }
         let mut changes: Vec<PcbChange> = Vec::new();
         let mut created: BTreeSet<Id> = BTreeSet::new();
+        if let (Some(m), Some(doc)) = (&moves, self.pcb_doc()) {
+            for (id, seg) in &m.moved {
+                if let Some(t) = doc.tracks.get(id) {
+                    let mut moved = t.clone();
+                    moved.segment = *seg;
+                    changes.push(PcbChange::modify(
+                        *id,
+                        PcbObject::Track(t.clone()),
+                        PcbObject::Track(moved),
+                    ));
+                }
+            }
+            for id in &m.removed {
+                if let Some(t) = doc.tracks.get(id) {
+                    changes.push(PcbChange::delete(*id, PcbObject::Track(t.clone())));
+                }
+            }
+        }
         for (l, poly) in &r.done {
             for w in poly.windows(2) {
                 let id = self.pcb_new_id();
@@ -514,10 +711,13 @@ impl Workspace {
         if changes.is_empty() {
             return;
         }
-        let label = if r.vias.is_empty() {
-            "Route track"
-        } else {
-            "Route track with vias"
+        let pushed = moves
+            .as_ref()
+            .is_some_and(|m| !m.moved.is_empty() || !m.removed.is_empty());
+        let label = match (r.vias.is_empty(), pushed) {
+            (_, true) => "Route track (push and shove)",
+            (true, false) => "Route track",
+            (false, false) => "Route track with vias",
         };
         if self.pcb_commit(label, changes) {
             self.selection.insert(Mode::Pcb, created);
@@ -555,7 +755,11 @@ impl Workspace {
     }
 
     pub(crate) fn route_cancel(&mut self) -> bool {
-        self.pcb_ed.route.take().is_some()
+        let was = self.pcb_ed.route.take().is_some();
+        if was {
+            self.pcb_restore_scene();
+        }
+        was
     }
 
     pub(crate) fn route_double_click(&mut self, out: &mut Outcome) {
@@ -657,9 +861,9 @@ impl Workspace {
         let mut cur = r.pts.clone();
         let mut blocked = false;
         if let Some(last) = r.pts.last() {
-            match self.route_leg_pts(r.net, r.layer, *last, end) {
-                Ok(p) => cur.extend(p.into_iter().skip(1)),
-                Err(_) => {
+            match r.resolved.as_ref().map(|(_, v)| &v.leg) {
+                Some(Ok(p)) => cur.extend(p.iter().skip(1).copied()),
+                Some(Err(_)) | None => {
                     // Show what a plain elbow would do, in red, so it is clear why it is refused.
                     blocked = true;
                     cur.extend(
@@ -749,12 +953,14 @@ impl Workspace {
         let r = self.pcb_ed.route.as_ref()?;
         let mut len: f64 = r.done.iter().map(|(_, p)| routing::length(p)).sum();
         len += routing::length(&r.pts);
-        let problem = r.pts.last().and_then(|last| {
-            let (end, _) = self.route_end(self.raw_cursor(), self.cursor);
-            self.route_leg_pts(r.net, r.layer, *last, end).err()
-        });
+        let resolved = r.resolved.as_ref().map(|(_, v)| v);
+        let problem = resolved.and_then(|v| v.leg.clone().err());
         Some(RouteInfo {
             problem,
+            note: resolved.and_then(|v| v.note.clone()),
+            pushed: resolved
+                .and_then(|v| v.shove.as_ref())
+                .map_or(0, |s| (s.moved.len() + s.removed.len()) as u32),
             net: self.net_name(r.net),
             layer: layer::name(r.layer),
             length_mm: mm_str(len.round() as i64),

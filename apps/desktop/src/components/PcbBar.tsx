@@ -78,7 +78,7 @@ export function PcbBar() {
         />
         Ratsnest ({info.unrouted})
       </label>
-      <label title="Walk around: routes detour around other copper, keepouts and the board edge; Ignore: draws exactly what you click (DRC reports problems)">
+      <label title="Walk around: routes detour around other copper, keepouts and the board edge. Push & shove: existing tracks of other nets are pushed aside when that is valid, otherwise it walks around. Ignore: draws exactly what you click (DRC reports problems)">
         Obstacles
         <select
           value={info.route_obstacles}
@@ -86,6 +86,7 @@ export function PcbBar() {
           onChange={(e) => cmd("route_obstacles", e.target.value)}
         >
           <option value="walk">Walk around</option>
+          <option value="push">Push &amp; shove</option>
           <option value="ignore">Ignore obstacles</option>
         </select>
       </label>
@@ -121,6 +122,11 @@ export function PcbBar() {
         <span role="status" className="route-status">
           Routing {info.route.net} on {info.route.layer} · {info.route.length_mm} mm
           {info.route.vias > 0 ? ` · ${info.route.vias} via(s)` : ""}
+        </span>
+      )}
+      {info.route?.note && !info.route.problem && (
+        <span role="status" className="muted">
+          {info.route.note}
         </span>
       )}
       {info.route?.problem && (

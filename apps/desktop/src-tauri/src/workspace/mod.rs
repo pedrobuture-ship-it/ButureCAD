@@ -1009,6 +1009,7 @@ impl Workspace {
     }
 
     pub fn snapshot(&mut self) -> Snapshot {
+        self.route_refresh();
         self.ensure_scene();
         let project = self.open.as_ref().map(|o| ProjectInfo {
             name: o.engine.project().name().to_owned(),
@@ -1073,6 +1074,7 @@ impl Workspace {
 
     /// Renders the active canvas. Returns `(width, height, rgba)`.
     pub fn render(&mut self, width: u32, height: u32) -> Result<(u32, u32, Vec<u8>), String> {
+        self.route_refresh();
         self.set_canvas_size(width as f64, height as f64);
         self.ensure_scene();
         if self.scene().is_some() && !self.fitted.contains(&self.mode) {

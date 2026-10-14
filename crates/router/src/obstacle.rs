@@ -68,10 +68,19 @@ impl ObstacleSet {
     /// Collects the obstacles for `params` on `doc`: copper of other nets (and of unassigned
     /// copper), keepouts that forbid tracks, and the board edge.
     pub fn collect(doc: &PcbDoc, params: RouteParams) -> Self {
+        Self::collect_with(doc, params, true)
+    }
+
+    /// Like [`Self::collect`]; with `include_tracks == false` the tracks of other nets are left
+    /// out (Push & Shove treats them as movable, not as walls).
+    pub fn collect_with(doc: &PcbDoc, params: RouteParams, include_tracks: bool) -> Self {
         let mut obstacles = Vec::new();
         let half = params.width as f64 / 2.0;
         let own_clearance = doc.rules.class_of(params.net).clearance;
         for id in doc.ids() {
+            if !include_tracks && doc.tracks.contains_key(&id) {
+                continue;
+            }
             for it in copper::items_of(doc, id) {
                 if it.layer != params.layer || (params.net.is_some() && it.net == params.net) {
                     continue;

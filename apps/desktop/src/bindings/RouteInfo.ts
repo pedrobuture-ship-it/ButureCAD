@@ -7,4 +7,12 @@ export type RouteInfo = {
 /**
  * Why the leg to the pointer cannot be routed (walk-around found no way), if so.
  */
-problem: string | null, net: string, layer: string, length_mm: string, vias: number, };
+problem: string | null, 
+/**
+ * Extra information about the leg (e.g. “pushing 2 track(s)”, “cannot push…; walking around”).
+ */
+note: string | null, 
+/**
+ * Tracks the current route would displace (Push & Shove).
+ */
+pushed: number, net: string, layer: string, length_mm: string, vias: number, };

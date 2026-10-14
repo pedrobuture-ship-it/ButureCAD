@@ -378,6 +378,10 @@ pub struct PcbInfo {
 pub struct RouteInfo {
     /// Why the leg to the pointer cannot be routed (walk-around found no way), if so.
     pub problem: Option<String>,
+    /// Extra information about the leg (e.g. “pushing 2 track(s)”, “cannot push…; walking around”).
+    pub note: Option<String>,
+    /// Tracks the current route would displace (Push & Shove).
+    pub pushed: u32,
     pub net: String,
     pub layer: String,
     pub length_mm: String,

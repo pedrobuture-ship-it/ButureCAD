@@ -668,3 +668,120 @@ fn walk_around_refuses_a_target_that_is_closed_off_and_says_why() {
         "nothing is created for an impossible leg"
     );
 }
+
+#[test]
+fn push_and_shove_moves_a_free_track_in_one_undo_step_and_stays_drc_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut ws = board(dir.path(), false);
+    ws.pcb_command("route_obstacles", Some("push")).unwrap();
+    // A free track of the (netless) kind, 0.4 mm below the line we are about to route.
+    let y = -12 * G;
+    let (x0, x1) = (2 * G, 10 * G);
+    let e = &mut ws.open.as_mut().unwrap().engine;
+    let existing = e.new_id();
+    e.execute(PcbEditCommand::new(
+        "free track",
+        vec![PcbChange::create(
+            existing,
+            PcbObject::Track(Track {
+                layer: layer::F_CU,
+                segment: Segment::new(Point::new(x0, y - 400_000), Point::new(x1, y - 400_000)),
+                width: 250_000,
+                net: None,
+            }),
+        )],
+    ))
+    .unwrap();
+    view(&mut ws);
+    ws.editor_command("tool:route").unwrap();
+    // Start left of the free track, on empty board (a start on the track itself would adopt it).
+    let start = Point::new(x0 - 2 * G, y);
+    click(&mut ws, start);
+    hover(&mut ws, Point::new(x1, y));
+    let info = ws.snapshot().pcb.unwrap();
+    assert_eq!(info.route_obstacles, "push");
+    assert_eq!(info.route.unwrap().pushed, 1, "the bar announces the push");
+    click(&mut ws, Point::new(x1, y));
+    ws.pcb_command("route_finish", None).unwrap();
+
+    let doc = ws.open.as_ref().unwrap().engine.project().pcb();
+    let moved = doc.tracks[&existing].segment;
+    assert!(
+        moved.a.y < y - 400_000,
+        "pushed away from the route: {moved:?}"
+    );
+    assert_eq!(moved.a.x, x0, "moved sideways only, same length");
+    assert_eq!(moved.b.x, x1);
+    assert!(ws
+        .snapshot()
+        .project
+        .unwrap()
+        .undo_history
+        .iter()
+        .any(|h| h == "Route track (push and shove)"));
+    ws.drc_run().unwrap();
+    let bad: Vec<_> = ws
+        .snapshot()
+        .drc
+        .unwrap()
+        .violations
+        .into_iter()
+        .filter(|v| ["clearance", "short"].contains(&v.rule.as_str()))
+        .collect();
+    assert!(bad.is_empty(), "{bad:?}");
+
+    ws.undo().unwrap();
+    let doc = ws.open.as_ref().unwrap().engine.project().pcb();
+    assert_eq!(
+        doc.tracks[&existing].segment.a.y,
+        y - 400_000,
+        "one undo restores it"
+    );
+    assert!(doc.tracks.len() == 1, "and removes the route");
+}
+
+#[test]
+fn push_and_shove_falls_back_to_walking_around_when_a_track_cannot_be_pushed() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut ws = board(dir.path(), false);
+    ws.pcb_command("route_obstacles", Some("push")).unwrap();
+    // A free track crossing the route's line cannot be slid aside.
+    let y = -12 * G;
+    let (x0, x1) = (2 * G, 10 * G);
+    let e = &mut ws.open.as_mut().unwrap().engine;
+    let wall = e.new_id();
+    e.execute(PcbEditCommand::new(
+        "wall",
+        vec![PcbChange::create(
+            wall,
+            PcbObject::Track(Track {
+                layer: layer::F_CU,
+                segment: Segment::new(Point::new(6 * G, y - 4 * MM), Point::new(6 * G, y + 4 * MM)),
+                width: 250_000,
+                net: None,
+            }),
+        )],
+    ))
+    .unwrap();
+    view(&mut ws);
+    ws.editor_command("tool:route").unwrap();
+    click(&mut ws, Point::new(x0, y));
+    hover(&mut ws, Point::new(x1, y));
+    let route = ws.snapshot().pcb.unwrap().route.unwrap();
+    assert!(
+        route
+            .note
+            .as_deref()
+            .is_some_and(|n| n.contains("walking around")),
+        "{route:?}"
+    );
+    click(&mut ws, Point::new(x1, y));
+    ws.pcb_command("route_finish", None).unwrap();
+    let doc = ws.open.as_ref().unwrap().engine.project().pcb();
+    assert_eq!(
+        doc.tracks[&wall].segment.a.x,
+        6 * G,
+        "the wall was not moved"
+    );
+    assert!(doc.tracks.len() > 2, "a detour was routed");
+}
