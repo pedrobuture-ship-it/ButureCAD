@@ -5,6 +5,7 @@ import type { GeneratorInfo } from "./bindings/GeneratorInfo";
 import type { LibraryInfo } from "./bindings/LibraryInfo";
 import type { Mode } from "./bindings/Mode";
 import type { RulesInfo } from "./bindings/RulesInfo";
+import type { StackupInfo } from "./bindings/StackupInfo";
 import type { PointerEvent as CanvasPointerEvent } from "./bindings/PointerEvent";
 import type { PointerResult } from "./bindings/PointerResult";
 import type { Snapshot } from "./bindings/Snapshot";
@@ -69,6 +70,17 @@ export const api = {
   pcbFootprints: () => invoke<FootprintInfo[]>("pcb_footprints"),
   pcbUpdatePreview: () => invoke<UpdatePreview>("pcb_update_preview"),
   pcbUpdateApply: () => invoke<Snapshot>("pcb_update_apply"),
+  pcbStackup: () => invoke<StackupInfo>("pcb_stackup"),
+  pcbStackupTemplate: (template: string, copperLayers: number) =>
+    invoke<StackupInfo>("pcb_stackup_template", { template, copperLayers }),
+  pcbStackupPresetLoad: (scope: string, name: string) =>
+    invoke<StackupInfo>("pcb_stackup_preset_load", { scope, name }),
+  pcbStackupPresetSave: (scope: string, name: string, stackup: StackupInfo) =>
+    invoke<Snapshot>("pcb_stackup_preset_save", { scope, name, stackup }),
+  pcbStackupPresetDelete: (scope: string, name: string) =>
+    invoke<Snapshot>("pcb_stackup_preset_delete", { scope, name }),
+  pcbStackupApply: (stackup: StackupInfo) => invoke<Snapshot>("pcb_stackup_apply", { stackup }),
+  pcbStackupSwap: (a: number, b: number) => invoke<Snapshot>("pcb_stackup_swap", { a, b }),
   pcbRules: () => invoke<RulesInfo>("pcb_rules"),
   pcbRulesApply: (rules: RulesInfo) => invoke<Snapshot>("pcb_rules_apply", { rules }),
   drcRun: () => invoke<Snapshot>("drc_run"),

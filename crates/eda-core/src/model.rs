@@ -7,8 +7,8 @@
 
 use buturecad_geometry::{Coord, Point, Segment};
 use buturecad_pcb::{
-    layer, BoardGraphic, BoardText, DesignRules, Footprint, Keepout, Net, PlacedFootprint, Stackup,
-    Zone,
+    layer, BoardGraphic, BoardText, DesignRules, Footprint, Keepout, Net, PhysicalStack,
+    PlacedFootprint, Stackup, Zone,
 };
 pub use buturecad_schematic::Id;
 use serde::{Deserialize, Serialize};
@@ -108,6 +108,8 @@ impl ViaKind {
 pub struct PcbDoc {
     /// Copper layer count (2, 4 … 32).
     pub stackup: Stackup,
+    /// What the board is made of between the copper layers.
+    pub physical: PhysicalStack,
     pub tracks: BTreeMap<Id, Track>,
     pub vias: BTreeMap<Id, Via>,
     pub placed: BTreeMap<Id, PlacedFootprint>,

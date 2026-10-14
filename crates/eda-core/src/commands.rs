@@ -4,7 +4,7 @@ use crate::command::{Command, CommandError};
 use crate::model::{Entity, Id, ModelError, PcbChange, Track, Via};
 use crate::Project;
 use buturecad_geometry::{Point, Segment};
-use buturecad_pcb::{DesignRules, Footprint, Stackup};
+use buturecad_pcb::{DesignRules, Footprint, PhysicalStack, Stackup};
 use buturecad_schematic::{
     Change, Component, Object, Placement, Schematic, SchematicError, Symbol, Waiver, Wire,
 };
@@ -345,11 +345,53 @@ impl Command for SetRulesCommand {
 pub struct SetStackupCommand {
     before: Stackup,
     after: Stackup,
+    /// The physical stack replaced by the standard one for the new layer count.
+    saved_physical: Option<PhysicalStack>,
 }
 
 impl SetStackupCommand {
     pub fn new(before: Stackup, after: Stackup) -> Self {
-        Self { before, after }
+        Self {
+            before,
+            after,
+            saved_physical: None,
+        }
+    }
+}
+
+/// Replaces the physical layer stack (thicknesses, materials, roles): one undo step. The stack
+/// must describe exactly the board's copper layers.
+#[derive(Debug)]
+pub struct SetPhysicalStackCommand {
+    before: PhysicalStack,
+    after: PhysicalStack,
+    label: String,
+}
+
+impl SetPhysicalStackCommand {
+    pub fn new(label: impl Into<String>, before: PhysicalStack, after: PhysicalStack) -> Self {
+        Self {
+            before,
+            after,
+            label: label.into(),
+        }
+    }
+}
+
+impl Command for SetPhysicalStackCommand {
+    fn label(&self) -> String {
+        self.label.clone()
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        self.after
+            .validate(&project.pcb.stackup)
+            .map_err(|e| ModelError::BadObject(e.to_string()))?;
+        project.pcb.physical = self.after.clone();
+        Ok(())
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        project.pcb.physical = self.before.clone();
+        Ok(())
     }
 }
 
@@ -374,10 +416,20 @@ impl Command for SetStackupCommand {
             return Err(ModelError::NoSuchLayer(l).into());
         }
         project.pcb.stackup = self.after;
+        // A different layer count needs a different stack: start from the standard one.
+        if self.before.copper_layers != self.after.copper_layers {
+            self.saved_physical = Some(std::mem::replace(
+                &mut project.pcb.physical,
+                PhysicalStack::standard(self.after.copper_layers),
+            ));
+        }
         Ok(())
     }
     fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
         project.pcb.stackup = self.before;
+        if let Some(p) = self.saved_physical.take() {
+            project.pcb.physical = p;
+        }
         Ok(())
     }
 }

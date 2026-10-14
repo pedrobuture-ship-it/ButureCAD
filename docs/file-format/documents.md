@@ -52,7 +52,9 @@ rewrites nothing). Schema 5 adds `rules.diff_pairs` (name, positive/negative net
 width/gap, max skew; `docs/diff-pairs.md`); migration 4 → 5 rewrites nothing. Schema 6 adds `rules.length_targets` (net → target, tolerance;
 `docs/length-tuning.md`); migration 5 → 6 rewrites nothing. Schema 7 adds zone fill parameters (`clearance`, `min_width`,
 `connection`, `thermal_gap`, `thermal_spoke`, `remove_islands`) and the computed `fill` (regions with
-holes + signature; `docs/zones.md`); migration 6 → 7 rewrites nothing.
+holes + signature; `docs/zones.md`); migration 6 → 7 rewrites nothing. Schema 8 adds the physical layer stack (`physical`: per-layer
+copper thickness/role, dielectric gaps, masks, finish; `docs/stackup.md`); files without it get the
+standard stack for their layer count, migration 7 → 8 rewrites nothing.
 
 ## Rules
 

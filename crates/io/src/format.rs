@@ -5,7 +5,8 @@
 use crate::error::{IoError, Result};
 use buturecad_eda_core::model::{Id, PcbDoc, Track, Via};
 use buturecad_pcb::{
-    BoardGraphic, BoardText, DesignRules, Footprint, Keepout, Net, PlacedFootprint, Stackup, Zone,
+    BoardGraphic, BoardText, DesignRules, Footprint, Keepout, Net, PhysicalStack, PlacedFootprint,
+    Stackup, Zone,
 };
 use buturecad_schematic::{Schematic, Sheet, Symbol, Waiver};
 use serde::de::DeserializeOwned;
@@ -27,8 +28,9 @@ pub const SCHEMATIC_SCHEMA: u32 = 3;
 /// Schema version of the PCB document. v2 added embedded footprint definitions; v3 the board
 /// (stackup, placed footprints, nets, zones, keepouts, texts, graphics, track/via nets); v4 the
 /// design rules and net classes; v5 differential pairs inside the rules; v6 length
-/// targets; v7 zone fill parameters and the computed fill.
-pub const PCB_SCHEMA: u32 = 7;
+/// targets; v7 zone fill parameters and the computed fill;
+/// v8 the physical layer stack.
+pub const PCB_SCHEMA: u32 = 8;
 
 /// A migration step rewriting a document from version `from` to `from + 1`.
 pub type MigrationFn = fn(&mut Value) -> std::result::Result<(), String>;
@@ -67,6 +69,7 @@ impl Migrations {
                 migrate_pcb_v4_to_v5,
                 migrate_pcb_v5_to_v6,
                 migrate_pcb_v6_to_v7,
+                migrate_pcb_v7_to_v8,
             ],
         }
     }
@@ -310,6 +313,14 @@ pub fn migrate_pcb_v2_to_v3(doc: &mut Value) -> std::result::Result<(), String> 
         .ok_or_else(|| "document is not an object".to_string())
 }
 
+/// PCB 7 → 8: the physical stack defaults to the standard one for the layer count; nothing to
+/// rewrite.
+pub fn migrate_pcb_v7_to_v8(doc: &mut Value) -> std::result::Result<(), String> {
+    doc.as_object()
+        .map(|_| ())
+        .ok_or_else(|| "document is not an object".to_string())
+}
+
 /// PCB 6 → 7: zones gain fill parameters with defaults and no fill; nothing to rewrite.
 pub fn migrate_pcb_v6_to_v7(doc: &mut Value) -> std::result::Result<(), String> {
     doc.as_object()
@@ -363,6 +374,9 @@ struct PcbFile {
     graphics: BTreeMap<Id, BoardGraphic>,
     #[serde(default)]
     rules: DesignRules,
+    /// Absent in files older than schema 8: the standard stack for the layer count.
+    #[serde(default)]
+    physical: Option<PhysicalStack>,
 }
 
 pub fn serialize_pcb(doc: &PcbDoc) -> Vec<u8> {
@@ -380,6 +394,7 @@ pub fn serialize_pcb(doc: &PcbDoc) -> Vec<u8> {
         texts: doc.texts.clone(),
         graphics: doc.graphics.clone(),
         rules: doc.rules.clone(),
+        physical: Some(doc.physical.clone()),
     })
 }
 
@@ -406,8 +421,15 @@ pub fn parse_pcb(path: &Path, bytes: &[u8]) -> Result<PcbDoc> {
             "copper layer count must be an even number from 2 to 32".into(),
         ));
     }
+    let physical = f
+        .physical
+        .unwrap_or_else(|| PhysicalStack::standard(f.stackup.copper_layers));
+    physical
+        .validate(&f.stackup)
+        .map_err(|e| invalid(format!("layer stack: {e}")))?;
     let doc = PcbDoc {
         stackup: f.stackup,
+        physical,
         tracks: f.tracks,
         vias: f.vias,
         footprints: f.footprints,

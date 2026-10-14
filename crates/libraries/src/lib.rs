@@ -10,10 +10,12 @@
 
 pub mod error;
 pub mod footprint_lib;
+pub mod stackup_lib;
 pub mod store;
 pub mod symbol_lib;
 
 pub use error::{LibraryError, Result};
 pub use footprint_lib::{FootprintLibrary, FOOTPRINT_LIB_EXT};
+pub use stackup_lib::{StackupPreset, STACKUP_PRESET_EXT};
 pub use store::{LibraryDir, LibrarySummary};
 pub use symbol_lib::{qualify, split_lib_id, SymbolLibrary, SYMBOL_LIB_EXT};

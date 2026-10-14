@@ -573,3 +573,60 @@ pub struct NetChoice {
     pub id: u64,
     pub name: String,
 }
+
+/// A dielectric layer row of the Layer Stack Manager (numbers as text: mm, relative
+/// permittivity, loss tangent).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct DielRow {
+    /// `core`, `prepreg`, `solder_mask`, `coverlay` or `adhesive`.
+    pub kind: String,
+    pub material: String,
+    pub thickness: String,
+    pub er: String,
+    pub loss_tangent: String,
+    pub flex: bool,
+}
+
+/// A copper layer row.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct CopperRow {
+    pub layer: String,
+    pub layer_id: u32,
+    pub thickness: String,
+    /// `signal`, `plane` or `mixed`.
+    pub role: String,
+}
+
+/// A template or a saved preset the manager can load.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct TemplateInfo {
+    pub name: String,
+    pub copper_layers: u32,
+    /// `built-in`, `project` or `user`.
+    pub scope: String,
+    pub error: Option<String>,
+}
+
+/// The layer stack as the manager edits it. `templates` and `presets` are only read.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct StackupInfo {
+    pub name: String,
+    pub copper_layers: u32,
+    pub finish: String,
+    /// Total thickness (mm), derived.
+    pub total_thickness: String,
+    /// Copper layers, front to back.
+    pub copper: Vec<CopperRow>,
+    /// `gaps[i]` lies between copper layer `i` and `i + 1`, top to bottom.
+    pub gaps: Vec<Vec<DielRow>>,
+    pub top_mask: Option<DielRow>,
+    pub bottom_mask: Option<DielRow>,
+    #[serde(default)]
+    pub templates: Vec<TemplateInfo>,
+    #[serde(default)]
+    pub presets: Vec<TemplateInfo>,
+}

@@ -2,6 +2,7 @@
 
 use crate::error::{LibraryError, Result};
 use crate::footprint_lib::{FootprintLibrary, FOOTPRINT_LIB_EXT};
+use crate::stackup_lib::{StackupPreset, STACKUP_PRESET_EXT};
 use crate::symbol_lib::{SymbolLibrary, SYMBOL_LIB_EXT};
 use buturecad_io::atomic::atomic_write;
 use buturecad_pcb::Footprint;
@@ -162,6 +163,79 @@ impl LibraryDir {
         let mut lib = self.load_symbol_library(library)?;
         lib.remove(name)?;
         self.save_symbol_library(&lib)
+    }
+
+    // -- layer stack presets -------------------------------------------------------------------
+
+    fn stackup_path(&self, name: &str) -> Result<PathBuf> {
+        validate_library_name(name)?;
+        Ok(self.root.join(format!("{name}.{STACKUP_PRESET_EXT}")))
+    }
+
+    /// Layer stack presets in this folder, sorted by name (unreadable ones are listed with their
+    /// error). A missing folder is an empty list.
+    pub fn list_stackup_presets(&self) -> Vec<LibrarySummary> {
+        let Ok(entries) = std::fs::read_dir(&self.root) else {
+            return Vec::new();
+        };
+        let suffix = format!(".{STACKUP_PRESET_EXT}");
+        let mut out: Vec<LibrarySummary> = entries
+            .filter_map(|e| e.ok())
+            .filter_map(|e| {
+                let file = e.file_name().to_string_lossy().into_owned();
+                let name = file.strip_suffix(&suffix)?.to_owned();
+                (!file.starts_with('.')).then_some((name, e.path()))
+            })
+            .map(|(name, path)| {
+                match Self::read(&path).and_then(|b| StackupPreset::from_bytes(&path, &b)) {
+                    Ok(p) => LibrarySummary {
+                        name,
+                        path,
+                        item_count: usize::from(p.copper_layers),
+                        error: None,
+                    },
+                    Err(e) => LibrarySummary {
+                        name,
+                        path,
+                        item_count: 0,
+                        error: Some(e.to_string()),
+                    },
+                }
+            })
+            .collect();
+        out.sort_by(|a, b| a.name.cmp(&b.name));
+        out
+    }
+
+    pub fn load_stackup_preset(&self, name: &str) -> Result<StackupPreset> {
+        let path = self.stackup_path(name)?;
+        if !path.exists() {
+            return Err(LibraryError::NoSuchLibrary(name.to_owned()));
+        }
+        StackupPreset::from_bytes(&path, &Self::read(&path)?)
+    }
+
+    /// Writes (or replaces) a preset atomically.
+    pub fn save_stackup_preset(&self, preset: &StackupPreset) -> Result<()> {
+        let path = self.stackup_path(&preset.name)?;
+        std::fs::create_dir_all(&self.root).map_err(|source| LibraryError::Fs {
+            context: "cannot create library folder",
+            path: self.root.clone(),
+            source,
+        })?;
+        Ok(atomic_write(&path, &preset.to_bytes()?)?)
+    }
+
+    pub fn delete_stackup_preset(&self, name: &str) -> Result<()> {
+        let path = self.stackup_path(name)?;
+        if !path.exists() {
+            return Err(LibraryError::NoSuchLibrary(name.to_owned()));
+        }
+        std::fs::remove_file(&path).map_err(|source| LibraryError::Fs {
+            context: "cannot delete the preset",
+            path,
+            source,
+        })
     }
 
     // -- footprint libraries -------------------------------------------------------------------

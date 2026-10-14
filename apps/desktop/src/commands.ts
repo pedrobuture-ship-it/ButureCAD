@@ -51,6 +51,7 @@ export interface Actions {
   pcbPlaceFootprint(): void;
   pcbUpdateFromSchematic(): void;
   netClasses(): void;
+  layerStack(): void;
   pcbCommand(name: string, arg?: string): void;
   footprintNew(): void;
   footprintOpen(): void;
@@ -200,6 +201,13 @@ function pcbCommands(): AppCommand[] {
       shortcut: "F8",
       available: (s) => (s.snapshot?.project ? true : "Open or create a project first"),
       run: (a) => a.pcbUpdateFromSchematic(),
+    },
+    {
+      id: "pcb.layer_stack",
+      title: "Layer Stack Manager…",
+      category: "Tools",
+      available: (s) => (s.snapshot?.project ? true : "Open or create a project first"),
+      run: (a) => a.layerStack(),
     },
     {
       id: "pcb.net_classes",

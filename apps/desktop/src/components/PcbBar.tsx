@@ -65,6 +65,12 @@ export function PcbBar() {
         Update from schematic…
       </button>
       <button
+        title="Layer stack: copper and dielectric thickness, materials, presets"
+        onClick={() => store.set({ dialog: { kind: "stackup" } })}
+      >
+        Layer stack…
+      </button>
+      <button
         title="Net classes: track width, clearance and via size per net, and the board limits"
         onClick={() => store.set({ dialog: { kind: "net-classes" } })}
       >

@@ -878,3 +878,26 @@ textarea {
 .rules-limits input {
   width: 64px;
 }
+
+.stack-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: end;
+  margin-bottom: 8px;
+}
+.stack-table input {
+  width: 84px;
+}
+.stack-table td:nth-child(3) input {
+  width: 140px;
+}
+.stack-copper {
+  background: color-mix(in srgb, var(--accent, #4c8bf5) 10%, transparent);
+}
+
+.modal.wide {
+  width: min(1040px, 96vw);
+  max-height: 84vh;
+  overflow: auto;
+}

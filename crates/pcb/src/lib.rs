@@ -13,7 +13,9 @@ pub mod footprint;
 pub mod footprint_edit;
 pub mod generators;
 pub mod layer;
+pub mod physical;
 
 pub use board::*;
 pub use footprint::*;
 pub use layer::{LayerId, Stackup};
+pub use physical::{CopperRole, CopperSpec, Dielectric, DielectricKind, PhysicalStack};

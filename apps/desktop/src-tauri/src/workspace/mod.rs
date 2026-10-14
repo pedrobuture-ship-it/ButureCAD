@@ -24,6 +24,7 @@ mod pcb_route;
 mod pcb_tune;
 mod pcb_zone;
 mod rules;
+mod stackup;
 mod symbol_editor;
 use editor::EditorState;
 pub use footprint_editor::generator_infos;

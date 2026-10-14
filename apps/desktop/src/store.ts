@@ -22,6 +22,7 @@ export type Dialog =
   | { kind: "pcb-place" }
   | { kind: "pcb-update" }
   | { kind: "net-classes" }
+  | { kind: "stackup" }
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }

@@ -288,6 +288,65 @@ pub fn pcb_rules_apply(state: State<'_, AppState>, rules: RulesInfo) -> Result<S
     state.act(|ws| ws.pcb_rules_apply(rules))
 }
 
+/// The layer stack with the templates and presets the manager offers.
+#[tauri::command]
+pub fn pcb_stackup(state: State<'_, AppState>) -> Result<StackupInfo, String> {
+    state.with(|ws| ws.stackup_info())
+}
+
+/// A built-in template (`template` non-empty) or the standard stack for `copper_layers`.
+#[tauri::command]
+pub fn pcb_stackup_template(
+    state: State<'_, AppState>,
+    template: String,
+    copper_layers: u32,
+) -> Result<StackupInfo, String> {
+    state.with(|ws| ws.stackup_template(&template, copper_layers))
+}
+
+#[tauri::command]
+pub fn pcb_stackup_preset_load(
+    state: State<'_, AppState>,
+    scope: String,
+    name: String,
+) -> Result<StackupInfo, String> {
+    state.with(|ws| ws.stackup_preset_load(&scope, &name))
+}
+
+#[tauri::command]
+pub fn pcb_stackup_preset_save(
+    state: State<'_, AppState>,
+    scope: String,
+    name: String,
+    stackup: StackupInfo,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.stackup_preset_save(&scope, &name, stackup))
+}
+
+#[tauri::command]
+pub fn pcb_stackup_preset_delete(
+    state: State<'_, AppState>,
+    scope: String,
+    name: String,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.stackup_preset_delete(&scope, &name))
+}
+
+/// Applies the edited layer stack (and layer count) as one undo step.
+#[tauri::command]
+pub fn pcb_stackup_apply(
+    state: State<'_, AppState>,
+    stackup: StackupInfo,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.stackup_apply(stackup))
+}
+
+/// Exchanges the contents of two inner copper layers (one undo step).
+#[tauri::command]
+pub fn pcb_stackup_swap(state: State<'_, AppState>, a: u16, b: u16) -> Result<Snapshot, String> {
+    state.act(|ws| ws.stackup_swap_inner(buturecad_pcb::LayerId(a), buturecad_pcb::LayerId(b)))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

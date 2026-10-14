@@ -448,7 +448,7 @@ fn the_board_round_trips_and_older_pcb_files_still_load() {
     .unwrap();
     engine::save(&opened.session, &mut e).unwrap();
     let text = fs::read_to_string(dir.path().join(PCB_FILE)).unwrap();
-    assert!(text.contains("\"schema_version\": 7") && text.contains("NE555"));
+    assert!(text.contains("\"schema_version\": 8") && text.contains("NE555"));
     let net_field = format!("\"net\": {}", net.0);
     assert!(text.contains(&net_field));
     assert_eq!(

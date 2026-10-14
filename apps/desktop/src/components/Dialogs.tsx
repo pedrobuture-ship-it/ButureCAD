@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { call, pickFolder, toast } from "../actions";
 import type { FootprintInfo } from "../bindings/FootprintInfo";
@@ -9,17 +9,21 @@ import type { SymbolInfo } from "../bindings/SymbolInfo";
 import type { CoreInfo } from "../bindings/CoreInfo";
 import type { NetClassInfo } from "../bindings/NetClassInfo";
 import type { PairInfo } from "../bindings/PairInfo";
+import type { DielRow } from "../bindings/DielRow";
 import type { RulesInfo } from "../bindings/RulesInfo";
+import type { StackupInfo } from "../bindings/StackupInfo";
 import { store, useUi } from "../store";
 
 function Modal({
   title,
   children,
   onClose,
+  wide,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -29,7 +33,7 @@ function Modal({
   return (
     <div className="overlay" onMouseDown={onClose}>
       <div
-        className="modal"
+        className={wide ? "modal wide" : "modal"}
         role="dialog"
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
@@ -814,6 +818,372 @@ function PcbUpdateDialog() {
   );
 }
 
+const DIEL_KINDS: [string, string][] = [
+  ["core", "Core"],
+  ["prepreg", "Prepreg"],
+  ["adhesive", "Adhesive"],
+  ["coverlay", "Coverlay"],
+  ["solder_mask", "Solder mask"],
+];
+
+function DielEditor({
+  row,
+  onChange,
+  onRemove,
+  maskOnly,
+}: {
+  row: DielRow;
+  onChange: (r: DielRow) => void;
+  onRemove?: () => void;
+  maskOnly?: boolean;
+}) {
+  const set = (patch: Partial<DielRow>) => onChange({ ...row, ...patch });
+  return (
+    <tr className="stack-diel">
+      <td />
+      <td>
+        {maskOnly ? (
+          <span>Solder mask</span>
+        ) : (
+          <select
+            aria-label="Dielectric type"
+            value={row.kind}
+            onChange={(e) => set({ kind: e.target.value })}
+          >
+            {DIEL_KINDS.filter(([k]) => k !== "solder_mask").map(([k, t]) => (
+              <option key={k} value={k}>
+                {t}
+              </option>
+            ))}
+          </select>
+        )}
+      </td>
+      <td>
+        <input
+          aria-label="Material"
+          value={row.material}
+          onChange={(e) => set({ material: e.target.value })}
+        />
+      </td>
+      <td>
+        <input
+          aria-label="Dielectric thickness (mm)"
+          value={row.thickness}
+          onChange={(e) => set({ thickness: e.target.value })}
+        />
+      </td>
+      <td>
+        <input
+          aria-label="Relative permittivity"
+          value={row.er}
+          onChange={(e) => set({ er: e.target.value })}
+        />
+      </td>
+      <td>
+        <input
+          aria-label="Loss tangent"
+          value={row.loss_tangent}
+          onChange={(e) => set({ loss_tangent: e.target.value })}
+        />
+      </td>
+      <td>
+        <label title="Flexible material (rigid-flex)">
+          <input
+            type="checkbox"
+            checked={row.flex}
+            onChange={(e) => set({ flex: e.target.checked })}
+          />
+          flex
+        </label>
+      </td>
+      <td>
+        {onRemove && (
+          <button className="link" onClick={onRemove}>
+            Remove
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+/** Layer Stack Manager: copper and dielectric thickness, materials, templates and local presets. */
+function StackupDialog() {
+  const [info, setInfo] = useState<StackupInfo | null>(null);
+  const [presetName, setPresetName] = useState("");
+  const [scope, setScope] = useState("user");
+  const reload = () =>
+    api
+      .pcbStackup()
+      .then(setInfo)
+      .catch((e) => toast(String(e)));
+  useEffect(() => {
+    void reload();
+  }, []);
+  if (!info)
+    return (
+      <Modal title="Layer stack" onClose={close}>
+        <p className="muted">Loading…</p>
+      </Modal>
+    );
+  const keep = (next: StackupInfo) =>
+    setInfo({ ...next, templates: info.templates, presets: info.presets });
+  const load = (p: Promise<StackupInfo>) => p.then(keep).catch((e) => toast(String(e)));
+  const setGap = (g: number, i: number, r: DielRow) =>
+    keep({
+      ...info,
+      gaps: info.gaps.map((gap, k) => (k === g ? gap.map((d, j) => (j === i ? r : d)) : gap)),
+    });
+  const apply = async () => {
+    close();
+    await call(api.pcbStackupApply(info));
+  };
+  const swap = async (a: number, b: number) => {
+    await call(api.pcbStackupSwap(a, b));
+    void reload();
+  };
+  const inner = info.copper
+    .map((c, i) => ({ c, i }))
+    .filter(({ i }) => i > 0 && i < info.copper.length - 1);
+  return (
+    <Modal title="Layer stack manager" onClose={close} wide>
+      <div className="stack-top">
+        <label>
+          Name
+          <input value={info.name} onChange={(e) => keep({ ...info, name: e.target.value })} />
+        </label>
+        <label>
+          Surface finish
+          <input value={info.finish} onChange={(e) => keep({ ...info, finish: e.target.value })} />
+        </label>
+        <label>
+          Copper layers
+          <select
+            aria-label="Copper layers"
+            value={info.copper_layers}
+            onChange={(e) => void load(api.pcbStackupTemplate("", Number(e.target.value)))}
+          >
+            {Array.from({ length: 16 }, (_, k) => 2 * (k + 1)).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Template
+          <select
+            aria-label="Template"
+            value=""
+            onChange={(e) => e.target.value && void load(api.pcbStackupTemplate(e.target.value, 0))}
+          >
+            <option value="">Load a template…</option>
+            {info.templates.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <strong>Total {info.total_thickness} mm (before edits)</strong>
+      </div>
+      <table className="rules-table stack-table">
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>Type / role</th>
+            <th>Material</th>
+            <th>Thickness (mm)</th>
+            <th>εr</th>
+            <th>tan δ</th>
+            <th />
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {info.top_mask && (
+            <DielEditor
+              row={info.top_mask}
+              maskOnly
+              onChange={(r) => keep({ ...info, top_mask: r })}
+            />
+          )}
+          {info.copper.map((c, i) => (
+            <Fragment key={c.layer_id}>
+              <tr className="stack-copper">
+                <td>
+                  <strong>{c.layer}</strong>
+                </td>
+                <td>
+                  <select
+                    aria-label={`${c.layer} role`}
+                    value={c.role}
+                    onChange={(e) =>
+                      keep({
+                        ...info,
+                        copper: info.copper.map((x, k) =>
+                          k === i ? { ...x, role: e.target.value } : x,
+                        ),
+                      })
+                    }
+                  >
+                    <option value="signal">Signal</option>
+                    <option value="plane">Plane</option>
+                    <option value="mixed">Mixed</option>
+                  </select>
+                </td>
+                <td>Copper</td>
+                <td>
+                  <input
+                    aria-label={`${c.layer} thickness (mm)`}
+                    value={c.thickness}
+                    onChange={(e) =>
+                      keep({
+                        ...info,
+                        copper: info.copper.map((x, k) =>
+                          k === i ? { ...x, thickness: e.target.value } : x,
+                        ),
+                      })
+                    }
+                  />
+                </td>
+                <td />
+                <td />
+                <td />
+                <td />
+              </tr>
+              {info.gaps[i]?.map((d, j) => (
+                <DielEditor
+                  key={`${i}-${j}`}
+                  row={d}
+                  onChange={(r) => setGap(i, j, r)}
+                  onRemove={
+                    info.gaps[i].length > 1
+                      ? () =>
+                          keep({
+                            ...info,
+                            gaps: info.gaps.map((g, k) =>
+                              k === i ? g.filter((_, x) => x !== j) : g,
+                            ),
+                          })
+                      : undefined
+                  }
+                />
+              ))}
+              {info.gaps[i] && (
+                <tr>
+                  <td />
+                  <td colSpan={7}>
+                    <button
+                      className="link"
+                      onClick={() =>
+                        keep({
+                          ...info,
+                          gaps: info.gaps.map((g, k) =>
+                            k === i
+                              ? [
+                                  ...g,
+                                  {
+                                    kind: "prepreg",
+                                    material: "FR-4",
+                                    thickness: "0.1",
+                                    er: "4.3",
+                                    loss_tangent: "0.02",
+                                    flex: false,
+                                  },
+                                ]
+                              : g,
+                          ),
+                        })
+                      }
+                    >
+                      + dielectric layer
+                    </button>
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))}
+          {info.bottom_mask && (
+            <DielEditor
+              row={info.bottom_mask}
+              maskOnly
+              onChange={(r) => keep({ ...info, bottom_mask: r })}
+            />
+          )}
+        </tbody>
+      </table>
+      {inner.length > 1 && (
+        <div className="actions">
+          <span className="muted">Exchange the contents of two inner layers:</span>
+          {inner.slice(0, -1).map(({ c, i }) => (
+            <button
+              key={c.layer_id}
+              title="Move everything on one layer to the other (tracks, zones); the physical layers keep their thickness"
+              onClick={() => void swap(c.layer_id, info.copper[i + 1].layer_id)}
+            >
+              {c.layer} ⇄ {info.copper[i + 1].layer}
+            </button>
+          ))}
+        </div>
+      )}
+      <h3>Presets (local files)</h3>
+      <div className="actions">
+        {info.presets.length === 0 && <span className="muted">No presets saved yet.</span>}
+        {info.presets.map((p) => (
+          <span key={`${p.scope}/${p.name}`} className={p.error ? "warn" : ""}>
+            <button
+              title={p.error ?? `${p.copper_layers} copper layers, ${p.scope}`}
+              disabled={!!p.error}
+              onClick={() => void load(api.pcbStackupPresetLoad(p.scope, p.name))}
+            >
+              {p.name} ({p.scope})
+            </button>
+            <button
+              className="link"
+              onClick={() => void call(api.pcbStackupPresetDelete(p.scope, p.name)).then(reload)}
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="actions">
+        <input
+          value={presetName}
+          placeholder="Preset name"
+          onChange={(e) => setPresetName(e.target.value)}
+        />
+        <select aria-label="Preset scope" value={scope} onChange={(e) => setScope(e.target.value)}>
+          <option value="user">for all my projects</option>
+          <option value="project">this project</option>
+        </select>
+        <button
+          onClick={() =>
+            void call(api.pcbStackupPresetSave(scope, presetName, info)).then(() => {
+              setPresetName("");
+              void reload().then(() => undefined);
+            })
+          }
+          disabled={!presetName.trim()}
+        >
+          Save as preset
+        </button>
+      </div>
+      <p className="muted">
+        Thickness in mm. Applying changes the layer count and the stack as one undo step; a new
+        layer count starts from the standard FR-4 stack unless you load a template or preset.
+      </p>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" onClick={() => void apply()}>
+          Apply
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 const CLASS_FIELDS: { key: keyof Omit<NetClassInfo, "name">; label: string }[] = [
   { key: "track_width", label: "Track width" },
   { key: "clearance", label: "Clearance" },
@@ -895,7 +1265,7 @@ function NetClassesDialog() {
   };
   const missingPresets = rules.presets.filter((p) => !rules.classes.some((c) => c.name === p));
   return (
-    <Modal title="Net classes and design rules" onClose={close}>
+    <Modal title="Net classes and design rules" onClose={close} wide>
       <table className="rules-table">
         <thead>
           <tr>
@@ -1188,6 +1558,8 @@ export function Dialogs() {
       return <PcbPlaceDialog />;
     case "net-classes":
       return <NetClassesDialog />;
+    case "stackup":
+      return <StackupDialog />;
     case "footprint-new":
       return <FootprintNewDialog />;
     case "footprint-open":
