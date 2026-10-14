@@ -33,6 +33,7 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 28 | STEP/MCAD abstraction layer | partial (`docs/mcad.md`): architecture, `.bmech` and Part 21 inspection; STEP geometry import/export not implemented |
 | 29 | Manufacturing export | done (`docs/manufacturing.md`) |
 | 30 | Gerber viewer | done (`docs/gerber-viewer.md`) |
+| 31 | Local libraries / Library Manager | done (`docs/library-manager.md`) |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
 | 35–37 | ButureScript, parametric ButureScript, code ↔ visual | planned |
 | 38–42 | CLI, headless, Agent API, AI workspace, protocol | planned |

@@ -914,3 +914,31 @@ textarea {
   padding: 2px 8px;
   border-bottom: 1px solid var(--border, #2a2f3a);
 }
+
+.libmgr {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+.libmgr-body {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+  padding: 8px;
+}
+.libmgr-detail dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+}
+.libmgr-detail dt {
+  color: var(--muted, #8a93a6);
+}
+.libmgr-form {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}

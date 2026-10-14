@@ -1,6 +1,6 @@
 # Working
 
-*Checkpoint after roadmap stages 01–26; stages 27–30 added after it. Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–26; stages 27–31 added after it. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -43,6 +43,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Layer stack** (roadmap 26): physical stack model (copper/dielectric thickness, material, core/prepreg, εr/tan δ, solder mask, flex flag), Layer Stack Manager with built-in templates (2/4/6/8 layers, HDI, rigid-flex) and local presets (`*.bstack.json`), inner-layer exchange, one undo step; PCB schema 8. See `docs/stackup.md`.
 
 - **3D viewer** (roadmap 27): decoupled `buturecad-viewer3d` (model → mesh → software rasteriser, orbit/pan/zoom, perspective/orthographic); substrate, solder mask, copper, pads, vias, zone fills, silkscreen and component boxes; follows every PCB edit/undo; layer toggles and preset views. Component 3D models are referenced but not parsed (stage 28). See `docs/viewer3d.md`.
+- **Library Manager** (roadmap 31): symbol, footprint, 3D model (manifest) and component libraries; local inverted-index search with filters, favorites and recents; component editor; place symbol. See `docs/library-manager.md`.
 - **Gerber viewer** (roadmap 30): independent Gerber/Excellon readers + 2D rasteriser; layers, apertures, drill tools, toggles, zip/folder loading, verification of the generated files against the board. See `docs/gerber-viewer.md`.
 - **Manufacturing export** (roadmap 29): Gerber (copper, mask, paste, silk, profile), Excellon PTH/NPTH, BOM, pick and place, assembly info, preflight with DRC, preview panel, deterministic `production.zip`; preflight errors block the zip. See `docs/manufacturing.md`.
 - **Mechanical exchange layer** (roadmap 28): `buturecad-mcad` neutral model + backend trait + registry; `.bmech` round trip; board → model bridge and `mcad_export` command. See `docs/mcad.md`.
@@ -52,7 +53,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Manufacturing:** silkscreen text is not exported, no per-fabricator rules, no inner-plane negatives, no BOM supplier/MPN data; the Gerber viewer verifies positions/counts/drills but is not a third-party CAM check.
 - **STEP/MCAD:** abstraction, neutral `.bmech` and Part 21 inspection work; STEP geometry import/export is not implemented (no kernel chosen, licence review pending); mechanical constraints are stored but not evaluated; no UI button for `mcad_export`; no import back into the board.
 - **PCB:** the model, placement, routing and vias exist; routing walks around or pushes obstacles; keepouts have no drawing tool yet.
-- **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
+- **Libraries:** components and search exist (stage 31) but placing a component only places its symbol; no provider API yet (roadmap 33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
 - **Router:** Walk Around avoids copper, keepouts and the board edge with the class clearance; Push & Shove displaces tracks of other nets (never vias or pads) and falls back to walking around. Detours and pushed tracks run at any angle (no 45° clean-up) and zones are not obstacles yet. Width and via size follow the net class.
 - **Differential pairs:** skew is reported but not removed (length tuning is stage 24); legs are offsets of a single centre path (no independent gap changes or polarity swaps); push & shove does not apply to pairs.
 - **Length tuning:** meanders only on a single straight track; no length groups, no coupled pair tuning, no interactive amplitude.

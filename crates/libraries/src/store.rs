@@ -61,19 +61,7 @@ impl LibraryDir {
     }
 
     fn read(path: &Path) -> Result<Vec<u8>> {
-        let fs_err = |source| LibraryError::Fs {
-            context: "cannot read library",
-            path: path.to_path_buf(),
-            source,
-        };
-        let len = std::fs::metadata(path).map_err(fs_err)?.len();
-        if len > MAX_LIBRARY_BYTES {
-            return Err(LibraryError::Invalid {
-                path: path.to_path_buf(),
-                reason: format!("file is {len} bytes, over the {MAX_LIBRARY_BYTES} byte limit"),
-            });
-        }
-        std::fs::read(path).map_err(fs_err)
+        read_limited(path)
     }
 
     /// Symbol libraries in this folder, sorted by name. A missing folder is an empty list.
@@ -324,4 +312,67 @@ impl LibraryDir {
         lib.remove(name)?;
         self.save_footprint_library(&lib)
     }
+}
+
+/// Reads a library file, refusing oversized ones (they are untrusted input).
+pub(crate) fn read_limited(path: &Path) -> Result<Vec<u8>> {
+    let fs_err = |source| LibraryError::Fs {
+        context: "cannot read library",
+        path: path.to_path_buf(),
+        source,
+    };
+    let len = std::fs::metadata(path).map_err(fs_err)?.len();
+    if len > MAX_LIBRARY_BYTES {
+        return Err(LibraryError::Invalid {
+            path: path.to_path_buf(),
+            reason: format!("file is {len} bytes, over the {MAX_LIBRARY_BYTES} byte limit"),
+        });
+    }
+    std::fs::read(path).map_err(fs_err)
+}
+
+pub(crate) fn ensure_dir(root: &Path) -> Result<()> {
+    std::fs::create_dir_all(root).map_err(|source| LibraryError::Fs {
+        context: "cannot create library folder",
+        path: root.to_path_buf(),
+        source,
+    })
+}
+
+/// Lists `<name>.<ext>` files in `root` (sorted); unreadable files are listed with their error.
+pub(crate) fn list_by_suffix(
+    root: &Path,
+    ext: &str,
+    count: impl Fn(&Path, &[u8]) -> Result<usize>,
+) -> Vec<LibrarySummary> {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return Vec::new();
+    };
+    let suffix = format!(".{ext}");
+    let mut out: Vec<LibrarySummary> = entries
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let file = e.file_name().to_string_lossy().into_owned();
+            let name = file.strip_suffix(&suffix)?.to_owned();
+            (!file.starts_with('.')).then_some((name, e.path()))
+        })
+        .map(
+            |(name, path)| match read_limited(&path).and_then(|b| count(&path, &b)) {
+                Ok(n) => LibrarySummary {
+                    name,
+                    path,
+                    item_count: n,
+                    error: None,
+                },
+                Err(e) => LibrarySummary {
+                    name,
+                    path,
+                    item_count: 0,
+                    error: Some(e.to_string()),
+                },
+            },
+        )
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
 }

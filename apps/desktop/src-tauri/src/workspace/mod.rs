@@ -20,6 +20,7 @@ mod erc;
 mod fab;
 mod footprint_editor;
 mod gerber_view;
+mod library_manager;
 mod mcad;
 mod pcb_editor;
 mod pcb_pair;
@@ -95,6 +96,7 @@ pub struct Workspace {
     drc: drc::DrcState,
     fab: fab::FabState,
     gv: gerber_view::GerberViewer,
+    libm: library_manager::LibraryManager,
     pub(crate) view3d: viewer3d::Viewer3d,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
@@ -149,6 +151,7 @@ impl Workspace {
             drc: drc::DrcState::default(),
             fab: fab::FabState::default(),
             gv: gerber_view::GerberViewer::default(),
+            libm: library_manager::LibraryManager::default(),
             view3d: Default::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
@@ -1107,6 +1110,7 @@ impl Workspace {
             drc: self.drc_info(),
             fab: self.fab_info(),
             gerber: (self.mode == Mode::GerberViewer).then(|| self.gerber_info()),
+            library_manager: (self.mode == Mode::LibraryManager).then(|| self.library_info()),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }

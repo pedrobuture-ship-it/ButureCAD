@@ -6,6 +6,7 @@ import type { FootprintEditorInfo } from "./FootprintEditorInfo";
 import type { GerberViewerInfo } from "./GerberViewerInfo";
 import type { GridInfo } from "./GridInfo";
 import type { LayerInfo } from "./LayerInfo";
+import type { LibraryManagerInfo } from "./LibraryManagerInfo";
 import type { Message } from "./Message";
 import type { Mode } from "./Mode";
 import type { ObjectSummary } from "./ObjectSummary";
@@ -76,4 +77,8 @@ fab: FabInfo | null,
 /**
  * Gerber viewer state (only in the Gerber viewer mode).
  */
-gerber: GerberViewerInfo | null, };
+gerber: GerberViewerInfo | null, 
+/**
+ * Library Manager state (only in the Library Manager mode).
+ */
+library_manager: LibraryManagerInfo | null, };

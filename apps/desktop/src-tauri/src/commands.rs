@@ -385,6 +385,22 @@ pub fn gerber_command(
     state.act(|ws| ws.gerber_command(&name, arg.as_deref()))
 }
 
+/// Library Manager actions (search state, favorites, component and model libraries).
+#[tauri::command]
+pub fn library_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.library_command(&name, arg.as_deref()))
+}
+
+/// The symbol id for placing a Library Manager item (the UI then arms the placement tool).
+#[tauri::command]
+pub fn library_place_symbol(state: State<'_, AppState>, key: String) -> Result<String, String> {
+    state.with(|ws| ws.library_place_symbol(&key))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

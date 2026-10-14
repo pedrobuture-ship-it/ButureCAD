@@ -89,6 +89,7 @@ export const MODE_TITLES: Record<Mode, string> = {
   footprint_editor: "Footprint Editor",
   viewer3d: "3D Viewer",
   gerber_viewer: "Gerber Viewer",
+  library_manager: "Libraries",
 };
 
 /** Roadmap stage that will implement a mode that has no canvas yet. */

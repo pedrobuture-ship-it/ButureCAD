@@ -10,6 +10,7 @@ const ORDER: Mode[] = [
   "footprint_editor",
   "viewer3d",
   "gerber_viewer",
+  "library_manager",
 ];
 
 export function DocTabs() {

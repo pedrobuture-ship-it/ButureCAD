@@ -16,6 +16,7 @@ pub enum Mode {
     FootprintEditor,
     Viewer3d,
     GerberViewer,
+    LibraryManager,
 }
 
 impl Mode {
@@ -179,6 +180,8 @@ pub struct Snapshot {
     pub fab: Option<FabInfo>,
     /// Gerber viewer state (only in the Gerber viewer mode).
     pub gerber: Option<GerberViewerInfo>,
+    /// Library Manager state (only in the Library Manager mode).
+    pub library_manager: Option<LibraryManagerInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -740,4 +743,71 @@ pub struct GerberToolInfo {
 pub struct GerberCheckInfo {
     pub ok: bool,
     pub text: String,
+}
+
+/// One row of the Library Manager result list.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct LibraryRow {
+    /// Stable key (`kind:Library:Name`) for favorites, recents and selection.
+    pub key: String,
+    /// `symbol`, `footprint`, `model` or `component`.
+    pub kind: String,
+    /// `builtin`, `project` or `user`.
+    pub scope: String,
+    pub library: String,
+    pub name: String,
+    pub id: String,
+    pub description: String,
+    pub manufacturer: String,
+    pub mpn: String,
+    pub favorite: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct LibraryParam {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct LibraryDetail {
+    pub row: LibraryRow,
+    pub symbol: String,
+    pub footprint: String,
+    /// Footprint proposed by a symbol.
+    pub default_footprint: String,
+    pub model3d: String,
+    /// Stored path or URL; ButureCAD never fetches it.
+    pub datasheet: String,
+    pub keywords: String,
+    pub parameters: Vec<LibraryParam>,
+    /// Component references that do not resolve to an indexed item.
+    pub unresolved: Vec<String>,
+    pub placeable: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, TS)]
+#[ts(export)]
+pub struct LibraryManagerInfo {
+    pub total: u32,
+    pub text: String,
+    pub kinds: Vec<String>,
+    pub library: String,
+    pub manufacturer: String,
+    /// `all`, `favorites` or `recents`.
+    pub scope: String,
+    pub libraries: Vec<String>,
+    pub manufacturers: Vec<String>,
+    pub results: Vec<LibraryRow>,
+    pub truncated: bool,
+    /// Library files that could not be read.
+    pub problems: Vec<String>,
+    /// Favorites/recents are saved (a user library folder exists).
+    pub prefs_persisted: bool,
+    pub detail: Option<LibraryDetail>,
+    /// Folders that can receive new components: `project`, `user`.
+    pub writable_scopes: Vec<String>,
 }
