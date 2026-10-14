@@ -1,6 +1,6 @@
 # Working
 
-*Roadmap stages 01–26 (last checkpoint after 18). Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–26. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -14,7 +14,7 @@ desktop app; limits are stated in the sections that follow.*
 - **ERC** (roadmap 11): 21 rules on the connectivity graph, clickable findings (select + centre), documented waivers stored in the project. See `docs/erc.md`.
 - **Footprint Editor** (roadmap 12): SMD/through-hole/NPTH/custom pads, five shapes, mask/paste/silkscreen/fabrication/courtyard graphics, reference/value text, DIP/SOIC/QFN/BGA/header generators, footprint libraries (`*.bfplib.json`), 3D model references (stored only). See `docs/footprint-editor.md`.
 - **Desktop shell:** menus, toolbar, tool palette, document tabs, inspector, bottom panel (ERC, Messages, Console), status bar, dark/light themes, command palette, shortcuts from one command registry, context menu, dirty guard, recent projects, crash-recovery prompt.
-- **Verification:** 432 Rust tests in 33 test binaries (unit, integration, property, IPC through Tauri's mock runtime), 21 frontend tests, and an end-to-end harness (`apps/desktop/e2e`: real Rust commands, real GPU renderer, headless Chromium, screenshots) with scenarios for the shell, schematic editing, Symbol Editor, ERC, Footprint Editor, PCB editor, schematic→PCB update and routing.
+- **Verification:** 522 Rust tests in 70 test binaries (unit, integration, property, IPC through Tauri's mock runtime), 21 frontend tests, and an end-to-end harness (`apps/desktop/e2e`: real Rust commands, real GPU renderer, headless Chromium, screenshots) with scenarios for the shell, schematic editing, Symbol Editor, ERC, Footprint Editor, PCB editor, schematic→PCB update, routing, copper zones and the layer stack manager. Checkpoint 26: workspace builds, `clippy -D warnings` clean, no TODO/FIXME/stub/mock in production code (matches are the documented temporary `Buture` bootstrap library and the 3D placeholder), all features of stages 19–26 exercised by tests.
 
 - **PCB core** (roadmap 13): layer set and stackup (2–32 copper layers), placed footprints with exact flip/rotate transforms and pad geometry, nets, tracks/vias carrying nets, zones, keepouts, texts, graphics, via kinds modelled; generic atomic `PcbEditCommand`; PCB schema 3. See `docs/pcb-core.md`.
 

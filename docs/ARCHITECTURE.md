@@ -12,20 +12,22 @@ Desktop GUI (Tauri + React)   buturecad-cli (planned)
 
 | Crate | Role | State |
 |---|---|---|
-| `eda-core` | Core: project model, Command Engine | foundation |
-| `geometry` | Integer-coordinate geometry | foundation |
-| `io` | Project format, atomic save | foundation |
-| `schematic` | Schematic model, symbols, logical connectivity, change sets | core model done |
-| `libraries` | Symbol and footprint library folders (one JSON file per library) | symbols + footprints done |
-| `rules` | ERC (DRC planned) | ERC done |
-| `pcb` | Footprint model, editing operations, generators (board model planned) | footprints done |
-| `router`, `manufacturing`, `simulation`, `viewer3d`, `renderer`, `scripting`, `plugin-runtime`, `agent-api` | reserved slots | not implemented |
-| `apps/desktop` | Tauri 2 shell + React UI | shell only |
+| `geometry` | Integer-nanometre geometry: exact predicates, polygons, offsets, convex hull, R-tree | done (stage 03) |
+| `schematic` | Schematic model, symbols, logical connectivity, ERC data, change sets | done (01–11) |
+| `pcb` | Footprints, board model (layers, stackup, **physical layer stack**, zones, net classes, differential pairs, length targets), generators | done (12–26) |
+| `eda-core` | Core: project, Command Engine, board commands, **copper shapes**, ratsnest, routing geometry, schematic→PCB sync, net length, **zone fill** (`i_overlay`) | done |
+| `io` | Project format (schemas, migrations), atomic save, autosave/recovery | done |
+| `libraries` | Symbol, footprint and layer-stack-preset files (local folders) | symbols, footprints, stackup presets |
+| `rules` | ERC and **DRC** (incremental engine) | done (11, 19) |
+| `router` | Walk around, push & shove, differential pair geometry, length tuning, DRC validation of what it produces | done (21–24) |
+| `renderer` | wgpu renderer, picking, snapping | done (04) |
+| `manufacturing`, `simulation`, `viewer3d`, `scripting`, `plugin-runtime`, `agent-api` | reserved slots | not implemented |
+| `apps/desktop` | Tauri 2 shell + React UI; the Rust `Workspace` owns all state and tools | done through stage 26 |
 
 ## Rules
 
 - React owns UI only; geometry, connectivity, DRC/ERC, routing, serialization stay in Rust.
-- Dependencies are directional: `geometry` ← `pcb`/`schematic` ← `rules`/`router` ← `eda-core`; no cycles.
+- Dependencies are directional: `geometry` ← `pcb`/`schematic` ← `eda-core` ← `rules` ← `router`; `io` and `libraries` sit beside them; the desktop app depends on all and nothing depends on it; no cycles.
 - No cloud, login, telemetry or mandatory network. AI is an optional client of the core.
 - Tauri commands only delegate to `eda-core`; typed contracts live in `apps/desktop/src/api.ts`.
 
