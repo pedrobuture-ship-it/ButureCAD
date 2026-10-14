@@ -280,6 +280,7 @@ dependencies = [
  "buturecad-router",
  "buturecad-rules",
  "buturecad-schematic",
+ "buturecad-viewer3d",
  "serde",
  "serde_json",
  "tauri",
@@ -416,6 +417,9 @@ version = "0.1.0"
 [[package]]
 name = "buturecad-viewer3d"
 version = "0.1.0"
+dependencies = [
+ "i_triangle",
+]
 
 [[package]]
 name = "bytemuck"

@@ -58,6 +58,7 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::pcb_stackup_preset_delete,
         commands::pcb_stackup_apply,
         commands::pcb_stackup_swap,
+        commands::viewer3d_command,
         commands::drc_run,
         commands::drc_focus,
         commands::erc_run,

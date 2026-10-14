@@ -26,6 +26,7 @@ mod pcb_zone;
 mod rules;
 mod stackup;
 mod symbol_editor;
+mod viewer3d;
 use editor::EditorState;
 pub use footprint_editor::generator_infos;
 use footprint_editor::FootprintEditor;
@@ -89,6 +90,7 @@ pub struct Workspace {
     conn: RefCell<Option<ConnCache>>,
     erc: erc::ErcState,
     drc: drc::DrcState,
+    pub(crate) view3d: viewer3d::Viewer3d,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
 
@@ -140,6 +142,7 @@ impl Workspace {
             conn: RefCell::new(None),
             erc: erc::ErcState::default(),
             drc: drc::DrcState::default(),
+            view3d: Default::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
             pcb_scene: crate::pcb_scene::PcbScene::default(),
@@ -607,6 +610,21 @@ impl Workspace {
     // -- pointer input ---------------------------------------------------------------------------
 
     pub fn pointer(&mut self, ev: PointerEvent) -> PointerResult {
+        if self.mode == Mode::Viewer3d {
+            let mut out = Outcome::default();
+            self.pointer_3d(ev, &mut out);
+            return PointerResult {
+                redraw: out.redraw,
+                cursor_x_nm: 0,
+                cursor_y_nm: 0,
+                snap: "none".into(),
+                hover: None,
+                zoom_percent: 100.0,
+                selection_changed: false,
+                model_changed: false,
+                hint: self.hint(),
+            };
+        }
         self.ensure_scene();
         if self.scene().is_some() && !self.fitted.contains(&self.mode) {
             self.fit_view();
@@ -1069,6 +1087,10 @@ impl Workspace {
             hint: self.hint(),
             symbol_editor: self.symbol_editor_info(),
             erc: self.erc_info(),
+            viewer3d: (self.mode == Mode::Viewer3d).then(|| {
+                self.view3d_refresh();
+                self.viewer3d_info()
+            }),
             drc: self.drc_info(),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
@@ -1081,6 +1103,9 @@ impl Workspace {
     pub fn render(&mut self, width: u32, height: u32) -> Result<(u32, u32, Vec<u8>), String> {
         self.route_refresh();
         self.set_canvas_size(width as f64, height as f64);
+        if self.mode == Mode::Viewer3d {
+            return self.render_3d(width, height);
+        }
         self.ensure_scene();
         if self.scene().is_some() && !self.fitted.contains(&self.mode) {
             self.fit_view();

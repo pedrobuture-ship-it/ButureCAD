@@ -347,6 +347,16 @@ pub fn pcb_stackup_swap(state: State<'_, AppState>, a: u16, b: u16) -> Result<Sn
     state.act(|ws| ws.stackup_swap_inner(buturecad_pcb::LayerId(a), buturecad_pcb::LayerId(b)))
 }
 
+/// 3D view actions (projection, preset views, layer toggles).
+#[tauri::command]
+pub fn viewer3d_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.viewer3d_command(&name, arg.as_deref()))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

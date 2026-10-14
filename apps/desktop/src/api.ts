@@ -81,6 +81,8 @@ export const api = {
     invoke<Snapshot>("pcb_stackup_preset_delete", { scope, name }),
   pcbStackupApply: (stackup: StackupInfo) => invoke<Snapshot>("pcb_stackup_apply", { stackup }),
   pcbStackupSwap: (a: number, b: number) => invoke<Snapshot>("pcb_stackup_swap", { a, b }),
+  viewer3dCommand: (name: string, arg?: string) =>
+    invoke<Snapshot>("viewer3d_command", { name, arg }),
   pcbRules: () => invoke<RulesInfo>("pcb_rules"),
   pcbRulesApply: (rules: RulesInfo) => invoke<Snapshot>("pcb_rules_apply", { rules }),
   drcRun: () => invoke<Snapshot>("drc_run"),

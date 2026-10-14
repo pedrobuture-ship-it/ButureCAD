@@ -91,6 +91,4 @@ export const MODE_TITLES: Record<Mode, string> = {
 };
 
 /** Roadmap stage that will implement a mode that has no canvas yet. */
-export const MODE_PLANNED: Partial<Record<Mode, string>> = {
-  viewer3d: "roadmap stage 27 (PCB 3D)",
-};
+export const MODE_PLANNED: Partial<Record<Mode, string>> = {};

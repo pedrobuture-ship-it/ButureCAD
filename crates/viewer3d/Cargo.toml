@@ -12,3 +12,4 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+i_triangle = "0.49"

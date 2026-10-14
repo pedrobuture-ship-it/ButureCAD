@@ -365,9 +365,10 @@ fn errors_are_reported_not_panics() {
 
 #[test]
 fn modes_without_a_canvas_have_no_scene() {
+    // (The 3D viewer has its own software-rendered frame: see tests/viewer3d.rs.)
     let dir = tempfile::tempdir().unwrap();
     let (mut ws, _) = workspace_with_design(dir.path());
-    for mode in [Mode::SymbolEditor, Mode::FootprintEditor, Mode::Viewer3d] {
+    for mode in [Mode::SymbolEditor, Mode::FootprintEditor] {
         ws.set_mode(mode);
         let snap = ws.snapshot();
         assert_eq!((snap.object_count, snap.layers.len()), (0, 0));

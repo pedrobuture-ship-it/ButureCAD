@@ -13,6 +13,7 @@ import type { RecentProject } from "./RecentProject";
 import type { SymbolEditorInfo } from "./SymbolEditorInfo";
 import type { ThemeName } from "./ThemeName";
 import type { Units } from "./Units";
+import type { Viewer3dInfo } from "./Viewer3dInfo";
 
 /**
  * Everything the UI needs to render its chrome. Returned by every state-changing command.
@@ -61,4 +62,8 @@ pcb: PcbInfo | null,
 /**
  * The last DRC run.
  */
-drc: DrcInfo | null, };
+drc: DrcInfo | null, 
+/**
+ * 3D view state (only in the 3D mode).
+ */
+viewer3d: Viewer3dInfo | null, };

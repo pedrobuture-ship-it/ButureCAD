@@ -22,6 +22,7 @@ buturecad-io = { path = "../../../crates/io" }
 buturecad-libraries = { path = "../../../crates/libraries" }
 buturecad-pcb = { path = "../../../crates/pcb" }
 buturecad-renderer = { path = "../../../crates/renderer" }
+buturecad-viewer3d = { path = "../../../crates/viewer3d" }
 buturecad-router = { path = "../../../crates/router" }
 buturecad-rules = { path = "../../../crates/rules" }
 buturecad-schematic = { path = "../../../crates/schematic" }

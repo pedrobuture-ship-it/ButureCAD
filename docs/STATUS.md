@@ -1,6 +1,6 @@
 # Working
 
-*Checkpoint after roadmap stages 01–26. Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–26; stage 27 added after it. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -42,6 +42,8 @@ desktop app; limits are stated in the sections that follow.*
 
 - **Layer stack** (roadmap 26): physical stack model (copper/dielectric thickness, material, core/prepreg, εr/tan δ, solder mask, flex flag), Layer Stack Manager with built-in templates (2/4/6/8 layers, HDI, rigid-flex) and local presets (`*.bstack.json`), inner-layer exchange, one undo step; PCB schema 8. See `docs/stackup.md`.
 
+- **3D viewer** (roadmap 27): decoupled `buturecad-viewer3d` (model → mesh → software rasteriser, orbit/pan/zoom, perspective/orthographic); substrate, solder mask, copper, pads, vias, zone fills, silkscreen and component boxes; follows every PCB edit/undo; layer toggles and preset views. Component 3D models are referenced but not parsed (stage 28). See `docs/viewer3d.md`.
+
 # Partial
 
 - **PCB:** the model, placement, routing and vias exist; routing walks around or pushes obstacles; keepouts have no drawing tool yet.
@@ -58,7 +60,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Multi-file save** is not one atomic unit (the backup snapshot is the recovery path).
 - **Footprint Editor:** pad rotation in quarter turns only; custom pads are edited as polygons in the inspector (no on-canvas vertex editor); mask/paste are shown at each pad's own margin; 3D references are stored, not rendered.
 - **ERC:** no per-rule severity overrides or disabling; no hidden/implicit power pins.
-- **3D Viewer** is a placeholder labelled as not implemented in the UI.
+- **3D viewer:** components are boxes with heuristic heights (no model parsing), outer copper only, software rasteriser without anti-aliasing, no picking or measuring.
 
 # Broken
 

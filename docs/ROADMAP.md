@@ -29,6 +29,7 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 24 | Length tuning | done (`docs/length-tuning.md`) |
 | 25 | Copper zones | done (`docs/zones.md`) |
 | 26 | Layer stack manager | done (`docs/stackup.md`) |
+| 27 | PCB 3D viewer | done (`docs/viewer3d.md`) |
 | 27–30 | 3D, STEP/MCAD, manufacturing, Gerber viewer | planned |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
 | 35–37 | ButureScript, parametric ButureScript, code ↔ visual | planned |

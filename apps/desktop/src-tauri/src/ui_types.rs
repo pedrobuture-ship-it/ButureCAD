@@ -172,6 +172,8 @@ pub struct Snapshot {
     pub pcb: Option<PcbInfo>,
     /// The last DRC run.
     pub drc: Option<DrcInfo>,
+    /// 3D view state (only in the 3D mode).
+    pub viewer3d: Option<Viewer3dInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -629,4 +631,23 @@ pub struct StackupInfo {
     pub templates: Vec<TemplateInfo>,
     #[serde(default)]
     pub presets: Vec<TemplateInfo>,
+}
+
+/// State of the 3D view.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct Viewer3dInfo {
+    /// `perspective` or `orthographic`.
+    pub projection: String,
+    pub substrate: bool,
+    pub mask: bool,
+    pub copper: bool,
+    pub silkscreen: bool,
+    pub components: bool,
+    pub components_count: u32,
+    /// Components whose footprint references a 3D model (drawn tinted; models are not parsed yet).
+    pub with_model_refs: u32,
+    pub has_outline: bool,
+    pub tracks: u32,
+    pub zone_pieces: u32,
 }

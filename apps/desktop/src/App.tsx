@@ -5,6 +5,7 @@ import { call, closeWindowNow, refreshSnapshot, toast } from "./actions";
 import { availability } from "./commands";
 import { BottomPanel } from "./components/BottomPanel";
 import { CanvasView } from "./components/CanvasView";
+import { Viewer3dBar } from "./components/Viewer3dBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextMenu } from "./components/ContextMenu";
 import { Dialogs } from "./components/Dialogs";
@@ -119,7 +120,8 @@ export function App() {
     mode === "schematic" ||
     mode === "pcb" ||
     (mode === "symbol_editor" && !!snap?.symbol_editor) ||
-    (mode === "footprint_editor" && !!snap?.footprint_editor);
+    (mode === "footprint_editor" && !!snap?.footprint_editor) ||
+    mode === "viewer3d";
 
   return (
     <div className={inspectorOpen ? "app" : "app no-inspector"}>
@@ -141,6 +143,7 @@ export function App() {
                 {mode === "symbol_editor" && <SymbolEditorBar />}
                 {mode === "footprint_editor" && <FootprintEditorBar />}
                 {mode === "pcb" && <PcbBar />}
+                {mode === "viewer3d" && <Viewer3dBar />}
                 <CanvasView />
               </>
             ) : (
