@@ -368,6 +368,8 @@ pub struct PcbInfo {
     pub via_size_auto: bool,
     /// The route in progress.
     pub route: Option<RouteInfo>,
+    /// Length against the goal of the net under the tuner / of the selected tracks.
+    pub length: Option<LengthInfo>,
     /// Connections still to route (ratsnest lines).
     pub unrouted: u32,
 }
@@ -525,4 +527,29 @@ pub struct PairLive {
     pub gap_mm: String,
     pub gap_target_mm: String,
     pub over_skew: bool,
+}
+
+/// Length of the net under the tuner or of the selected tracks, against its goal.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct LengthInfo {
+    pub net: String,
+    pub current_mm: String,
+    pub target_mm: Option<String>,
+    pub tolerance_mm: Option<String>,
+    /// Current − target (positive: too long).
+    pub difference_mm: Option<String>,
+    /// Length after the previewed meander is placed.
+    pub predicted_mm: Option<String>,
+    /// The goal is the partner leg of a differential pair, not a set target.
+    pub from_pair: bool,
+    pub within: bool,
+    /// The previewed meander does not reach the target (segment too short).
+    pub partial: bool,
+    pub problem: Option<String>,
+    /// The net has its own target (so it can be cleared).
+    pub has_target: bool,
+    pub style: String,
+    pub amplitude_mm: String,
+    pub pitch_mm: String,
 }

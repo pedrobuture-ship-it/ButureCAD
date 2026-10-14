@@ -21,6 +21,7 @@ mod footprint_editor;
 mod pcb_editor;
 mod pcb_pair;
 mod pcb_route;
+mod pcb_tune;
 mod rules;
 mod symbol_editor;
 use editor::EditorState;
@@ -1011,6 +1012,7 @@ impl Workspace {
 
     pub fn snapshot(&mut self) -> Snapshot {
         self.route_refresh();
+        self.tune_refresh();
         self.ensure_scene();
         let project = self.open.as_ref().map(|o| ProjectInfo {
             name: o.engine.project().name().to_owned(),

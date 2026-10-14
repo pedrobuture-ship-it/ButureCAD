@@ -91,3 +91,29 @@ pub fn validate_pair(
     }
     out
 }
+
+/// Violations a replacement of the track `replace` by `path` would create (clearance, shorts and
+/// board edge), ignoring the track being replaced. Used by length tuning.
+pub fn validate_replacement(
+    doc: &PcbDoc,
+    replace: Id,
+    layer: LayerId,
+    net: Option<Id>,
+    width: Coord,
+    path: &[Point],
+) -> Vec<DrcViolation> {
+    let tracks = vec![(layer, path.to_vec())];
+    let items = candidate_items(
+        doc,
+        &RouteCandidate {
+            net,
+            width,
+            tracks: &tracks,
+            vias: &[],
+            via_diameter: 0,
+        },
+    );
+    let mut v = check_candidate(doc, &items, &BTreeSet::from([replace]));
+    v.extend(candidate_edge_violations(doc, &items));
+    v
+}

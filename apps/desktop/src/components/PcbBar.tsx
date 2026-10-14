@@ -129,6 +129,68 @@ export function PcbBar() {
           {info.route.note}
         </span>
       )}
+      {info.length && (
+        <>
+          <span
+            role="status"
+            className={
+              info.length.target_mm === null
+                ? "muted"
+                : info.length.within
+                  ? "route-status"
+                  : "warn"
+            }
+            title="Routed track length of the net (vias and pad stubs inside footprints are not counted)"
+          >
+            Length {info.length.net}: {info.length.current_mm} mm
+            {info.length.target_mm !== null && (
+              <>
+                {" "}
+                · target {info.length.target_mm} ± {info.length.tolerance_mm}
+                {info.length.from_pair ? " (partner leg)" : ""} · Δ {info.length.difference_mm}
+              </>
+            )}
+            {info.length.predicted_mm !== null && <> → {info.length.predicted_mm} mm</>}
+            {info.length.partial && " (partial: segment too short)"}
+          </span>
+          <CommitInput
+            label="Length target/tol (mm)"
+            value={
+              info.length.has_target ? `${info.length.target_mm}/${info.length.tolerance_mm}` : ""
+            }
+            width={90}
+            onCommit={(v) => cmd("length_target", v)}
+          />
+          <label>
+            Tuner
+            <select
+              value={info.length.style}
+              aria-label="Tuner style"
+              onChange={(e) => cmd("tune_style", e.target.value)}
+            >
+              <option value="serpentine">Serpentine</option>
+              <option value="accordion">Accordion</option>
+            </select>
+          </label>
+          <CommitInput
+            label="Amplitude (mm)"
+            value={info.length.amplitude_mm}
+            width={56}
+            onCommit={(v) => cmd("tune_amplitude", v)}
+          />
+          <CommitInput
+            label="Pitch (mm)"
+            value={info.length.pitch_mm}
+            width={56}
+            onCommit={(v) => cmd("tune_pitch", v)}
+          />
+          {info.length.problem && (
+            <span className="warn" role="status">
+              {info.length.problem}
+            </span>
+          )}
+        </>
+      )}
       {info.route?.pair && (
         <span
           role="status"

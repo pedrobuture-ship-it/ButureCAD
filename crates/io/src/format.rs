@@ -26,8 +26,9 @@ pub const CURRENT_SCHEMA: u32 = 1;
 pub const SCHEMATIC_SCHEMA: u32 = 3;
 /// Schema version of the PCB document. v2 added embedded footprint definitions; v3 the board
 /// (stackup, placed footprints, nets, zones, keepouts, texts, graphics, track/via nets); v4 the
-/// design rules and net classes; v5 differential pairs inside the rules.
-pub const PCB_SCHEMA: u32 = 5;
+/// design rules and net classes; v5 differential pairs inside the rules; v6 length
+/// targets.
+pub const PCB_SCHEMA: u32 = 6;
 
 /// A migration step rewriting a document from version `from` to `from + 1`.
 pub type MigrationFn = fn(&mut Value) -> std::result::Result<(), String>;
@@ -64,6 +65,7 @@ impl Migrations {
                 migrate_pcb_v2_to_v3,
                 migrate_pcb_v3_to_v4,
                 migrate_pcb_v4_to_v5,
+                migrate_pcb_v5_to_v6,
             ],
         }
     }
@@ -302,6 +304,13 @@ pub fn migrate_pcb_v1_to_v2(doc: &mut Value) -> std::result::Result<(), String> 
 /// PCB 2 → 3: every board field is optional on read (defaults: 2 copper layers, nothing placed),
 /// so nothing has to be rewritten; the bump makes older builds refuse the file.
 pub fn migrate_pcb_v2_to_v3(doc: &mut Value) -> std::result::Result<(), String> {
+    doc.as_object()
+        .map(|_| ())
+        .ok_or_else(|| "document is not an object".to_string())
+}
+
+/// PCB 5 → 6: length targets default to none; nothing to rewrite.
+pub fn migrate_pcb_v5_to_v6(doc: &mut Value) -> std::result::Result<(), String> {
     doc.as_object()
         .map(|_| ())
         .ok_or_else(|| "document is not an object".to_string())

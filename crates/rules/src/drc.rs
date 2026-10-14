@@ -12,6 +12,7 @@
 //! | `outside_board` | Error | copper outside the closed board outline |
 //! | `unconnected` | Error | a ratsnest connection that is not routed |
 //! | `courtyard_overlap` | Warning | courtyards of footprints on the same side overlap |
+//! | `length_target` | Warning | a net with a length target is routed outside target ± tolerance (track lengths only) |
 //! | `pair_skew` | Warning | the routed lengths of a differential pair's legs differ by more than its maximum skew (track length per net; vias and stubs of other topologies are not modelled) |
 //!
 //! The engine is **incremental**: [`DrcEngine::update`] re-checks only the objects a change set
@@ -47,6 +48,7 @@ pub enum DrcRule {
     Unconnected,
     CourtyardOverlap,
     PairSkew,
+    LengthTarget,
 }
 
 impl DrcRule {
@@ -63,6 +65,7 @@ impl DrcRule {
             DrcRule::Unconnected => "unconnected",
             DrcRule::CourtyardOverlap => "courtyard_overlap",
             DrcRule::PairSkew => "pair_skew",
+            DrcRule::LengthTarget => "length_target",
         }
     }
     pub fn title(self) -> &'static str {
@@ -78,11 +81,14 @@ impl DrcRule {
             DrcRule::Unconnected => "Unconnected net",
             DrcRule::CourtyardOverlap => "Courtyards overlap",
             DrcRule::PairSkew => "Differential pair skew",
+            DrcRule::LengthTarget => "Length target missed",
         }
     }
     pub fn severity(self) -> DrcSeverity {
         match self {
-            DrcRule::CourtyardOverlap | DrcRule::PairSkew => DrcSeverity::Warning,
+            DrcRule::CourtyardOverlap | DrcRule::PairSkew | DrcRule::LengthTarget => {
+                DrcSeverity::Warning
+            }
             _ => DrcSeverity::Error,
         }
     }
@@ -921,6 +927,41 @@ pub fn candidate_edge_violations(doc: &PcbDoc, candidate: &[CopperItem]) -> Vec<
 /// already reported).
 fn skew_violations(doc: &PcbDoc) -> Vec<DrcViolation> {
     let mut out = Vec::new();
+    for (net, goal) in &doc.rules.length_targets {
+        let Some(longest) = doc
+            .tracks
+            .iter()
+            .filter(|(_, t)| t.net == Some(*net))
+            .max_by(|a, b| {
+                a.1.segment
+                    .length()
+                    .partial_cmp(&b.1.segment.length())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+        else {
+            continue;
+        };
+        let current = buturecad_eda_core::length::net_length(doc, *net);
+        let diff = current - goal.target as f64;
+        if diff.abs() > goal.tolerance as f64 {
+            let name = doc.nets.get(net).map_or("?", |n| n.name.as_str());
+            out.push(vio(
+                DrcRule::LengthTarget,
+                format!(
+                    "Net {name} is {:.3} mm long; target {:.3} mm ± {:.3} mm ({:+.3} mm)",
+                    mm(current),
+                    mm(goal.target as f64),
+                    mm(goal.tolerance as f64),
+                    mm(diff)
+                ),
+                vec![*longest.0],
+                mid(longest.1.segment.a, longest.1.segment.b),
+                Some(longest.1.layer),
+                Some(diff.abs().round() as Coord),
+                Some(goal.tolerance),
+            ));
+        }
+    }
     for pair in doc.rules.diff_pairs.values() {
         let stats = |net: Id| -> Option<(f64, Id, Point)> {
             let mut total = 0.0;

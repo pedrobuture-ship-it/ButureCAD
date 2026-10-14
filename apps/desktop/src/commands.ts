@@ -218,6 +218,14 @@ function pcbCommands(): AppCommand[] {
     },
     tool("route", "Route Track", "X"),
     tool("route_pair", "Route Differential Pair", "Shift+X"),
+    tool("tune", "Tune Length", "T"),
+    {
+      id: "pcb.tuneSelected",
+      title: "Tune Length of the Selected Track (PCB)",
+      category: "Edit",
+      available: hasPcbSelection,
+      run: (a) => a.editor("tune_selected"),
+    },
     tool("via", "Place Via", "Shift+V"),
     {
       id: "pcb.routeVia",

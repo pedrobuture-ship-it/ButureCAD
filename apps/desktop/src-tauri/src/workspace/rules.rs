@@ -86,6 +86,7 @@ impl Workspace {
             classes: Default::default(),
             assignments: Default::default(),
             diff_pairs: Default::default(),
+            length_targets: before.length_targets.clone(),
         };
         for c in &info.classes {
             let name = c.name.trim().to_owned();

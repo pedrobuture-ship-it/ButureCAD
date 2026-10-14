@@ -874,7 +874,7 @@ impl Workspace {
                 self.route_finish(&mut out);
                 Ok(true)
             }
-            _ => Ok(false),
+            other => self.pcb_tune_command(other, arg),
         }
     }
 

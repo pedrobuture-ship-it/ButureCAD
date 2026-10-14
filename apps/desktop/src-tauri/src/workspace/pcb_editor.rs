@@ -26,6 +26,8 @@ pub(crate) enum PcbTool {
     Route,
     /// Differential pair routing.
     RoutePair,
+    /// Length tuning (serpentine / accordion).
+    Tune,
     Via,
 }
 
@@ -38,6 +40,7 @@ impl PcbTool {
             PcbTool::PlaceFootprint(_) => "place_footprint",
             PcbTool::Route => "route",
             PcbTool::RoutePair => "route_pair",
+            PcbTool::Tune => "tune",
             PcbTool::Via => "via",
         }
     }
@@ -89,6 +92,8 @@ pub(crate) struct PcbEditor {
     pub(crate) obstacle_cache: std::cell::RefCell<Option<super::pcb_route::ObstacleCache>>,
     /// Manual track width; `None` follows the net class of the net being routed.
     pub(crate) route_width: Option<i64>,
+    pub(crate) tune: super::pcb_tune::TuneSettings,
+    pub(crate) tune_preview: Option<super::pcb_tune::TunePreview>,
     pub(crate) route_mode: buturecad_eda_core::routing::AngleMode,
     pub(crate) route_flip: bool,
     /// Manual via `(diameter, drill)`; `None` follows the net class.
@@ -111,6 +116,8 @@ impl Default for PcbEditor {
             obstacles: Default::default(),
             obstacle_cache: Default::default(),
             route_width: None,
+            tune: Default::default(),
+            tune_preview: None,
             route_mode: Default::default(),
             route_flip: false,
             via_size: None,
@@ -570,6 +577,7 @@ impl Workspace {
             },
             via_size_auto: self.pcb_ed.via_size.is_none(),
             route: self.route_info(),
+            length: self.length_info(),
             unrouted: self.ratsnest(|e| e.count() as u32).unwrap_or(0),
         })
     }
@@ -605,6 +613,7 @@ impl Workspace {
             }
             "flip_elbow" => self.pcb_ed.route_flip = !self.pcb_ed.route_flip,
             "route_via" => self.route_via()?,
+            "tune_selected" => self.tune_selected()?,
             "route_finish" => {
                 let mut out = Outcome::default();
                 self.route_finish(&mut out);
@@ -640,6 +649,7 @@ impl Workspace {
             "outline_line" => PcbTool::OutlineLine,
             "route" => PcbTool::Route,
             "route_pair" => PcbTool::RoutePair,
+            "tune" => PcbTool::Tune,
             "via" => PcbTool::Via,
             "place_footprint" => {
                 let f = arg
@@ -972,6 +982,7 @@ impl Workspace {
                         }
                     }
                 }
+                self.tune_refresh();
                 out.redraw = true;
             }
             PointerKind::Down if ev.button == 0 => self.pcb_down(ev, at, out),
@@ -1080,6 +1091,7 @@ impl Workspace {
             PcbTool::OutlineLine => self.pcb_outline_click(at, false, out),
             PcbTool::PlaceFootprint(id) => self.pcb_place(&id, at, out),
             PcbTool::Route | PcbTool::RoutePair => self.pcb_route_click(at, out),
+            PcbTool::Tune => self.tune_click(out),
             PcbTool::Via => self.pcb_place_via(at, out),
         }
         out.redraw = true;
@@ -1213,6 +1225,7 @@ impl Workspace {
         };
         let at = self.cursor;
         let mut out: Vec<(Shape, Rgba)> = self.ratsnest_shapes();
+        out.extend(self.tune_preview_shapes());
         out.extend(self.drc_marker_shapes(colour));
         out.extend(self.route_preview_shapes());
         match (&self.pcb_ed.tool, self.pcb_ed.pts.as_slice()) {
@@ -1314,6 +1327,7 @@ impl Workspace {
             (PcbTool::OutlineLine, _) => "Board outline: click the next corner; click the first point to close. Esc ends.".into(),
             (PcbTool::PlaceFootprint(_), _) => "Place footprint: click to place. R rotates, F flips to the back, Esc stops.".into(),
             (PcbTool::Route | PcbTool::RoutePair, _) => self.route_hint(),
+            (PcbTool::Tune, _) => "Tune length: point at a track of a net with a length target, click to place the meander. Set the target in the bar.".into(),
             (PcbTool::Via, _) => "Via: click to place a through via (it takes the net of the pad or track under it). Esc stops.".into(),
         }
     }

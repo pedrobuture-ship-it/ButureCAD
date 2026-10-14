@@ -49,7 +49,8 @@ empty `footprints` map. Schema 3 adds the stackup, placed footprints, nets, zone
 and graphics (`docs/pcb-core.md`). Schema 4 adds `rules`: board limits, net `classes` and
 net → class `assignments` (`docs/drc.md`); older files load with the default rules (migration 3 → 4
 rewrites nothing). Schema 5 adds `rules.diff_pairs` (name, positive/negative net, optional
-width/gap, max skew; `docs/diff-pairs.md`); migration 4 → 5 rewrites nothing.
+width/gap, max skew; `docs/diff-pairs.md`); migration 4 → 5 rewrites nothing. Schema 6 adds `rules.length_targets` (net → target, tolerance;
+`docs/length-tuning.md`); migration 5 → 6 rewrites nothing.
 
 ## Rules
 

@@ -10,6 +10,7 @@
 //! * [`walkaround`] — the public routing entry points that combine them;
 //! * [`shove`] — displaces existing tracks of other nets so a new route fits, then re-verifies the
 //!   result with the DRC rules;
+//! * [`tuning`] — length tuning: serpentine/accordion meanders that add an exact length;
 //! * [`validate`] — the DRC check of the finished route (the router never trusts its own
 //!   approximation: what it returns is re-checked with the same rules as the DRC panel).
 //!
@@ -21,10 +22,12 @@ pub mod diffpair;
 pub mod obstacle;
 pub mod pathfind;
 pub mod shove;
+pub mod tuning;
 pub mod validate;
 pub mod walkaround;
 
 pub use obstacle::{ObstacleSet, RouteParams};
 pub use shove::{shove, NewCopper, ShoveError, ShoveResult};
-pub use validate::{validate_pair, validate_route, RouteCandidate};
+pub use tuning::{plan_meander, TuneError, TuneParams, TunePlan, TuneStyle};
+pub use validate::{validate_pair, validate_replacement, validate_route, RouteCandidate};
 pub use walkaround::{route_leg, walk_around, RouteError};

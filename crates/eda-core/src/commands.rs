@@ -315,6 +315,14 @@ impl Command for SetRulesCommand {
         }
         if let Some(n) = self
             .after
+            .length_targets
+            .keys()
+            .find(|n| !project.pcb.nets.contains_key(n))
+        {
+            return Err(ModelError::BadObject(format!("net {n:?} does not exist")).into());
+        }
+        if let Some(n) = self
+            .after
             .diff_pairs
             .values()
             .flat_map(|p| [p.positive, p.negative])

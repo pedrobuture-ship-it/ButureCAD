@@ -184,6 +184,7 @@ describe("Symbol Editor commands", () => {
         warnings: [],
         ratsnest_visible: true,
         unrouted: 0,
+        length: null,
         route_width_mm: "0.25",
         route_width_auto: true,
         route_obstacles: "walk",

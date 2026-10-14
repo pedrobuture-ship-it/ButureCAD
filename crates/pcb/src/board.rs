@@ -778,6 +778,14 @@ pub struct DiffPair {
     pub max_skew: Coord,
 }
 
+/// A routed-length goal for one net.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LengthTarget {
+    pub target: Coord,
+    /// Accepted deviation either way.
+    pub tolerance: Coord,
+}
+
 /// Suffix pairs recognised by [`detect_pairs`] (positive, negative).
 const PAIR_SUFFIXES: [(&str, &str); 6] = [
     ("+", "-"),
@@ -848,6 +856,9 @@ pub struct DesignRules {
     /// Differential pairs by name.
     #[serde(default)]
     pub diff_pairs: BTreeMap<String, DiffPair>,
+    /// Length-matching targets by net.
+    #[serde(default)]
+    pub length_targets: BTreeMap<Id, LengthTarget>,
 }
 
 impl Default for DesignRules {
@@ -863,6 +874,7 @@ impl Default for DesignRules {
             classes,
             assignments: BTreeMap::new(),
             diff_pairs: BTreeMap::new(),
+            length_targets: BTreeMap::new(),
         }
     }
 }
@@ -916,7 +928,40 @@ impl DesignRules {
         }
     }
 
+    /// The length goal that applies to `net`: its own target, else (for a pair leg) the length of
+    /// the partner within the pair's maximum skew. `lengths` yields a net's routed length.
+    pub fn effective_length_target(
+        &self,
+        net: Id,
+        lengths: impl Fn(Id) -> Option<Coord>,
+    ) -> Option<(LengthTarget, bool)> {
+        if let Some(t) = self.length_targets.get(&net) {
+            return Some((*t, false));
+        }
+        let pair = self.pair_of(Some(net))?;
+        let partner = if pair.positive == net {
+            pair.negative
+        } else {
+            pair.positive
+        };
+        let target = lengths(partner)?;
+        Some((
+            LengthTarget {
+                target,
+                tolerance: pair.max_skew,
+            },
+            true,
+        ))
+    }
+
     pub fn validate(&self) -> Result<(), BoardError> {
+        for (n, t) in &self.length_targets {
+            if !(1..=10_000_000_000).contains(&t.target)
+                || !(0..=1_000_000_000).contains(&t.tolerance)
+            {
+                return bad(format!("the length target of net {n:?} is out of range"));
+            }
+        }
         let mut seen = std::collections::BTreeSet::new();
         for (k, p) in &self.diff_pairs {
             if k != &p.name || p.name.trim().is_empty() || p.name.chars().any(char::is_control) {
