@@ -43,6 +43,7 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     erc: null,
     drc: null,
     fab: null,
+    gerber: null,
     viewer3d: null,
     footprint_editor: null,
     pcb: null,

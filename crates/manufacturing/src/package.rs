@@ -126,7 +126,7 @@ pub fn generate(input: &FabInput) -> Result<Generated, FabError> {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::model::*;
 

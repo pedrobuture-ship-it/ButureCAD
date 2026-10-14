@@ -455,7 +455,7 @@ fn sanitize(name: &str) -> String {
 /// Last manufacturing preview.
 #[derive(Default)]
 pub(crate) struct FabState {
-    generated: Option<(u64, fab::Generated)>,
+    pub(super) generated: Option<(u64, fab::Generated)>,
 }
 
 impl Workspace {

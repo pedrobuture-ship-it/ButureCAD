@@ -19,6 +19,7 @@ mod editor;
 mod erc;
 mod fab;
 mod footprint_editor;
+mod gerber_view;
 mod mcad;
 mod pcb_editor;
 mod pcb_pair;
@@ -93,6 +94,7 @@ pub struct Workspace {
     erc: erc::ErcState,
     drc: drc::DrcState,
     fab: fab::FabState,
+    gv: gerber_view::GerberViewer,
     pub(crate) view3d: viewer3d::Viewer3d,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
@@ -146,6 +148,7 @@ impl Workspace {
             erc: erc::ErcState::default(),
             drc: drc::DrcState::default(),
             fab: fab::FabState::default(),
+            gv: gerber_view::GerberViewer::default(),
             view3d: Default::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
@@ -616,9 +619,13 @@ impl Workspace {
     // -- pointer input ---------------------------------------------------------------------------
 
     pub fn pointer(&mut self, ev: PointerEvent) -> PointerResult {
-        if self.mode == Mode::Viewer3d {
+        if matches!(self.mode, Mode::Viewer3d | Mode::GerberViewer) {
             let mut out = Outcome::default();
-            self.pointer_3d(ev, &mut out);
+            if self.mode == Mode::Viewer3d {
+                self.pointer_3d(ev, &mut out);
+            } else {
+                self.pointer_gerber(ev, &mut out);
+            }
             return PointerResult {
                 redraw: out.redraw,
                 cursor_x_nm: 0,
@@ -1099,6 +1106,7 @@ impl Workspace {
             }),
             drc: self.drc_info(),
             fab: self.fab_info(),
+            gerber: (self.mode == Mode::GerberViewer).then(|| self.gerber_info()),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }
@@ -1112,6 +1120,9 @@ impl Workspace {
         self.set_canvas_size(width as f64, height as f64);
         if self.mode == Mode::Viewer3d {
             return self.render_3d(width, height);
+        }
+        if self.mode == Mode::GerberViewer {
+            return self.render_gerber(width, height);
         }
         self.ensure_scene();
         if self.scene().is_some() && !self.fitted.contains(&self.mode) {

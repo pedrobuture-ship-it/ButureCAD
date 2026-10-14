@@ -10,11 +10,15 @@
 //! fabricated.
 
 pub mod excellon;
+pub mod excellon_read;
 pub mod gerber;
+pub mod gerber_read;
 pub mod model;
 pub mod package;
 pub mod preflight;
+pub mod raster2d;
 pub mod tables;
+pub mod verify;
 pub mod zip;
 
 pub use model::{

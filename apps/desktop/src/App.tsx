@@ -5,6 +5,7 @@ import { call, closeWindowNow, refreshSnapshot, toast } from "./actions";
 import { availability } from "./commands";
 import { BottomPanel } from "./components/BottomPanel";
 import { CanvasView } from "./components/CanvasView";
+import { GerberViewerBar } from "./components/GerberViewerBar";
 import { Viewer3dBar } from "./components/Viewer3dBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextMenu } from "./components/ContextMenu";
@@ -121,7 +122,8 @@ export function App() {
     mode === "pcb" ||
     (mode === "symbol_editor" && !!snap?.symbol_editor) ||
     (mode === "footprint_editor" && !!snap?.footprint_editor) ||
-    mode === "viewer3d";
+    mode === "viewer3d" ||
+    mode === "gerber_viewer";
 
   return (
     <div className={inspectorOpen ? "app" : "app no-inspector"}>
@@ -144,6 +146,7 @@ export function App() {
                 {mode === "footprint_editor" && <FootprintEditorBar />}
                 {mode === "pcb" && <PcbBar />}
                 {mode === "viewer3d" && <Viewer3dBar />}
+                {mode === "gerber_viewer" && <GerberViewerBar />}
                 <CanvasView />
               </>
             ) : (

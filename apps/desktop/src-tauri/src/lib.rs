@@ -62,6 +62,7 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::mcad_export,
         commands::fab_preview,
         commands::fab_export,
+        commands::gerber_command,
         commands::drc_run,
         commands::drc_focus,
         commands::erc_run,

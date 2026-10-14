@@ -3,6 +3,7 @@ import type { DrcInfo } from "./DrcInfo";
 import type { ErcInfo } from "./ErcInfo";
 import type { FabInfo } from "./FabInfo";
 import type { FootprintEditorInfo } from "./FootprintEditorInfo";
+import type { GerberViewerInfo } from "./GerberViewerInfo";
 import type { GridInfo } from "./GridInfo";
 import type { LayerInfo } from "./LayerInfo";
 import type { Message } from "./Message";
@@ -71,4 +72,8 @@ viewer3d: Viewer3dInfo | null,
 /**
  * The last manufacturing preview.
  */
-fab: FabInfo | null, };
+fab: FabInfo | null, 
+/**
+ * Gerber viewer state (only in the Gerber viewer mode).
+ */
+gerber: GerberViewerInfo | null, };

@@ -735,6 +735,7 @@ export function buildCommands(): AppCommand[] {
     modeCommand("symbol_editor", "Symbol Editor", "Ctrl+3"),
     modeCommand("footprint_editor", "Footprint Editor", "Ctrl+4"),
     modeCommand("viewer3d", "3D Viewer", "Ctrl+5"),
+    modeCommand("gerber_viewer", "Gerber Viewer", "Ctrl+6"),
 
     {
       id: "tools.palette",

@@ -3,7 +3,14 @@ import { MODE_PLANNED, MODE_TITLES } from "../tools";
 import { useUi } from "../store";
 import { useActions } from "./hooks";
 
-const ORDER: Mode[] = ["schematic", "pcb", "symbol_editor", "footprint_editor", "viewer3d"];
+const ORDER: Mode[] = [
+  "schematic",
+  "pcb",
+  "symbol_editor",
+  "footprint_editor",
+  "viewer3d",
+  "gerber_viewer",
+];
 
 export function DocTabs() {
   const snap = useUi((s) => s.snapshot);

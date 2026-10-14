@@ -375,6 +375,16 @@ pub fn fab_export(state: State<'_, AppState>, path: String) -> Result<Snapshot, 
     state.act(|ws| ws.fab_export(&path))
 }
 
+/// Gerber viewer actions (load the preview, open a folder/zip, layer toggles, verify).
+#[tauri::command]
+pub fn gerber_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.gerber_command(&name, arg.as_deref()))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

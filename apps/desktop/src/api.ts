@@ -86,6 +86,7 @@ export const api = {
   pcbRules: () => invoke<RulesInfo>("pcb_rules"),
   pcbRulesApply: (rules: RulesInfo) => invoke<Snapshot>("pcb_rules_apply", { rules }),
   drcRun: () => invoke<Snapshot>("drc_run"),
+  gerberCommand: (name: string, arg?: string) => invoke<Snapshot>("gerber_command", { name, arg }),
   fabPreview: () => invoke<Snapshot>("fab_preview"),
   fabExport: (path: string) => invoke<Snapshot>("fab_export", { path }),
   drcFocus: (index: number) => invoke<Snapshot>("drc_focus", { index }),

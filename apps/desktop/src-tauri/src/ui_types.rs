@@ -15,6 +15,7 @@ pub enum Mode {
     SymbolEditor,
     FootprintEditor,
     Viewer3d,
+    GerberViewer,
 }
 
 impl Mode {
@@ -176,6 +177,8 @@ pub struct Snapshot {
     pub viewer3d: Option<Viewer3dInfo>,
     /// The last manufacturing preview.
     pub fab: Option<FabInfo>,
+    /// Gerber viewer state (only in the Gerber viewer mode).
+    pub gerber: Option<GerberViewerInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -684,4 +687,57 @@ pub struct Viewer3dInfo {
     pub has_outline: bool,
     pub tracks: u32,
     pub zone_pieces: u32,
+}
+
+/// The Gerber viewer: parsed files, not the board model.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct GerberViewerInfo {
+    pub loaded: bool,
+    pub source: String,
+    pub layers: Vec<GerberLayerInfo>,
+    pub selected: Option<u32>,
+    /// Apertures of the selected Gerber layer.
+    pub apertures: Vec<GerberApertureInfo>,
+    /// Tools of the selected drill layer.
+    pub tools: Vec<GerberToolInfo>,
+    /// Files that could not be parsed.
+    pub errors: Vec<String>,
+    /// Parsed-files-vs-board comparison (only for the current preview).
+    pub checks: Vec<GerberCheckInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct GerberLayerInfo {
+    pub name: String,
+    /// `gerber` or `drill`.
+    pub kind: String,
+    pub visible: bool,
+    pub color: String,
+    pub summary: String,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct GerberApertureInfo {
+    pub code: String,
+    pub shape: String,
+    pub uses: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct GerberToolInfo {
+    pub tool: String,
+    pub diameter_mm: String,
+    pub holes: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct GerberCheckInfo {
+    pub ok: bool,
+    pub text: String,
 }
