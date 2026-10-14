@@ -45,7 +45,10 @@ properties. Files are rewritten as v2 on the next save.
 
 Schema 2: `tracks` (`layer`, `segment`, `width`), `vias` (`position`, `diameter`, `drill`) and
 `footprints` (`Library:Name` → footprint, see `docs/footprint-editor.md`). Migration 1 → 2 adds an
-empty `footprints` map.
+empty `footprints` map. Schema 3 adds the stackup, placed footprints, nets, zones, keepouts, texts
+and graphics (`docs/pcb-core.md`). Schema 4 adds `rules`: board limits, net `classes` and
+net → class `assignments` (`docs/drc.md`); older files load with the default rules (migration 3 → 4
+rewrites nothing).
 
 ## Rules
 
@@ -56,5 +59,4 @@ empty `footprints` map.
   **not** one atomic unit; a rotating backup snapshot (`.buture/backups/NNNNNN/`, last 5, taken
   only when the current files all parse) is the recovery path. Autosave mirrors the layout in
   `.buture/autosave/`.
-- The PCB document is still a minimal skeleton (tracks and vias); footprints, pads and nets will
-  bump its schema version with a migration.
+- Any change to a document's shape bumps its schema version and adds a migration step.

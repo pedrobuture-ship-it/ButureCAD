@@ -276,6 +276,28 @@ pub fn symbol_libraries(state: State<'_, AppState>) -> Result<Vec<LibraryInfo>, 
 }
 
 /// Runs the Electrical Rules Check on the open project.
+/// The board's design rules and net classes.
+#[tauri::command]
+pub fn pcb_rules(state: State<'_, AppState>) -> Result<RulesInfo, String> {
+    state.with(|ws| ws.pcb_rules_info())
+}
+
+/// Applies edited rules as one undo step.
+#[tauri::command]
+pub fn pcb_rules_apply(state: State<'_, AppState>, rules: RulesInfo) -> Result<Snapshot, String> {
+    state.act(|ws| ws.pcb_rules_apply(rules))
+}
+
+#[tauri::command]
+pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
+    state.act(|ws| ws.drc_run())
+}
+
+#[tauri::command]
+pub fn drc_focus(state: State<'_, AppState>, index: u32) -> Result<Snapshot, String> {
+    state.act(|ws| ws.drc_focus(index as usize))
+}
+
 #[tauri::command]
 pub fn erc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.erc_run())

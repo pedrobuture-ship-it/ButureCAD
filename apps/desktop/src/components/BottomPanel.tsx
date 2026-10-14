@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { store, useUi, type BottomTab } from "../store";
+import { DrcPanel } from "./DrcPanel";
 import { ErcPanel } from "./ErcPanel";
 
 const TABS: { id: BottomTab; label: string }[] = [
@@ -8,15 +9,6 @@ const TABS: { id: BottomTab; label: string }[] = [
   { id: "messages", label: "Messages" },
   { id: "console", label: "Console" },
 ];
-
-function NotImplemented({ what, stage }: { what: string; stage: string }) {
-  return (
-    <div className="not-impl">
-      <strong>{what} is not implemented yet.</strong>
-      <span>Planned in {stage}. No results are shown because nothing has been checked.</span>
-    </div>
-  );
-}
 
 export function BottomPanel() {
   const snap = useUi((s) => s.snapshot);
@@ -47,6 +39,11 @@ export function BottomPanel() {
                 {snap.erc.errors + snap.erc.warnings}
               </span>
             )}
+            {t.id === "drc" && snap?.drc && snap.drc.errors + snap.drc.warnings > 0 && (
+              <span className={snap.drc.errors > 0 ? "count err" : "count"}>
+                {snap.drc.errors + snap.drc.warnings}
+              </span>
+            )}
             {t.id === "messages" && messages.length > 0 && (
               <span className="count">{messages.length}</span>
             )}
@@ -64,7 +61,7 @@ export function BottomPanel() {
       {open && (
         <div className="bottom-body" ref={bodyRef}>
           {tab === "erc" && <ErcPanel />}
-          {tab === "drc" && <NotImplemented what="Design Rules Check" stage="roadmap stage 19" />}
+          {tab === "drc" && <DrcPanel />}
           {tab === "messages" && (
             <ul className="log">
               {messages.length === 0 && <li className="muted">No messages.</li>}

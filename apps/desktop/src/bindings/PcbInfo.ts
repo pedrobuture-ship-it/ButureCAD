@@ -8,7 +8,15 @@ export type PcbInfo = { copper_layers: number, active_layer: string, footprints:
 /**
  * Track width (mm) and angle mode (`45`, `90`, `free`) of the Route tool, via size `d/drill`.
  */
-route_width_mm: string, route_mode: string, via_size: string, 
+route_width_mm: string, 
+/**
+ * The width follows the net class (no manual override).
+ */
+route_width_auto: boolean, 
+/**
+ * Class of the net being routed (or Default).
+ */
+route_class: string, route_mode: string, via_size: string, via_size_auto: boolean, 
 /**
  * The route in progress.
  */

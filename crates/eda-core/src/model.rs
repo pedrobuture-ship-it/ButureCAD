@@ -7,7 +7,8 @@
 
 use buturecad_geometry::{Coord, Point, Segment};
 use buturecad_pcb::{
-    layer, BoardGraphic, BoardText, Footprint, Keepout, Net, PlacedFootprint, Stackup, Zone,
+    layer, BoardGraphic, BoardText, DesignRules, Footprint, Keepout, Net, PlacedFootprint, Stackup,
+    Zone,
 };
 pub use buturecad_schematic::Id;
 use serde::{Deserialize, Serialize};
@@ -116,6 +117,8 @@ pub struct PcbDoc {
     pub texts: BTreeMap<Id, BoardText>,
     /// Graphics on any layer; those on `Edge.Cuts` form the board outline.
     pub graphics: BTreeMap<Id, BoardGraphic>,
+    /// Design rules and net classes.
+    pub rules: DesignRules,
     /// Footprint definitions embedded in the project (like the schematic's symbol table), keyed
     /// by `Library:Name`. Placing footprints on the board arrives with the PCB core stage.
     pub footprints: BTreeMap<String, Footprint>,

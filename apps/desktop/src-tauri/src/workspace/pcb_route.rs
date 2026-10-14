@@ -38,6 +38,39 @@ struct Hit {
 }
 
 impl Workspace {
+    /// The net being routed (none when idle or on netless copper).
+    pub(crate) fn route_net(&self) -> Option<Id> {
+        self.pcb_ed.route.as_ref().and_then(|r| r.net)
+    }
+
+    /// Track width for `net`: the manual setting, else the net class.
+    pub(crate) fn route_width_for(&self, net: Option<Id>) -> i64 {
+        self.pcb_ed.route_width.unwrap_or_else(|| {
+            self.pcb_doc()
+                .map_or(buturecad_eda_core::routing::DEFAULT_WIDTH, |d| {
+                    d.rules.class_of(net).track_width
+                })
+        })
+    }
+
+    /// Via `(diameter, drill)` for `net`: the manual setting, else the net class.
+    pub(crate) fn via_size_for(&self, net: Option<Id>) -> (i64, i64) {
+        self.pcb_ed.via_size.unwrap_or_else(|| {
+            self.pcb_doc().map_or((800_000, 400_000), |d| {
+                let c = d.rules.class_of(net);
+                (c.via_diameter, c.via_drill)
+            })
+        })
+    }
+
+    /// Clearance shown around a route of `net` (the class value; DRC enforces it).
+    pub(crate) fn clearance_for(&self, net: Option<Id>) -> i64 {
+        self.pcb_doc()
+            .map_or(buturecad_eda_core::routing::DEFAULT_CLEARANCE, |d| {
+                d.rules.class_of(net).clearance
+            })
+    }
+
     fn route_tolerance(&self) -> f64 {
         self.views
             .get(&Mode::Pcb)
@@ -321,8 +354,8 @@ impl Workspace {
         if poly.len() >= 2 {
             r.done.push((r.layer, poly));
         }
-        let width = self.pcb_ed.route_width;
-        let (vd, vdr) = (self.pcb_ed.via_diameter, self.pcb_ed.via_drill);
+        let width = self.route_width_for(r.net);
+        let (vd, vdr) = self.via_size_for(r.net);
         let mut changes: Vec<PcbChange> = Vec::new();
         let mut created: BTreeSet<Id> = BTreeSet::new();
         for (l, poly) in &r.done {
@@ -381,8 +414,8 @@ impl Workspace {
         let id = self.pcb_new_id();
         let via = Via {
             position,
-            diameter: self.pcb_ed.via_diameter,
-            drill: self.pcb_ed.via_drill,
+            diameter: self.via_size_for(net).0,
+            drill: self.via_size_for(net).1,
             net,
             kind: ViaKind::Through,
         };
@@ -427,11 +460,15 @@ impl Workspace {
     ) -> Result<bool, String> {
         match name {
             "route_width" => {
+                if matches!(arg.map(str::trim), None | Some("") | Some("auto")) {
+                    self.pcb_ed.route_width = None;
+                    return Ok(true);
+                }
                 let w = parse_mm(arg.unwrap_or(""), "width")?;
                 if !(10_000..=20_000_000).contains(&w) {
                     return Err("track width must be between 0.01 mm and 20 mm".into());
                 }
-                self.pcb_ed.route_width = w;
+                self.pcb_ed.route_width = Some(w);
                 Ok(true)
             }
             "route_mode" => {
@@ -440,6 +477,10 @@ impl Workspace {
                 Ok(true)
             }
             "via_size" => {
+                if matches!(arg.map(str::trim), None | Some("") | Some("auto")) {
+                    self.pcb_ed.via_size = None;
+                    return Ok(true);
+                }
                 let (d, dr) = arg
                     .unwrap_or("")
                     .split_once('/')
@@ -450,8 +491,7 @@ impl Workspace {
                         "the drill must be positive and smaller than the via diameter".into(),
                     );
                 }
-                self.pcb_ed.via_diameter = d;
-                self.pcb_ed.via_drill = dr;
+                self.pcb_ed.via_size = Some((d, dr));
                 Ok(true)
             }
             "route_via" => self.route_via().map(|()| true),
@@ -481,8 +521,8 @@ impl Workspace {
             ThemeName::Light => Rgba::rgb(20, 20, 20),
         };
         let (end, hit) = self.route_end(self.raw_cursor(), self.cursor);
-        let width = self.pcb_ed.route_width;
-        let clearance = self.pcb_ed.route_clearance;
+        let width = self.route_width_for(r.net);
+        let clearance = self.clearance_for(r.net);
         let mut out: Vec<(Shape, Rgba)> = r.highlight.iter().cloned().map(|s| (s, white)).collect();
         let mut polylines: Vec<(LayerId, Vec<Point>)> = r.done.clone();
         let mut cur = r.pts.clone();
@@ -519,7 +559,7 @@ impl Workspace {
                 Shape::Circle {
                     circle: Circle {
                         center: *v,
-                        radius: self.pcb_ed.via_diameter / 2,
+                        radius: self.via_size_for(r.net).0 / 2,
                     },
                     filled: true,
                     stroke: 0,

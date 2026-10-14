@@ -1,10 +1,10 @@
 # Working
 
-*Checkpoint after roadmap stages 01–18. Everything below is implemented, tested and used by the
+*Roadmap stages 01–20 (last checkpoint after 18). Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
-- **Project format** (`buturecad-io`): create/open/save/save-as, atomic writes, rotating backups, autosave, crash recovery, migration framework. Schemas: manifest 1, schematic 3 (v1→v2→v3 migrations), PCB 2 (v1→v2). See `docs/file-format/`.
+- **Project format** (`buturecad-io`): create/open/save/save-as, atomic writes, rotating backups, autosave, crash recovery, migration framework. Schemas: manifest 1, schematic 3 (v1→v2→v3 migrations), PCB 4 (v1→v2→v3→v4). See `docs/file-format/`.
 - **Geometry engine** (`buturecad-geometry`): integer nanometres, exact predicates, nearest point, offset, rotation, R-tree index; unit and property tests.
 - **Command Engine** (`buturecad-eda-core`): undo/redo, nested transactions, exact dirty state, history limit, autosave/recovery hooks; commands for schematic edits, symbols, footprints, ERC waivers, tracks, vias, rename; property tests (undo-all/redo-all is lossless).
 - **Renderer** (`buturecad-renderer`): wgpu offscreen MSAA renderer shown in a canvas; pan/zoom, adaptive grid, snap, layers, picking, selection; verified on a real GPU (GPU tests skip without an adapter).
@@ -26,18 +26,23 @@ desktop app; limits are stated in the sections that follow.*
 
 - **Routing and vias** (roadmap 17–18): pad-to-pad routing with 45°/90°/free, width, active layer, preview with clearance halo, net highlight and targets, finish/cancel, net-aware (refuses shorts), through vias while routing and as a tool with automatic layer change, editing of width/net/layer/vertices, one undo step per route, ratsnest kept in step. See `docs/routing.md`.
 
+- **DRC** (roadmap 19): clearance, shorts, track width, via diameter/drill/annular ring, copper-to-edge, outside board, unrouted connections, courtyard overlap on real geometry; incremental engine proven equal to a full run; clickable violations select the objects and zoom. See `docs/drc.md`.
+
+- **Net classes** (roadmap 20): Default/Power/USB/Differential/HighCurrent presets, per-net assignment, board limits, undoable, persisted (PCB schema 4); the router takes width and via size from the net class and DRC its clearance.
+
 # Partial
 
-- **PCB:** the model, placement, routing and vias exist; routing does not avoid obstacles and clearance is only displayed (no DRC until roadmap 19); zones/keepouts have no tools (25).
+- **PCB:** the model, placement, routing and vias exist; routing does not avoid obstacles (DRC reports what it violates; walk-around is stage 21); zones/keepouts have no tools and are not checked by DRC (25).
 - **Libraries:** one library per file; no component records (symbol + footprint + 3D + manufacturer data), no search index, no provider API (roadmap 31–33). The built-in `Buture` set is a small bootstrap library (R, C, L, D, LED, connectors, GND/+3V3/+5V/VCC, PWR_FLAG).
-- **Router:** obstacles are not avoided and clearance is not enforced; track width, clearance and via size are global defaults until net classes (roadmap 20).
+- **Router:** obstacles are not avoided and clearance is not enforced while drawing (only displayed; DRC checks afterwards). Width and via size follow the net class.
+- **DRC:** the app runs a full check on demand (and marks it stale after edits); the incremental `DrcEngine::update` is not yet driven per edit. No hole-to-hole, silkscreen or mask rules.
 - **Hierarchy:** only the root sheet can be drawn and edited; hierarchical sheets exist in the model and connectivity but have no UI tools. ERC findings inside child sheets are listed but cannot be focused.
 - **Symbol edits and placed parts:** changing a symbol's pins moves the pins but not the wires attached to them in the schematic; ERC shows what became unconnected. There is no "update symbol from library" command: the project copy is authoritative once opened.
 - **Wire re-routing** is not a general router: dense layouts can leave no valid style (reported as a warning).
 - **Multi-file save** is not one atomic unit (the backup snapshot is the recovery path).
 - **Footprint Editor:** pad rotation in quarter turns only; custom pads are edited as polygons in the inspector (no on-canvas vertex editor); mask/paste are shown at each pad's own margin; 3D references are stored, not rendered.
 - **ERC:** no per-rule severity overrides or disabling; no hidden/implicit power pins.
-- **3D Viewer** and **DRC** are placeholders labelled as not implemented in the UI.
+- **3D Viewer** is a placeholder labelled as not implemented in the UI.
 
 # Broken
 
@@ -53,6 +58,7 @@ desktop app; limits are stated in the sections that follow.*
 - Connectivity merge phase is O(nets) per update (net ids are positions in a global order): measured 2.5× faster than a full rebuild on a 63k-object design, ~1 ms on typical sheets (`cargo run --release -p buturecad-schematic --example connectivity_bench`).
 - `buturecad-libraries` depends on `buturecad-io` only for `atomic_write`; the helper could move to a smaller shared crate.
 - The desktop crate's `workspace/` module is ~8.3 k lines; the schematic, symbol, footprint and PCB editors each carry their own select/move/draw state machine with similar structure. A shared item-editor abstraction is worth extracting before more editors (zones, 3D) add copies.
+- The DRC panel and the Net Classes dialog are covered by IPC tests but have no end-to-end browser scenario yet.
 - The end-to-end harness needs Chromium and a GPU, so it is not run in CI; React components are covered by it and by the command-registry tests only.
 - Reserved crates (`router`, `manufacturing`, `simulation`, `viewer3d`, `scripting`, `plugin-runtime`, `agent-api`) are empty on purpose.
 - `PinType::Unspecified` exists beyond the ten types the roadmap lists (kept for legacy and imported data).

@@ -661,3 +661,176 @@ mod tests {
         .is_err());
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Design rules and net classes
+// ---------------------------------------------------------------------------------------------
+
+/// Name of the class every net belongs to unless assigned elsewhere. It always exists.
+pub const DEFAULT_CLASS: &str = "Default";
+
+/// Routing and checking rules shared by a group of nets.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetClass {
+    pub name: String,
+    /// Preferred track width when routing a net of this class.
+    pub track_width: Coord,
+    /// Minimum copper-to-copper clearance of nets of this class (against anything).
+    pub clearance: Coord,
+    pub via_diameter: Coord,
+    pub via_drill: Coord,
+    /// Width of each track of a differential pair of this class.
+    pub diff_pair_width: Coord,
+    /// Edge-to-edge gap of a differential pair of this class.
+    pub diff_pair_gap: Coord,
+}
+
+impl NetClass {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            track_width: 250_000,
+            clearance: 200_000,
+            via_diameter: 800_000,
+            via_drill: 400_000,
+            diff_pair_width: 200_000,
+            diff_pair_gap: 200_000,
+        }
+    }
+
+    /// The preset classes offered by "Add preset": Default, Power, USB, Differential, HighCurrent.
+    pub fn presets() -> Vec<NetClass> {
+        let mk =
+            |name: &str, w: Coord, c: Coord, vd: Coord, vr: Coord, dw: Coord, dg: Coord| NetClass {
+                name: name.into(),
+                track_width: w,
+                clearance: c,
+                via_diameter: vd,
+                via_drill: vr,
+                diff_pair_width: dw,
+                diff_pair_gap: dg,
+            };
+        vec![
+            mk(
+                "Default", 250_000, 200_000, 800_000, 400_000, 200_000, 200_000,
+            ),
+            mk(
+                "Power", 500_000, 250_000, 1_000_000, 500_000, 200_000, 200_000,
+            ),
+            // 90 Ω differential pair on typical 1.6 mm FR-4 microstrip: a starting point, verify
+            // against your stackup.
+            mk("USB", 200_000, 200_000, 600_000, 300_000, 200_000, 150_000),
+            mk(
+                "Differential",
+                200_000,
+                200_000,
+                600_000,
+                300_000,
+                200_000,
+                200_000,
+            ),
+            mk(
+                "HighCurrent",
+                1_000_000,
+                300_000,
+                1_200_000,
+                600_000,
+                200_000,
+                200_000,
+            ),
+        ]
+    }
+
+    pub fn validate(&self) -> Result<(), BoardError> {
+        if self.name.trim().is_empty() || self.name.chars().any(char::is_control) {
+            return bad("a net class needs a name");
+        }
+        let lim = |v: Coord| (1..=100_000_000).contains(&v);
+        if !(lim(self.track_width)
+            && lim(self.clearance)
+            && lim(self.via_diameter)
+            && lim(self.via_drill)
+            && lim(self.diff_pair_width)
+            && lim(self.diff_pair_gap))
+        {
+            return bad("net class dimensions must be between 1 nm and 100 mm");
+        }
+        if self.via_drill >= self.via_diameter {
+            return bad("the via drill must be smaller than the via diameter");
+        }
+        Ok(())
+    }
+}
+
+/// Board-wide limits and the net classes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DesignRules {
+    pub min_track_width: Coord,
+    pub min_via_diameter: Coord,
+    pub min_via_drill: Coord,
+    /// (via diameter − drill) / 2 must be at least this.
+    pub min_annular_ring: Coord,
+    /// Copper must stay this far from the board edge.
+    pub copper_to_edge: Coord,
+    pub classes: BTreeMap<String, NetClass>,
+    /// Net id → class name (nets not listed use [`DEFAULT_CLASS`]).
+    pub assignments: BTreeMap<Id, String>,
+}
+
+impl Default for DesignRules {
+    fn default() -> Self {
+        let mut classes = BTreeMap::new();
+        classes.insert(DEFAULT_CLASS.to_owned(), NetClass::new(DEFAULT_CLASS));
+        Self {
+            min_track_width: 150_000,
+            min_via_diameter: 500_000,
+            min_via_drill: 300_000,
+            min_annular_ring: 130_000,
+            copper_to_edge: 300_000,
+            classes,
+            assignments: BTreeMap::new(),
+        }
+    }
+}
+
+impl DesignRules {
+    /// The class of a net (the default class when unassigned or when the class vanished).
+    pub fn class_of(&self, net: Option<Id>) -> &NetClass {
+        net.and_then(|n| self.assignments.get(&n))
+            .and_then(|c| self.classes.get(c))
+            .or_else(|| self.classes.get(DEFAULT_CLASS))
+            .unwrap_or_else(|| {
+                // `validate` guarantees the default class exists; this is only reachable for a
+                // rules value that was never validated.
+                static FALLBACK: std::sync::OnceLock<NetClass> = std::sync::OnceLock::new();
+                FALLBACK.get_or_init(|| NetClass::new(DEFAULT_CLASS))
+            })
+    }
+
+    pub fn validate(&self) -> Result<(), BoardError> {
+        if !self.classes.contains_key(DEFAULT_CLASS) {
+            return bad("the Default net class cannot be removed");
+        }
+        for (k, c) in &self.classes {
+            if k != &c.name {
+                return bad("a net class is stored under a different name");
+            }
+            c.validate()?;
+        }
+        for v in self.assignments.values() {
+            if !self.classes.contains_key(v) {
+                return bad(format!("a net is assigned to the missing class “{v}”"));
+            }
+        }
+        let lim = |v: Coord| (0..=100_000_000).contains(&v);
+        if !(lim(self.min_track_width)
+            && lim(self.min_via_diameter)
+            && lim(self.min_via_drill)
+            && lim(self.min_annular_ring)
+            && lim(self.copper_to_edge))
+        {
+            return bad("rule limits must be between 0 and 100 mm");
+        }
+        Ok(())
+    }
+}

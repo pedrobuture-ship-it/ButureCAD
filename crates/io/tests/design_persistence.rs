@@ -409,9 +409,19 @@ fn the_board_round_trips_and_older_pcb_files_still_load() {
         ],
     ))
     .unwrap();
+    let before = e.project().pcb().rules.clone();
+    let mut after = before.clone();
+    after
+        .classes
+        .insert("Power".into(), buturecad_pcb::NetClass::new("Power"));
+    after.assignments.insert(net, "Power".into());
+    e.execute(buturecad_eda_core::commands::SetRulesCommand::new(
+        "rules", before, after,
+    ))
+    .unwrap();
     engine::save(&opened.session, &mut e).unwrap();
     let text = fs::read_to_string(dir.path().join(PCB_FILE)).unwrap();
-    assert!(text.contains("\"schema_version\": 3") && text.contains("NE555"));
+    assert!(text.contains("\"schema_version\": 4") && text.contains("NE555"));
     let net_field = format!("\"net\": {}", net.0);
     assert!(text.contains(&net_field));
     assert_eq!(
@@ -420,8 +430,14 @@ fn the_board_round_trips_and_older_pcb_files_still_load() {
     );
 
     // A hand-damaged board is refused, not half-loaded.
+    assert!(text.contains("\"Power\""));
     for bad in [
         text.replace("\"copper_layers\": 4", "\"copper_layers\": 3"),
+        text.replace("\"Power\": \"Power\"", "\"Power\": \"Gone\"")
+            .replace(
+                &format!("\"{}\": \"Power\"", net.0),
+                &format!("\"{}\": \"Gone\"", net.0),
+            ),
         text.replace(&net_field, "\"net\": 999"),
     ] {
         fs::write(dir.path().join(PCB_FILE), bad).unwrap();

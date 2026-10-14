@@ -149,9 +149,14 @@ export function createActions(): Actions {
     footprintGenerate: () => store.set({ dialog: { kind: "footprint-generate" } }),
     footprintSaveToLibrary: () => store.set({ dialog: { kind: "footprint-save" } }),
     footprintCommand: (name, arg) => void call(api.footprintEditorCommand(name, arg)),
+    netClasses: () => store.set({ dialog: { kind: "net-classes" } }),
     pcbUpdateFromSchematic: () => store.set({ dialog: { kind: "pcb-update" } }),
     pcbPlaceFootprint: () => store.set({ dialog: { kind: "pcb-place" } }),
     pcbCommand: (name, arg) => void call(api.pcbCommand(name, arg)),
+    runDrc: () => {
+      store.set({ bottomTab: "drc", bottomOpen: true });
+      void call(api.drcRun());
+    },
     runErc: () => {
       store.set({ bottomTab: "erc", bottomOpen: true });
       void call(api.ercRun());

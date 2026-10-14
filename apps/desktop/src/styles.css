@@ -846,3 +846,35 @@ textarea {
   color: var(--ok);
   font-weight: 600;
 }
+
+.rules-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.rules-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+.rules-table td {
+  padding: 2px 4px;
+}
+.rules-table input {
+  width: 64px;
+}
+.rules-nets,
+.rules-limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.rules-nets label,
+.rules-limits label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.rules-limits input {
+  width: 64px;
+}

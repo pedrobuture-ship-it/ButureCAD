@@ -4,6 +4,7 @@ import type { FootprintInfo } from "./bindings/FootprintInfo";
 import type { GeneratorInfo } from "./bindings/GeneratorInfo";
 import type { LibraryInfo } from "./bindings/LibraryInfo";
 import type { Mode } from "./bindings/Mode";
+import type { RulesInfo } from "./bindings/RulesInfo";
 import type { PointerEvent as CanvasPointerEvent } from "./bindings/PointerEvent";
 import type { PointerResult } from "./bindings/PointerResult";
 import type { Snapshot } from "./bindings/Snapshot";
@@ -68,6 +69,10 @@ export const api = {
   pcbFootprints: () => invoke<FootprintInfo[]>("pcb_footprints"),
   pcbUpdatePreview: () => invoke<UpdatePreview>("pcb_update_preview"),
   pcbUpdateApply: () => invoke<Snapshot>("pcb_update_apply"),
+  pcbRules: () => invoke<RulesInfo>("pcb_rules"),
+  pcbRulesApply: (rules: RulesInfo) => invoke<Snapshot>("pcb_rules_apply", { rules }),
+  drcRun: () => invoke<Snapshot>("drc_run"),
+  drcFocus: (index: number) => invoke<Snapshot>("drc_focus", { index }),
   ercRun: () => invoke<Snapshot>("erc_run"),
   ercFocus: (index: number) => invoke<Snapshot>("erc_focus", { index }),
   ercWaive: (fingerprint: string, reason: string) =>

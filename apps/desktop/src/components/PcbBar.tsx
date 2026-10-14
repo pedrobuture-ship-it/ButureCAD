@@ -64,6 +64,12 @@ export function PcbBar() {
       >
         Update from schematic…
       </button>
+      <button
+        title="Net classes: track width, clearance and via size per net, and the board limits"
+        onClick={() => store.set({ dialog: { kind: "net-classes" } })}
+      >
+        Net classes…
+      </button>
       <label title="Show or hide the flying wires of unrouted connections (Shift+R)">
         <input
           type="checkbox"
@@ -73,7 +79,7 @@ export function PcbBar() {
         Ratsnest ({info.unrouted})
       </label>
       <CommitInput
-        label="Track width (mm)"
+        label={info.route_width_auto ? `Width (mm) · ${info.route_class}` : "Track width (mm)"}
         value={info.route_width_mm}
         onCommit={(v) => cmd("route_width", v)}
       />
@@ -90,7 +96,7 @@ export function PcbBar() {
         </select>
       </label>
       <CommitInput
-        label="Via Ø/drill (mm)"
+        label={info.via_size_auto ? "Via Ø/drill · class" : "Via Ø/drill (mm)"}
         value={info.via_size}
         width={84}
         onCommit={(v) => cmd("via_size", v)}

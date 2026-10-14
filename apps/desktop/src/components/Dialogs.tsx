@@ -7,6 +7,8 @@ import type { GeneratorInfo } from "../bindings/GeneratorInfo";
 import type { LibraryInfo } from "../bindings/LibraryInfo";
 import type { SymbolInfo } from "../bindings/SymbolInfo";
 import type { CoreInfo } from "../bindings/CoreInfo";
+import type { NetClassInfo } from "../bindings/NetClassInfo";
+import type { RulesInfo } from "../bindings/RulesInfo";
 import { store, useUi } from "../store";
 
 function Modal({
@@ -811,6 +813,177 @@ function PcbUpdateDialog() {
   );
 }
 
+const CLASS_FIELDS: { key: keyof Omit<NetClassInfo, "name">; label: string }[] = [
+  { key: "track_width", label: "Track width" },
+  { key: "clearance", label: "Clearance" },
+  { key: "via_diameter", label: "Via Ø" },
+  { key: "via_drill", label: "Via drill" },
+  { key: "diff_pair_width", label: "Pair width" },
+  { key: "diff_pair_gap", label: "Pair gap" },
+];
+const LIMIT_FIELDS: { key: keyof RulesInfo; label: string }[] = [
+  { key: "min_track_width", label: "Min. track width" },
+  { key: "min_via_diameter", label: "Min. via Ø" },
+  { key: "min_via_drill", label: "Min. via drill" },
+  { key: "min_annular_ring", label: "Min. annular ring" },
+  { key: "copper_to_edge", label: "Copper to edge" },
+];
+
+/** Net classes and board limits (mm). The router and DRC read the same values. */
+function NetClassesDialog() {
+  const [rules, setRules] = useState<RulesInfo | null>(null);
+  const [newName, setNewName] = useState("");
+  useEffect(() => {
+    api
+      .pcbRules()
+      .then(setRules)
+      .catch((e) => toast(String(e)));
+  }, []);
+  if (!rules)
+    return (
+      <Modal title="Net classes" onClose={close}>
+        <p className="muted">Loading…</p>
+      </Modal>
+    );
+  const setClass = (i: number, key: string, v: string) =>
+    setRules({
+      ...rules,
+      classes: rules.classes.map((c, j) => (j === i ? { ...c, [key]: v } : c)),
+    });
+  const addClass = (name: string) => {
+    const n = name.trim();
+    if (!n || rules.classes.some((c) => c.name === n)) return;
+    const base = rules.classes.find((c) => c.name === "Default") ?? rules.classes[0];
+    const presets: Record<string, Partial<NetClassInfo>> = {
+      Power: { track_width: "0.5", clearance: "0.25", via_diameter: "1", via_drill: "0.5" },
+      USB: {
+        track_width: "0.2",
+        clearance: "0.2",
+        via_diameter: "0.6",
+        via_drill: "0.3",
+        diff_pair_gap: "0.15",
+      },
+      Differential: { track_width: "0.2", via_diameter: "0.6", via_drill: "0.3" },
+      HighCurrent: { track_width: "1", clearance: "0.3", via_diameter: "1.2", via_drill: "0.6" },
+    };
+    setRules({ ...rules, classes: [...rules.classes, { ...base, ...presets[n], name: n }] });
+    setNewName("");
+  };
+  const removeClass = (name: string) =>
+    setRules({
+      ...rules,
+      classes: rules.classes.filter((c) => c.name !== name),
+      nets: rules.nets.map((n) => (n.class === name ? { ...n, class: "Default" } : n)),
+    });
+  const apply = async () => {
+    close();
+    await call(api.pcbRulesApply(rules));
+  };
+  const missingPresets = rules.presets.filter((p) => !rules.classes.some((c) => c.name === p));
+  return (
+    <Modal title="Net classes and design rules" onClose={close}>
+      <table className="rules-table">
+        <thead>
+          <tr>
+            <th>Class</th>
+            {CLASS_FIELDS.map((f) => (
+              <th key={f.key}>{f.label}</th>
+            ))}
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rules.classes.map((c, i) => (
+            <tr key={c.name}>
+              <td>
+                <strong>{c.name}</strong>
+              </td>
+              {CLASS_FIELDS.map((f) => (
+                <td key={f.key}>
+                  <input
+                    aria-label={`${c.name} ${f.label}`}
+                    value={c[f.key]}
+                    onChange={(e) => setClass(i, f.key, e.target.value)}
+                  />
+                </td>
+              ))}
+              <td>
+                {c.name !== "Default" && (
+                  <button className="link" onClick={() => removeClass(c.name)}>
+                    Remove
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="actions">
+        {missingPresets.map((p) => (
+          <button key={p} onClick={() => addClass(p)}>
+            + {p}
+          </button>
+        ))}
+        <input
+          value={newName}
+          placeholder="New class name"
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addClass(newName)}
+        />
+        <button onClick={() => addClass(newName)}>Add</button>
+      </div>
+      <h3>Nets</h3>
+      <div className="rules-nets">
+        {rules.nets.length === 0 && <p className="muted">The board has no nets yet.</p>}
+        {rules.nets.map((n) => (
+          <label key={n.id}>
+            {n.name}
+            <select
+              value={n.class}
+              onChange={(e) =>
+                setRules({
+                  ...rules,
+                  nets: rules.nets.map((m) =>
+                    m.id === n.id ? { ...m, class: e.target.value } : m,
+                  ),
+                })
+              }
+            >
+              {rules.classes.map((c) => (
+                <option key={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+      <h3>Board limits (DRC)</h3>
+      <div className="rules-limits">
+        {LIMIT_FIELDS.map((f) => (
+          <label key={f.key}>
+            {f.label}
+            <input
+              value={rules[f.key] as string}
+              onChange={(e) => setRules({ ...rules, [f.key]: e.target.value })}
+            />
+          </label>
+        ))}
+      </div>
+      <p className="muted">
+        All values in mm. The router uses a net's class for track width and via size (unless you
+        type a width in the PCB bar; clear it to return to “auto”). DRC enforces the larger
+        clearance of the two nets involved. Differential pair values are stored for the pair router
+        (roadmap 23).
+      </p>
+      <div className="actions">
+        <button onClick={close}>Cancel</button>
+        <button className="primary" onClick={() => void apply()}>
+          Apply
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function PcbPlaceDialog() {
   const [items, setItems] = useState<FootprintInfo[]>([]);
   const [query, setQuery] = useState("");
@@ -930,6 +1103,8 @@ export function Dialogs() {
       return <PcbUpdateDialog />;
     case "pcb-place":
       return <PcbPlaceDialog />;
+    case "net-classes":
+      return <NetClassesDialog />;
     case "footprint-new":
       return <FootprintNewDialog />;
     case "footprint-open":

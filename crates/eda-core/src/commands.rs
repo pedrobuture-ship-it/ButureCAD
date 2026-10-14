@@ -4,7 +4,7 @@ use crate::command::{Command, CommandError};
 use crate::model::{Entity, Id, ModelError, PcbChange, Track, Via};
 use crate::Project;
 use buturecad_geometry::{Point, Segment};
-use buturecad_pcb::{Footprint, Stackup};
+use buturecad_pcb::{DesignRules, Footprint, Stackup};
 use buturecad_schematic::{
     Change, Component, Object, Placement, Schematic, SchematicError, Symbol, Waiver, Wire,
 };
@@ -276,6 +276,49 @@ impl Command for PcbEditCommand {
     }
     fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
         Ok(project.pcb.revert_changes(&self.changes)?)
+    }
+}
+
+/// Replaces the design rules and net classes (one undo step).
+#[derive(Debug)]
+pub struct SetRulesCommand {
+    before: DesignRules,
+    after: DesignRules,
+    label: String,
+}
+
+impl SetRulesCommand {
+    pub fn new(label: impl Into<String>, before: DesignRules, after: DesignRules) -> Self {
+        Self {
+            before,
+            after,
+            label: label.into(),
+        }
+    }
+}
+
+impl Command for SetRulesCommand {
+    fn label(&self) -> String {
+        self.label.clone()
+    }
+    fn apply(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        self.after
+            .validate()
+            .map_err(|e| ModelError::BadObject(e.to_string()))?;
+        if let Some(n) = self
+            .after
+            .assignments
+            .keys()
+            .find(|n| !project.pcb.nets.contains_key(n))
+        {
+            return Err(ModelError::BadObject(format!("net {n:?} does not exist")).into());
+        }
+        project.pcb.rules = self.after.clone();
+        Ok(())
+    }
+    fn revert(&mut self, project: &mut Project) -> Result<(), CommandError> {
+        project.pcb.rules = self.before.clone();
+        Ok(())
     }
 }
 

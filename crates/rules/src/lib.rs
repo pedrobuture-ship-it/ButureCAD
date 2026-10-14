@@ -1,9 +1,12 @@
 //! ERC and DRC rule engines.
 //!
-//! **Scope today (roadmap stage 11):** [`erc`], the Electrical Rules Check, which works on the
-//! logical connectivity graph (never on drawn geometry). The DRC engine arrives with the PCB
-//! stages (roadmap 19–20) and is not implemented.
+//! * [`erc`] — Electrical Rules Check on the schematic connectivity graph (roadmap 11);
+//! * [`drc`] — Design Rule Checking on the real board geometry (roadmap 19), built on
+//!   [`copper`], the shared copper-shape geometry.
 
+pub mod copper;
+pub mod drc;
 pub mod erc;
 
+pub use drc::{run_drc, DrcEngine, DrcReport, DrcRule, DrcSeverity, DrcViolation};
 pub use erc::{pin_conflict, run_erc, ErcCounts, ErcReport, Rule, Severity, Violation};

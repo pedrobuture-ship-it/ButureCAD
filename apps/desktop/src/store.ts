@@ -21,6 +21,7 @@ export type Dialog =
   | { kind: "footprint-text" }
   | { kind: "pcb-place" }
   | { kind: "pcb-update" }
+  | { kind: "net-classes" }
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }

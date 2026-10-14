@@ -14,11 +14,13 @@ use buturecad_renderer::{
 use buturecad_schematic::{Connectivity, ConnectivityEngine, Id, Object};
 use std::cell::RefCell;
 
+mod drc;
 mod editor;
 mod erc;
 mod footprint_editor;
 mod pcb_editor;
 mod pcb_route;
+mod rules;
 mod symbol_editor;
 use editor::EditorState;
 pub use footprint_editor::generator_infos;
@@ -82,6 +84,7 @@ pub struct Workspace {
     pub(crate) fped: FootprintEditor,
     conn: RefCell<Option<ConnCache>>,
     erc: erc::ErcState,
+    drc: drc::DrcState,
     /// Per-user library folder (symbols and footprints shared between projects).
     pub(crate) user_libs: Option<PathBuf>,
 
@@ -132,6 +135,7 @@ impl Workspace {
             fped: FootprintEditor::default(),
             conn: RefCell::new(None),
             erc: erc::ErcState::default(),
+            drc: drc::DrcState::default(),
             user_libs: None,
             sch_scene: SchematicScene::default(),
             pcb_scene: crate::pcb_scene::PcbScene::default(),
@@ -244,6 +248,7 @@ impl Workspace {
         *self.rats.get_mut() = None;
         *self.conn.get_mut() = None;
         self.erc = erc::ErcState::default();
+        self.drc = drc::DrcState::default();
     }
 
     pub fn new_project(&mut self, root: &Path, name: &str) -> Result<(), String> {
@@ -348,6 +353,7 @@ impl Workspace {
         self.open = None;
         *self.conn.get_mut() = None;
         self.erc = erc::ErcState::default();
+        self.drc = drc::DrcState::default();
         self.recovery = None;
         self.built_for = None;
         self.selection.clear();
@@ -622,6 +628,7 @@ impl Workspace {
 
         if ev.kind == PointerKind::Down {
             self.erc_clear_marker();
+            self.drc_clear_marker();
         }
         let mut out = Outcome::default();
         if !self.pointer_common(ev, &mut out) {
@@ -1056,6 +1063,7 @@ impl Workspace {
             hint: self.hint(),
             symbol_editor: self.symbol_editor_info(),
             erc: self.erc_info(),
+            drc: self.drc_info(),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }

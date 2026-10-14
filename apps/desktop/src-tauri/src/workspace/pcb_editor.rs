@@ -80,12 +80,12 @@ pub(crate) struct PcbEditor {
     /// Ratsnest lines of the nets affected by the move in progress.
     pub(crate) rat_preview: BTreeMap<Id, Vec<RatLine>>,
     pub(crate) route: Option<super::pcb_route::Route>,
-    pub(crate) route_width: i64,
+    /// Manual track width; `None` follows the net class of the net being routed.
+    pub(crate) route_width: Option<i64>,
     pub(crate) route_mode: buturecad_eda_core::routing::AngleMode,
     pub(crate) route_flip: bool,
-    pub(crate) route_clearance: i64,
-    pub(crate) via_diameter: i64,
-    pub(crate) via_drill: i64,
+    /// Manual via `(diameter, drill)`; `None` follows the net class.
+    pub(crate) via_size: Option<(i64, i64)>,
 }
 
 impl Default for PcbEditor {
@@ -101,12 +101,10 @@ impl Default for PcbEditor {
             show_ratsnest: true,
             rat_preview: BTreeMap::new(),
             route: None,
-            route_width: buturecad_eda_core::routing::DEFAULT_WIDTH,
+            route_width: None,
             route_mode: Default::default(),
             route_flip: false,
-            route_clearance: buturecad_eda_core::routing::DEFAULT_CLEARANCE,
-            via_diameter: 800_000,
-            via_drill: 400_000,
+            via_size: None,
         }
     }
 }
@@ -552,13 +550,15 @@ impl Workspace {
             nets: doc.nets.len() as u32,
             warnings,
             ratsnest_visible: self.pcb_ed.show_ratsnest,
-            route_width_mm: mm_str(self.pcb_ed.route_width),
+            route_width_mm: mm_str(self.route_width_for(self.route_net())),
+            route_width_auto: self.pcb_ed.route_width.is_none(),
+            route_class: doc.rules.class_of(self.route_net()).name.clone(),
             route_mode: self.pcb_ed.route_mode.id().into(),
-            via_size: format!(
-                "{}/{}",
-                mm_str(self.pcb_ed.via_diameter),
-                mm_str(self.pcb_ed.via_drill)
-            ),
+            via_size: {
+                let (d, dr) = self.via_size_for(self.route_net());
+                format!("{}/{}", mm_str(d), mm_str(dr))
+            },
+            via_size_auto: self.pcb_ed.via_size.is_none(),
             route: self.route_info(),
             unrouted: self.ratsnest(|e| e.count() as u32).unwrap_or(0),
         })
@@ -1202,6 +1202,7 @@ impl Workspace {
         };
         let at = self.cursor;
         let mut out: Vec<(Shape, Rgba)> = self.ratsnest_shapes();
+        out.extend(self.drc_marker_shapes(colour));
         out.extend(self.route_preview_shapes());
         match (&self.pcb_ed.tool, self.pcb_ed.pts.as_slice()) {
             (PcbTool::OutlineRect, [a]) => {

@@ -47,8 +47,10 @@ export interface Actions {
   symbolSaveToLibrary(): void;
   symbolCommand(name: string, arg?: string): void;
   runErc(): void;
+  runDrc(): void;
   pcbPlaceFootprint(): void;
   pcbUpdateFromSchematic(): void;
+  netClasses(): void;
   pcbCommand(name: string, arg?: string): void;
   footprintNew(): void;
   footprintOpen(): void;
@@ -198,6 +200,13 @@ function pcbCommands(): AppCommand[] {
       shortcut: "F8",
       available: (s) => (s.snapshot?.project ? true : "Open or create a project first"),
       run: (a) => a.pcbUpdateFromSchematic(),
+    },
+    {
+      id: "pcb.net_classes",
+      title: "Net Classes and Design Rules…",
+      category: "Tools",
+      available: (s) => (s.snapshot?.project ? true : "Open or create a project first"),
+      run: (a) => a.netClasses(),
     },
     {
       id: "pcb.ratsnest",
@@ -636,6 +645,14 @@ export function buildCommands(): AppCommand[] {
       shortcut: "Ctrl+Shift+E",
       available: hasProject,
       run: (a) => a.runErc(),
+    },
+    {
+      id: "tools.drc",
+      title: "Run Design Rules Check",
+      category: "Tools",
+      shortcut: "Ctrl+Shift+D",
+      available: hasProject,
+      run: (a) => a.runDrc(),
     },
     {
       id: "symbol.new",

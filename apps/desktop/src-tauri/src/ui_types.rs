@@ -170,6 +170,8 @@ pub struct Snapshot {
     pub footprint_editor: Option<FootprintEditorInfo>,
     /// Board state (stackup, outline warnings…).
     pub pcb: Option<PcbInfo>,
+    /// The last DRC run.
+    pub drc: Option<DrcInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -355,8 +357,13 @@ pub struct PcbInfo {
     pub ratsnest_visible: bool,
     /// Track width (mm) and angle mode (`45`, `90`, `free`) of the Route tool, via size `d/drill`.
     pub route_width_mm: String,
+    /// The width follows the net class (no manual override).
+    pub route_width_auto: bool,
+    /// Class of the net being routed (or Default).
+    pub route_class: String,
     pub route_mode: String,
     pub via_size: String,
+    pub via_size_auto: bool,
     /// The route in progress.
     pub route: Option<RouteInfo>,
     /// Connections still to route (ratsnest lines).
@@ -412,4 +419,68 @@ pub struct SymbolEditorInfo {
     pub custom: Vec<PropertyInfo>,
     /// Problems that make the symbol hard to use (does not block editing).
     pub warnings: Vec<String>,
+}
+
+/// One DRC violation as the UI shows it.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct DrcViolationInfo {
+    /// Position in the report; pass it to `drc_focus`.
+    pub index: u32,
+    pub rule: String,
+    pub title: String,
+    /// `error` or `warning`.
+    pub severity: String,
+    pub message: String,
+    pub layer: Option<String>,
+}
+
+/// The result of the last DRC run.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct DrcInfo {
+    /// The board changed after the run: the list may be out of date.
+    pub stale: bool,
+    pub errors: u32,
+    pub warnings: u32,
+    pub violations: Vec<DrcViolationInfo>,
+    pub truncated: u32,
+}
+
+/// One net class, dimensions in mm (text, so the UI shows exactly what is stored).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct NetClassInfo {
+    pub name: String,
+    pub track_width: String,
+    pub clearance: String,
+    pub via_diameter: String,
+    pub via_drill: String,
+    pub diff_pair_width: String,
+    pub diff_pair_gap: String,
+}
+
+/// A net and its class.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct NetAssignInfo {
+    #[ts(type = "number")]
+    pub id: u64,
+    pub name: String,
+    pub class: String,
+}
+
+/// The board's design rules as the Net Classes dialog edits them.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct RulesInfo {
+    pub min_track_width: String,
+    pub min_via_diameter: String,
+    pub min_via_drill: String,
+    pub min_annular_ring: String,
+    pub copper_to_edge: String,
+    pub classes: Vec<NetClassInfo>,
+    pub nets: Vec<NetAssignInfo>,
+    /// Names of the preset classes the dialog can add.
+    pub presets: Vec<String>,
 }

@@ -501,3 +501,49 @@ fn the_via_tool_places_through_vias_on_the_net_under_the_pointer() {
     // The via is a copper object of the net: it adds an island, so the ratsnest still needs it joined.
     assert_eq!(ws.snapshot().pcb.unwrap().unrouted, 1);
 }
+
+#[test]
+fn the_router_uses_the_net_class_and_a_manual_width_overrides_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut ws = board(dir.path(), false);
+    view(&mut ws);
+    let net = net_n(&ws);
+    let mut rules = ws.pcb_rules_info().unwrap();
+    let mut power = rules.classes[0].clone();
+    power.name = "Power".into();
+    power.track_width = "0.6".into();
+    power.via_diameter = "1.2".into();
+    power.via_drill = "0.6".into();
+    rules.classes.push(power);
+    rules.nets.iter_mut().find(|n| n.id == net.0).unwrap().class = "Power".into();
+    ws.pcb_rules_apply(rules.clone()).unwrap();
+
+    let (from, to) = (pads(&ws, "R1", "2"), pads(&ws, "R2", "1"));
+    ws.editor_command("tool:route").unwrap();
+    click(&mut ws, from);
+    let info = ws.snapshot().pcb.unwrap();
+    assert_eq!(info.route_class, "Power");
+    assert_eq!(info.route_width_mm, "0.6");
+    assert_eq!(info.via_size, "1.2/0.6");
+    click(&mut ws, to);
+    assert!(tracks(&ws).iter().all(|t| t.width == 600_000));
+
+    // A manual width wins until it is cleared.
+    ws.undo().unwrap();
+    ws.pcb_command("route_width", Some("0.3")).unwrap();
+    click(&mut ws, from);
+    click(&mut ws, to);
+    assert!(tracks(&ws).iter().all(|t| t.width == 300_000));
+
+    // Editing the rules is one undo step and a bad class is refused whole.
+    let mut bad = rules.clone();
+    bad.classes[1].via_drill = "2".into();
+    assert!(ws.pcb_rules_apply(bad).is_err());
+    ws.undo().unwrap();
+    ws.undo().unwrap();
+    assert_eq!(
+        ws.pcb_rules_info().unwrap().classes.len(),
+        1,
+        "undo removed the class"
+    );
+}
