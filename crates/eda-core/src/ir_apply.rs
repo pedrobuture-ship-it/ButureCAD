@@ -69,7 +69,86 @@ const POWER_SYMBOLS: [(&str, &str); 4] = [
     ("VCC", "Buture:VCC"),
 ];
 
-fn layer_by_name(stack: &buturecad_pcb::Stackup, name: &str) -> Option<LayerId> {
+/// The power-symbol library id for a net name, if the name is a standard supply rail.
+pub fn power_symbol_for(net: &str) -> Option<&'static str> {
+    POWER_SYMBOLS
+        .iter()
+        .find(|(n, _)| *n == net)
+        .map(|(_, s)| *s)
+}
+
+/// The schematic object that puts net `name` on the pin at `pos`: a power symbol for the standard
+/// rails (`GND`, `VCC`, `+3V3`, `+5V`), else a global label.
+pub fn net_marker(name: &str, pos: Point) -> Object {
+    match power_symbol_for(name) {
+        Some(s) => Object::PowerSymbol(PowerSymbol {
+            lib_id: s.to_owned(),
+            net_name: name.to_owned(),
+            placement: Placement::at(pos),
+        }),
+        None => Object::GlobalLabel(GlobalLabel {
+            position: pos,
+            name: name.to_owned(),
+            orientation: Direction::Right,
+        }),
+    }
+}
+
+/// Finds a pin of a placed component by number, else by name; the error lists the real pins.
+pub fn find_pin(
+    sch: &buturecad_schematic::Schematic,
+    comp: &Component,
+    pin: &str,
+) -> Result<buturecad_schematic::PlacedPin, String> {
+    let pins = sch.placed_pins(comp);
+    let by_number: Vec<_> = pins.iter().filter(|x| x.number == pin).collect();
+    let found = if by_number.is_empty() {
+        pins.iter().filter(|x| x.name == pin).collect::<Vec<_>>()
+    } else {
+        by_number
+    };
+    match found.as_slice() {
+        [p] => Ok((*p).clone()),
+        other => Err(format!(
+            "{}.{pin} {} (pins: {})",
+            comp.reference,
+            if other.is_empty() {
+                "does not exist"
+            } else {
+                "is ambiguous"
+            },
+            pins.iter()
+                .map(|x| format!("{}/{}", x.number, x.name))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+    }
+}
+
+/// Adds the built-in symbols in `ids` that the project does not have yet.
+pub fn ensure_symbols(engine: &mut CommandEngine, ids: &[String]) -> Result<(), ApplyError> {
+    let have = engine.project().schematic().symbols().clone();
+    let mut want: Vec<String> = ids.to_vec();
+    want.sort();
+    want.dedup();
+    let all = builtin::symbols();
+    let mut add = Vec::new();
+    for id in want {
+        if have.contains_key(&id) {
+            continue;
+        }
+        match all.iter().find(|s| s.name == id) {
+            Some(s) => add.push(s.clone()),
+            None => return bad(format!("unknown symbol “{id}”")),
+        }
+    }
+    if !add.is_empty() {
+        engine.execute(AddSymbolsCommand::new(add))?;
+    }
+    Ok(())
+}
+
+pub fn layer_by_name(stack: &buturecad_pcb::Stackup, name: &str) -> Option<LayerId> {
     stack
         .all_layers()
         .into_iter()

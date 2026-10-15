@@ -266,6 +266,17 @@ checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 [[package]]
 name = "buturecad-agent-api"
 version = "0.1.0"
+dependencies = [
+ "buturecad-eda-core",
+ "buturecad-geometry",
+ "buturecad-pcb",
+ "buturecad-rules",
+ "buturecad-schematic",
+ "buturecad-scripting",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "buturecad-cli"
