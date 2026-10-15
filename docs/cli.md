@@ -9,6 +9,7 @@ CLI; it only parses arguments and prints.
 buturecad build <script.beda> --out <project-dir> [--name N] [--param k=v]...
 buturecad check <script.beda | project-dir>
 buturecad erc <project-dir>
+buturecad fill <project-dir>
 buturecad drc <project-dir>
 buturecad export-gerber <project-dir> --out <dir | file.zip>
 buturecad export-bom <project-dir> [--out file.csv]
@@ -20,6 +21,8 @@ buturecad help | version                      options: --json  --quiet
 
 * `build` compiles the script and generates a saved project through the Command Engine (and copies
   the script to `design.beda`). Diagnostics are printed as `file:line:col: error[CODE]: message`.
+* `fill` refills every copper zone around the current copper (through the Command Engine) and saves; edits made outside the app do not refill zones, and DRC reports a stale fill.
+* `build` and `check` read symbols/footprints from `--libs <folder>` or the `libraries/` folder next to the script.
 * `erc` / `drc` use the real connectivity graph / board geometry; `export-gerber` runs a fresh DRC
   and the manufacturing preflight first and **writes nothing when the preflight has errors**
   (exit 1). With `--out x.zip` it writes `production.zip`; otherwise it writes the files into the

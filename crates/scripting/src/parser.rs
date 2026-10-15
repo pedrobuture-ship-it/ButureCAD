@@ -288,6 +288,21 @@ impl Parser {
         Ok(NameRef { base, index, span })
     }
 
+    /// A net name in `net`, `track`, `via` and `zone`: an identifier, or a quoted string for
+    /// names such as `"+3V3"` (as in `connect`).
+    fn net_ref(&mut self) -> R<NameRef> {
+        if let Tok::Str(s) = self.peek().clone() {
+            let sp = self.span();
+            self.bump();
+            return Ok(NameRef {
+                base: s,
+                index: None,
+                span: sp,
+            });
+        }
+        self.name_ref("a net name")
+    }
+
     fn pin_ref(&mut self) -> R<PinRef> {
         // A quoted name is always a net (`"+3V3"`).
         if let Tok::Str(s) = self.peek().clone() {
@@ -447,7 +462,7 @@ impl Parser {
                 }
             }
             "net" => {
-                let name = self.name_ref("a net name")?;
+                let name = self.net_ref()?;
                 let mut pins = Vec::new();
                 if self.eat(&Tok::LBrace) {
                     while *self.peek() != Tok::RBrace && *self.peek() != Tok::Eof {
@@ -502,7 +517,7 @@ impl Parser {
                 }
             }
             "track" => {
-                let net = self.name_ref("a net name")?;
+                let net = self.net_ref()?;
                 if !self.eat_kw("on") {
                     let sp = self.span();
                     return self.err(sp, "expected “on <layer>”");
@@ -529,7 +544,7 @@ impl Parser {
                 }
             }
             "via" => {
-                let net = self.name_ref("a net name")?;
+                let net = self.net_ref()?;
                 if !self.eat_kw("at") {
                     let sp = self.span();
                     return self.err(sp, "expected “at (x, y)”");
@@ -553,7 +568,7 @@ impl Parser {
                 }
             }
             "zone" => {
-                let net = self.name_ref("a net name")?;
+                let net = self.net_ref()?;
                 if !self.eat_kw("on") {
                     let sp = self.span();
                     return self.err(sp, "expected “on <layer>”");

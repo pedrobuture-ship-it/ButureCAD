@@ -1,0 +1,747 @@
+{
+  "format": "buturecad-footprint-library",
+  "schema": 1,
+  "name": "Ref",
+  "footprints": [
+    {
+      "name": "Crystal_3225",
+      "description": "Crystal 3.2 x 2.5 mm, 4 pads, nominal land pattern",
+      "tags": "",
+      "attributes": {
+        "mount": "smd",
+        "exclude_from_bom": false,
+        "exclude_from_position_files": false
+      },
+      "pads": [
+        {
+          "number": "1",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -1100000,
+            "y": 950000
+          },
+          "size_x": 1400000,
+          "size_y": 1150000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "2",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 1100000,
+            "y": 950000
+          },
+          "size_x": 1400000,
+          "size_y": 1150000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "3",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 1100000,
+            "y": -950000
+          },
+          "size_x": 1400000,
+          "size_y": 1150000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "4",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -1100000,
+            "y": -950000
+          },
+          "size_x": 1400000,
+          "size_y": 1150000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        }
+      ],
+      "graphics": [
+        {
+          "layer": "fabrication",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -1600000,
+              "y": -1250000
+            },
+            "max": {
+              "x": 1600000,
+              "y": 1250000
+            }
+          },
+          "filled": false,
+          "width": 100000
+        },
+        {
+          "layer": "courtyard",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -2200000,
+              "y": -1900000
+            },
+            "max": {
+              "x": 2200000,
+              "y": 1900000
+            }
+          },
+          "filled": false,
+          "width": 50000
+        },
+        {
+          "layer": "silkscreen",
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -2200000,
+              "y": -2300000
+            },
+            "b": {
+              "x": -1600000,
+              "y": -2300000
+            }
+          },
+          "width": 120000
+        }
+      ],
+      "texts": [
+        {
+          "kind": "reference",
+          "layer": "silkscreen",
+          "text": "REF**",
+          "position": {
+            "x": 0,
+            "y": -3100000
+          },
+          "height": 1000000,
+          "rotation": 0
+        },
+        {
+          "kind": "value",
+          "layer": "silkscreen",
+          "text": "VAL**",
+          "position": {
+            "x": 0,
+            "y": 3100000
+          },
+          "height": 1000000,
+          "rotation": 0
+        }
+      ],
+      "models": []
+    },
+    {
+      "name": "SOT-23-5",
+      "description": "SOT-23-5 (SC-74A), 0.95 mm pitch, nominal land pattern",
+      "tags": "",
+      "attributes": {
+        "mount": "smd",
+        "exclude_from_bom": false,
+        "exclude_from_position_files": false
+      },
+      "pads": [
+        {
+          "number": "1",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -950000,
+            "y": 1200000
+          },
+          "size_x": 600000,
+          "size_y": 1100000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "2",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 0,
+            "y": 1200000
+          },
+          "size_x": 600000,
+          "size_y": 1100000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "3",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 950000,
+            "y": 1200000
+          },
+          "size_x": 600000,
+          "size_y": 1100000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "4",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 950000,
+            "y": -1200000
+          },
+          "size_x": 600000,
+          "size_y": 1100000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "5",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -950000,
+            "y": -1200000
+          },
+          "size_x": 600000,
+          "size_y": 1100000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        }
+      ],
+      "graphics": [
+        {
+          "layer": "fabrication",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -1500000,
+              "y": -800000
+            },
+            "max": {
+              "x": 1500000,
+              "y": 800000
+            }
+          },
+          "filled": false,
+          "width": 100000
+        },
+        {
+          "layer": "courtyard",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -2100000,
+              "y": -2100000
+            },
+            "max": {
+              "x": 2100000,
+              "y": 2100000
+            }
+          },
+          "filled": false,
+          "width": 50000
+        },
+        {
+          "layer": "silkscreen",
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -2100000,
+              "y": -2500000
+            },
+            "b": {
+              "x": -1500000,
+              "y": -2500000
+            }
+          },
+          "width": 120000
+        }
+      ],
+      "texts": [
+        {
+          "kind": "reference",
+          "layer": "silkscreen",
+          "text": "REF**",
+          "position": {
+            "x": 0,
+            "y": -3300000
+          },
+          "height": 1000000,
+          "rotation": 0
+        },
+        {
+          "kind": "value",
+          "layer": "silkscreen",
+          "text": "VAL**",
+          "position": {
+            "x": 0,
+            "y": 3300000
+          },
+          "height": 1000000,
+          "rotation": 0
+        }
+      ],
+      "models": []
+    },
+    {
+      "name": "SW_Tact_6x6",
+      "description": "Tactile switch 6 x 6 mm, 4 legs (pairs shorted), nominal land pattern",
+      "tags": "",
+      "attributes": {
+        "mount": "smd",
+        "exclude_from_bom": false,
+        "exclude_from_position_files": false
+      },
+      "pads": [
+        {
+          "number": "1",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -3100000,
+            "y": -2250000
+          },
+          "size_x": 1600000,
+          "size_y": 1600000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "1",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -3100000,
+            "y": 2250000
+          },
+          "size_x": 1600000,
+          "size_y": 1600000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "2",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 3100000,
+            "y": -2250000
+          },
+          "size_x": 1600000,
+          "size_y": 1600000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "2",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 3100000,
+            "y": 2250000
+          },
+          "size_x": 1600000,
+          "size_y": 1600000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        }
+      ],
+      "graphics": [
+        {
+          "layer": "fabrication",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -3000000,
+              "y": -3000000
+            },
+            "max": {
+              "x": 3000000,
+              "y": 3000000
+            }
+          },
+          "filled": false,
+          "width": 100000
+        },
+        {
+          "layer": "courtyard",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -4200000,
+              "y": -3400000
+            },
+            "max": {
+              "x": 4200000,
+              "y": 3400000
+            }
+          },
+          "filled": false,
+          "width": 50000
+        },
+        {
+          "layer": "silkscreen",
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -4200000,
+              "y": -3800000
+            },
+            "b": {
+              "x": -3600000,
+              "y": -3800000
+            }
+          },
+          "width": 120000
+        }
+      ],
+      "texts": [
+        {
+          "kind": "reference",
+          "layer": "silkscreen",
+          "text": "REF**",
+          "position": {
+            "x": 0,
+            "y": -4600000
+          },
+          "height": 1000000,
+          "rotation": 0
+        },
+        {
+          "kind": "value",
+          "layer": "silkscreen",
+          "text": "VAL**",
+          "position": {
+            "x": 0,
+            "y": 4600000
+          },
+          "height": 1000000,
+          "rotation": 0
+        }
+      ],
+      "models": []
+    },
+    {
+      "name": "USB_Micro_B",
+      "description": "USB Micro-B receptacle, SMD, nominal land pattern",
+      "tags": "",
+      "attributes": {
+        "mount": "smd",
+        "exclude_from_bom": false,
+        "exclude_from_position_files": false
+      },
+      "pads": [
+        {
+          "number": "1",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -1300000,
+            "y": 0
+          },
+          "size_x": 400000,
+          "size_y": 1350000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "2",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -650000,
+            "y": 0
+          },
+          "size_x": 400000,
+          "size_y": 1350000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "3",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "size_x": 400000,
+          "size_y": 1350000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "4",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 650000,
+            "y": 0
+          },
+          "size_x": 400000,
+          "size_y": 1350000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "5",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 1300000,
+            "y": 0
+          },
+          "size_x": 400000,
+          "size_y": 1350000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "6",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -3600000,
+            "y": -200000
+          },
+          "size_x": 1800000,
+          "size_y": 1900000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "6",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": -1980000,
+            "y": 2600000
+          },
+          "size_x": 1200000,
+          "size_y": 1900000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "6",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 3600000,
+            "y": -200000
+          },
+          "size_x": 1800000,
+          "size_y": 1900000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        },
+        {
+          "number": "6",
+          "kind": "smd",
+          "shape": "rect",
+          "position": {
+            "x": 1980000,
+            "y": 2600000
+          },
+          "size_x": 1200000,
+          "size_y": 1900000,
+          "rotation": 0,
+          "drill": null,
+          "roundrect_ratio": 0,
+          "mask_margin": null,
+          "paste_margin": null,
+          "paste": true,
+          "custom": []
+        }
+      ],
+      "graphics": [
+        {
+          "layer": "fabrication",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -3800000,
+              "y": -2500000
+            },
+            "max": {
+              "x": 3800000,
+              "y": 2500000
+            }
+          },
+          "filled": false,
+          "width": 100000
+        },
+        {
+          "layer": "courtyard",
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -4900000,
+              "y": -3800000
+            },
+            "max": {
+              "x": 4900000,
+              "y": 3800000
+            }
+          },
+          "filled": false,
+          "width": 50000
+        },
+        {
+          "layer": "silkscreen",
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -4900000,
+              "y": -4200000
+            },
+            "b": {
+              "x": -4300000,
+              "y": -4200000
+            }
+          },
+          "width": 120000
+        }
+      ],
+      "texts": [
+        {
+          "kind": "reference",
+          "layer": "silkscreen",
+          "text": "REF**",
+          "position": {
+            "x": 0,
+            "y": -5000000
+          },
+          "height": 1000000,
+          "rotation": 0
+        },
+        {
+          "kind": "value",
+          "layer": "silkscreen",
+          "text": "VAL**",
+          "position": {
+            "x": 0,
+            "y": 5000000
+          },
+          "height": 1000000,
+          "rotation": 0
+        }
+      ],
+      "models": []
+    }
+  ]
+}

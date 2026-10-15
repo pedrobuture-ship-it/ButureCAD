@@ -23,11 +23,12 @@ USAGE
   buturecad <command> [options]
 
 COMMANDS
-  build <script.beda> --out <project-dir> [--name N] [--param k=v]...
+  build <script.beda> --out <project-dir> [--name N] [--param k=v]... [--libs <folder>]
         compile a ButureScript file and generate a saved project
   check <script.beda | project-dir>
         script: diagnostics; project: it loads and is consistent
   erc <project-dir>             electrical rules check on the connectivity graph
+  fill <project-dir>            refill every copper zone around the current copper and save
   drc <project-dir>             design rules check on the board geometry
   export-gerber <project-dir> --out <dir | file.zip>
         DRC + preflight, then Gerber/Excellon/BOM/pick-and-place (production.zip when --out ends in .zip)
@@ -72,6 +73,9 @@ impl Out<'_> {
     }
     fn error(&mut self, s: impl AsRef<str>) {
         let _ = writeln!(self.err, "error: {}", s.as_ref());
+    }
+    fn warn(&mut self, s: impl AsRef<str>) {
+        let _ = writeln!(self.err, "warning: {}", s.as_ref());
     }
 }
 
@@ -221,6 +225,7 @@ fn dispatch(
             }
         }
         "erc" => cmd_erc(pos(0, "the project folder")?, o),
+        "fill" => cmd_fill(pos(0, "the project folder")?, o),
         "drc" => cmd_drc(pos(0, "the project folder")?, o),
         "export-gerber" => cmd_gerber(pos(0, "the project folder")?, a, o),
         "export-bom" => cmd_bom(pos(0, "the project folder")?, a, o),
@@ -257,15 +262,38 @@ fn read_script(path: &str) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("cannot read “{path}”: {e}"))
 }
 
-fn options(a: &Args) -> CompileOptions {
-    CompileOptions {
+/// Compile options: `--param`s plus the libraries of `--libs <folder>` or, by default, the
+/// `libraries/` folder next to the script. Libraries that cannot be read are reported.
+fn options(a: &Args, script: &str, o: &mut Out) -> CompileOptions {
+    let dir = match &a.libs {
+        Some(d) => Some(Path::new(d).to_path_buf()),
+        None => {
+            let d = Path::new(script)
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join("libraries");
+            d.is_dir().then_some(d)
+        }
+    };
+    let mut opts = CompileOptions {
         params: a.params.iter().cloned().collect(),
+        ..CompileOptions::default()
+    };
+    if let Some(dir) = dir {
+        let loaded = buturecad_libraries::LibraryDir::new(dir).load_all();
+        for p in &loaded.problems {
+            o.warn(p);
+        }
+        opts.symbols = loaded.symbols;
+        opts.footprints = loaded.footprints;
     }
+    opts
 }
 
 fn cmd_check_script(path: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
     let src = read_script(path)?;
-    let out = compile(&src, &options(a));
+    let opts = options(a, path, o);
+    let out = compile(&src, &opts);
     print_diags(o, path, &out.diagnostics);
     let errors = out
         .diagnostics
@@ -288,7 +316,8 @@ fn cmd_check_script(path: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
 fn cmd_build(path: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
     let dest = a.out.as_deref().ok_or("build needs --out <project-dir>")?;
     let src = read_script(path)?;
-    let built = match build(&src, &options(a), a.name.as_deref()) {
+    let opts = options(a, path, o);
+    let built = match build(&src, &opts, a.name.as_deref()) {
         Ok(b) => b,
         Err(buturecad_scripting::BuildError::Script(d)) => {
             print_diags(o, path, &d);
@@ -370,6 +399,30 @@ fn cmd_erc(path: &str, o: &mut Out) -> Result<i32, String> {
     ));
     o.json(&json!({"errors": c.errors, "warnings": c.warnings, "waived": c.waived, "violations": list}));
     Ok(i32::from(c.errors > 0))
+}
+
+/// Refills the zones through the Command Engine (the same code as the desktop app) and saves.
+/// Zones are not refilled by edits made outside the GUI, and the DRC reports a stale fill.
+fn cmd_fill(path: &str, o: &mut Out) -> Result<i32, String> {
+    let (session, project) = load_project(path)?;
+    let zones = project.pcb().zones.len();
+    let mut engine = buturecad_eda_core::CommandEngine::new(project);
+    let changes = buturecad_eda_core::zonefill::fill_changes(engine.project().pcb(), None, true);
+    let changed = changes.len();
+    if changed > 0 {
+        engine
+            .execute(buturecad_eda_core::commands::PcbEditCommand::new(
+                "Fill zones",
+                changes,
+            ))
+            .map_err(|e| format!("cannot fill the zones: {e}"))?;
+        session
+            .save(engine.project())
+            .map_err(|e| format!("cannot save the project: {e}"))?;
+    }
+    o.line(format!("filled {changed} of {zones} zone(s)"));
+    o.json(&json!({"zones": zones, "filled": changed}));
+    Ok(0)
 }
 
 fn cmd_drc(path: &str, o: &mut Out) -> Result<i32, String> {

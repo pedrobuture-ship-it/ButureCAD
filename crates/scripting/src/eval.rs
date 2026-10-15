@@ -130,6 +130,8 @@ pub struct Elaborator {
     classes: Vec<NetClassIr>,
     module_depth: usize,
     fn_depth: usize,
+    /// Pins of library symbols `(number, name)`, by `Library:Name`.
+    lib_pins: BTreeMap<String, Vec<(String, String)>>,
 }
 
 fn builtin_pins(symbol: &str) -> Option<Vec<(String, String)>> {
@@ -163,7 +165,22 @@ impl Elaborator {
             classes: Vec::new(),
             module_depth: 0,
             fn_depth: 0,
+            lib_pins: BTreeMap::new(),
         }
+    }
+
+    /// Makes library symbols known, so their pins are checked at compile time like built-ins.
+    pub fn with_symbols(mut self, symbols: &[buturecad_schematic::Symbol]) -> Self {
+        for s in symbols {
+            self.lib_pins.insert(
+                s.name.clone(),
+                s.pins
+                    .iter()
+                    .map(|p| (p.number.clone(), p.name.clone()))
+                    .collect(),
+            );
+        }
+        self
     }
 
     fn error<T>(&mut self, code: &'static str, span: Span, msg: impl Into<String>) -> R<T> {
@@ -1106,7 +1123,7 @@ impl Elaborator {
                 }
             }
         }
-        let symbol_pins = builtin_pins(&symbol);
+        let symbol_pins = builtin_pins(&symbol).or_else(|| self.lib_pins.get(&symbol).cloned());
         if symbol.starts_with("Buture:") && symbol_pins.is_none() {
             return self.error(
                 "E-symbol",

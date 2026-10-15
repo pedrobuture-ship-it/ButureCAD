@@ -14,9 +14,9 @@ use crate::{CommandEngine, CommandError, ROOT_SHEET};
 use buturecad_geometry::{Point, Segment};
 use buturecad_pcb::{layer, BoardGraphic, Footprint, FpShape, LayerId, Net, Zone};
 use buturecad_schematic::{
-    builtin, Change, Component, Direction, GlobalLabel, Object, Placement, PowerSymbol,
+    builtin, Change, Component, Direction, GlobalLabel, Object, Placement, PowerSymbol, Symbol,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyError {
@@ -167,6 +167,69 @@ pub fn ensure_symbols(engine: &mut CommandEngine, ids: &[String]) -> Result<(), 
     Ok(())
 }
 
+/// The generated schematic must connect exactly what the design connects: no more (a pin that
+/// happens to sit on another part's net marker), no less. This is checked on the real
+/// connectivity graph, so a layout problem becomes an error instead of a wrong circuit.
+fn verify_connectivity(
+    engine: &CommandEngine,
+    design: &Design,
+    comps: &BTreeMap<String, Component>,
+    ids: &BTreeMap<Id, String>,
+) -> Result<(), ApplyError> {
+    let sch = engine.project().schematic();
+    // Which design net each pin belongs to (pins named in the IR by number or by name).
+    let mut owner: BTreeMap<(String, String), usize> = BTreeMap::new();
+    for (ni, n) in design.nets.iter().enumerate() {
+        for p in &n.pins {
+            let Some(comp) = comps.get(&p.reference) else {
+                continue;
+            };
+            let pins = sch.placed_pins(comp);
+            let number = pins
+                .iter()
+                .find(|x| x.number == p.pin)
+                .or_else(|| pins.iter().find(|x| x.name == p.pin))
+                .map(|x| x.number.clone());
+            if let Some(number) = number {
+                owner.insert((p.reference.clone(), number), ni);
+            }
+        }
+    }
+    let conn = buturecad_schematic::Connectivity::build(sch);
+    let mut where_is: BTreeMap<usize, BTreeSet<buturecad_schematic::NetId>> = BTreeMap::new();
+    for net in conn.nets() {
+        let mut members: BTreeSet<Option<usize>> = BTreeSet::new();
+        let mut named_pins: Vec<String> = Vec::new();
+        for pr in &net.pins {
+            let r = ids.get(&pr.component).unwrap_or(&pr.reference);
+            let who = owner.get(&(r.clone(), pr.pin.clone())).copied();
+            members.insert(who);
+            named_pins.push(format!("{r}.{}", pr.pin));
+            if let Some(ni) = who {
+                where_is.entry(ni).or_default().insert(net.id);
+            }
+        }
+        let has_unlisted = members.contains(&None);
+        if members.len() > 1 || (has_unlisted && net.pins.len() > 1) {
+            return bad(format!(
+                "the generated schematic would connect pins the design does not connect ({}): \
+                 a pin of one part sits on a net marker of another",
+                named_pins.join(", ")
+            ));
+        }
+    }
+    for (ni, nets) in where_is {
+        if nets.len() > 1 {
+            return bad(format!(
+                "the generated schematic splits net {} into {} parts",
+                design.nets[ni].name,
+                nets.len()
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn layer_by_name(stack: &buturecad_pcb::Stackup, name: &str) -> Option<LayerId> {
     stack
         .all_layers()
@@ -242,6 +305,17 @@ pub fn apply_design(
     design: &Design,
     resolve_footprint: &dyn Fn(&str) -> Option<Footprint>,
 ) -> Result<ApplyReport, ApplyError> {
+    apply_design_with(engine, design, &[], resolve_footprint)
+}
+
+/// Like [`apply_design`], with `extra_symbols` (from user libraries) usable besides the built-in
+/// ones. Built-in names win; a design cannot shadow `Buture:*`.
+pub fn apply_design_with(
+    engine: &mut CommandEngine,
+    design: &Design,
+    extra_symbols: &[Symbol],
+    resolve_footprint: &dyn Fn(&str) -> Option<Footprint>,
+) -> Result<ApplyReport, ApplyError> {
     check_ranges(design)?;
     let mut report = ApplyReport::default();
     let mut lap = Lap::new();
@@ -253,7 +327,13 @@ pub fn apply_design(
     }
 
     // -- symbols ---------------------------------------------------------------------------------
-    let all = builtin::symbols();
+    let mut all = builtin::symbols();
+    all.extend(
+        extra_symbols
+            .iter()
+            .filter(|s| !s.name.starts_with("Buture:"))
+            .cloned(),
+    );
     let mut needed: Vec<String> = Vec::new();
     for c in &design.components {
         let sym = if c.symbol.is_empty() {
@@ -297,48 +377,90 @@ pub fn apply_design(
     // -- schematic: components on a grid ---------------------------------------------------------
     const G: i64 = 1_270_000;
     let mut comps: BTreeMap<String, Component> = BTreeMap::new();
+    let mut ids: BTreeMap<Id, String> = BTreeMap::new();
     let mut changes: Vec<Change> = Vec::new();
-    // Row-major grid: 6 columns for small designs, roughly square for big ones, with the spacing
-    // shrinking so the sheet stays inside the coordinate range (±1.07 m).
+    // Flow layout by real symbol size: parts are placed left to right in rows of roughly square
+    // overall shape, each in a cell as big as its symbol (pins included) plus one grid of gap.
+    // Cells never overlap, so a pin of one part can never sit on a label of another (that would
+    // silently connect them; `verify_connectivity` below proves it did not happen).
     let n_comp = design.components.len();
-    let cols = if n_comp <= 36 {
-        6
-    } else {
-        (n_comp as f64).sqrt().ceil() as usize
-    };
-    let rows = n_comp.div_ceil(cols).max(1);
-    let spacing = (16i64).min(700_000_000 / (cols.max(rows) as i64 * G));
-    if spacing < 4 {
-        return bad(format!(
-            "{n_comp} components do not fit one schematic sheet with automatic layout (limit about 20 000)"
-        ));
-    }
-    for (i, c) in design.components.iter().enumerate() {
+    let mut size_of: BTreeMap<String, (i64, i64, i64, i64)> = BTreeMap::new();
+    let mut sized: Vec<(String, (i64, i64, i64, i64))> = Vec::with_capacity(n_comp);
+    for c in &design.components {
         let sym = if c.symbol.is_empty() {
             default_symbol(&c.reference).unwrap_or_default().to_owned()
         } else {
             c.symbol.clone()
         };
+        if !size_of.contains_key(&sym) {
+            let probe = Component {
+                lib_id: sym.clone(),
+                reference: String::new(),
+                value: String::new(),
+                footprint: String::new(),
+                properties: Default::default(),
+                unit: 1,
+                representation: 1,
+                placement: Placement::at(Point::new(0, 0)),
+            };
+            let bb = engine
+                .project()
+                .schematic()
+                .object_bounds(&Object::Component(probe));
+            // Floor / ceil to the grid so every part stays on the 1.27 mm grid.
+            let fl = |v: i64| v.div_euclid(G);
+            let ce = |v: i64| -((-v).div_euclid(G));
+            size_of.insert(
+                sym.clone(),
+                (fl(bb.min.x), fl(bb.min.y), ce(bb.max.x), ce(bb.max.y)),
+            );
+        }
+        sized.push((sym.clone(), size_of[&sym]));
+    }
+    let area: i64 = sized
+        .iter()
+        .map(|(_, b)| (b.2 - b.0 + 1) * (b.3 - b.1 + 1))
+        .sum();
+    let widest = sized.iter().map(|(_, b)| b.2 - b.0 + 1).max().unwrap_or(1);
+    let row_limit = (((area as f64).sqrt() * 1.3) as i64).max(widest).max(60);
+    let (mut cx, mut cy, mut row_h) = (10i64, 10i64, 0i64);
+    let mut max_extent = 0i64;
+    for (i, c) in design.components.iter().enumerate() {
+        let (sym, b) = &sized[i];
+        let (w, h) = (b.2 - b.0 + 1, b.3 - b.1 + 1);
+        if cx > 10 && cx + w > 10 + row_limit {
+            cx = 10;
+            cy += row_h;
+            row_h = 0;
+        }
+        // The part's origin so that its box starts at (cx, cy).
+        let origin = Point::new((cx - b.0) * G, (cy - b.1) * G);
+        cx += w;
+        row_h = row_h.max(h);
+        max_extent = max_extent.max(cx).max(cy + row_h);
         let comp = Component {
-            lib_id: sym,
+            lib_id: sym.clone(),
             reference: c.reference.clone(),
             value: c.value.clone(),
             footprint: c.footprint.clone(),
             properties: c.properties.clone(),
             unit: 1,
             representation: 1,
-            placement: Placement::at(Point::new(
-                ((i % cols) as i64 * spacing + 10) * G,
-                ((i / cols) as i64 * spacing + 10) * G,
-            )),
+            placement: Placement::at(origin),
         };
         let id = engine.new_id();
+        ids.insert(id, c.reference.clone());
         changes.push(Change::create(
             ROOT_SHEET,
             id,
             Object::Component(comp.clone()),
         ));
         comps.insert(c.reference.clone(), comp);
+    }
+    if max_extent * G > 1 << 30 {
+        return bad(format!(
+            "{n_comp} components do not fit one schematic sheet with automatic layout"
+        ));
     }
     lap.mark("schematic components");
     // -- schematic: nets as labels / power symbols at the pins -----------------------------------
@@ -403,6 +525,7 @@ pub fn apply_design(
     }
     report.components = design.components.len();
     report.nets = design.nets.len();
+    verify_connectivity(engine, design, &comps, &ids)?;
 
     lap.mark("schematic command");
     // -- board: footprints and nets from the schematic -------------------------------------------

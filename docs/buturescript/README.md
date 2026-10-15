@@ -57,6 +57,15 @@ if cond { … } else if cond { … } else { … }
 * Unconnected nets/components, missing footprints, unplaced parts are **warnings**; syntax,
   dimension, name, pin, short-circuit and range problems are **errors** and stop the build.
 
+## Libraries (stage 47)
+
+`symbol = "Library:Name"` and `footprint = "Library:Name"` can name parts of user libraries
+(`*.bsymlib.json`, `*.bfplib.json`). `buturecad build/check` read the `libraries/` folder next to the
+script, or `--libs <folder>`; the desktop app and library files are the same format (see
+`docs/library-manager.md`). Library symbols are embedded in the generated project and their pins are
+checked at compile time. Net names that are not identifiers are written quoted in every statement
+(`net "+3V3" {…}`, `track "+3V3" …`, `via "+3V3" …`, `zone "+3V3" on In2.Cu {…}`).
+
 ## Units and dimensions (stage 36)
 
 Every number is a quantity with a dimension: `nm um mm mil inch` (length), `V mV`, `A mA`,
@@ -77,8 +86,9 @@ E-scope E-argument E-arity E-param`, warnings `W-unused W-footprint W-unplaced W
 
 * Generation, not merging: the target project must be empty. Re-running a script produces a new
   project (deterministically); applying it on top of hand edits is stage 37's design work.
-* The schematic is auto-laid-out on a grid with global labels at pins (no wires); it is correct
-  electrically but not pretty. Net classes, zones and tracks are supported; differential pairs,
+* The schematic is auto-laid-out in rows by symbol size, with global labels at pins (no wires); every
+  build verifies on the connectivity graph that it connects exactly what the design says. It is
+  correct electrically but not pretty. There is no way to mark a pin "no connect" yet. Net classes, zones and tracks are supported; differential pairs,
   length targets, keepouts, silkscreen text and board text are not yet.
 * Rotation is a multiple of 90°. Board thickness / physical stack-up is not settable yet.
 * No `import`/`include` of other `.beda` files yet.

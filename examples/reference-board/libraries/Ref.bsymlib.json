@@ -1,0 +1,1055 @@
+{
+  "format": "buturecad-symbol-library",
+  "schema": 1,
+  "name": "Ref",
+  "symbols": [
+    {
+      "name": "AP2112K-3.3",
+      "reference_prefix": "U",
+      "default_value": "AP2112K-3.3",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "VIN",
+          "kind": "power_input",
+          "position": {
+            "x": -7620000,
+            "y": 2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "EN",
+          "kind": "input",
+          "position": {
+            "x": -7620000,
+            "y": -2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "5",
+          "name": "VOUT",
+          "kind": "power_output",
+          "position": {
+            "x": 7620000,
+            "y": 2540000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "NC",
+          "kind": "no_connect",
+          "position": {
+            "x": 7620000,
+            "y": -2540000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "kind": "power_input",
+          "position": {
+            "x": 0,
+            "y": -7620000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -5080000,
+              "y": -5080000
+            },
+            "max": {
+              "x": 5080000,
+              "y": 5080000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "600 mA 3.3 V LDO regulator, SOT-23-5 (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    {
+      "name": "Crystal_4Pad",
+      "reference_prefix": "Y",
+      "default_value": "8MHz",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "XIN",
+          "kind": "passive",
+          "position": {
+            "x": -7620000,
+            "y": 0
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "XOUT",
+          "kind": "passive",
+          "position": {
+            "x": 7620000,
+            "y": 0
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "GND_1",
+          "kind": "passive",
+          "position": {
+            "x": -2540000,
+            "y": -7620000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "GND_2",
+          "kind": "passive",
+          "position": {
+            "x": 2540000,
+            "y": -7620000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -5080000,
+              "y": -5080000
+            },
+            "max": {
+              "x": 5080000,
+              "y": 5080000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "Crystal, 4 pads (2 are ground), 3.2 x 2.5 mm (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    {
+      "name": "STM32F103C8U6",
+      "reference_prefix": "U",
+      "default_value": "STM32F103C8U6",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "18",
+          "name": "PB0",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 19050000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "19",
+          "name": "PB1",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 16510000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "20",
+          "name": "PB2_BOOT1",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 13970000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "39",
+          "name": "PB3",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 11430000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "40",
+          "name": "PB4",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 8890000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "41",
+          "name": "PB5",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 6350000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "42",
+          "name": "PB6",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 3810000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "43",
+          "name": "PB7",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 1270000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "45",
+          "name": "PB8",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -1270000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "46",
+          "name": "PB9",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -3810000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "21",
+          "name": "PB10",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -6350000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "22",
+          "name": "PB11",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -8890000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "25",
+          "name": "PB12",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -11430000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "26",
+          "name": "PB13",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -13970000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "27",
+          "name": "PB14",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -16510000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "28",
+          "name": "PB15",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -19050000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "10",
+          "name": "PA0",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 19050000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "11",
+          "name": "PA1",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 16510000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "12",
+          "name": "PA2",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 13970000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "13",
+          "name": "PA3",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 11430000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "14",
+          "name": "PA4",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 8890000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "15",
+          "name": "PA5",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 6350000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "16",
+          "name": "PA6",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 3810000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "17",
+          "name": "PA7",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 1270000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "29",
+          "name": "PA8",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -1270000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "30",
+          "name": "PA9",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -3810000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "31",
+          "name": "PA10",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -6350000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "32",
+          "name": "PA11_USB_DM",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -8890000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "33",
+          "name": "PA12_USB_DP",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -11430000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "34",
+          "name": "PA13_SWDIO",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -13970000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "37",
+          "name": "PA14_SWCLK",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -16510000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "38",
+          "name": "PA15",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -19050000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "1",
+          "name": "VBAT",
+          "kind": "power_input",
+          "position": {
+            "x": -7620000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "9",
+          "name": "VDDA",
+          "kind": "power_input",
+          "position": {
+            "x": -5080000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "24",
+          "name": "VDD_1",
+          "kind": "power_input",
+          "position": {
+            "x": -2540000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "36",
+          "name": "VDD_2",
+          "kind": "power_input",
+          "position": {
+            "x": 0,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "48",
+          "name": "VDD_3",
+          "kind": "power_input",
+          "position": {
+            "x": 2540000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "7",
+          "name": "NRST",
+          "kind": "input",
+          "position": {
+            "x": 5080000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "44",
+          "name": "BOOT0",
+          "kind": "input",
+          "position": {
+            "x": 7620000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "8",
+          "name": "VSSA",
+          "kind": "power_input",
+          "position": {
+            "x": -11430000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "23",
+          "name": "VSS_1",
+          "kind": "power_input",
+          "position": {
+            "x": -8890000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "35",
+          "name": "VSS_2",
+          "kind": "power_input",
+          "position": {
+            "x": -6350000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "47",
+          "name": "VSS_3",
+          "kind": "power_input",
+          "position": {
+            "x": -3810000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "49",
+          "name": "EP",
+          "kind": "power_input",
+          "position": {
+            "x": -1270000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "5",
+          "name": "PD0_OSC_IN",
+          "kind": "bidirectional",
+          "position": {
+            "x": 1270000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "6",
+          "name": "PD1_OSC_OUT",
+          "kind": "bidirectional",
+          "position": {
+            "x": 3810000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "PC13",
+          "kind": "bidirectional",
+          "position": {
+            "x": 6350000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "PC14_OSC32_IN",
+          "kind": "bidirectional",
+          "position": {
+            "x": 8890000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "PC15_OSC32_OUT",
+          "kind": "bidirectional",
+          "position": {
+            "x": 11430000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -17780000,
+              "y": -20320000
+            },
+            "max": {
+              "x": 17780000,
+              "y": 20320000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "ARM Cortex-M3 microcontroller, 64 KB flash, USB FS, UFQFPN48 (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    {
+      "name": "SW_Push",
+      "reference_prefix": "SW",
+      "default_value": "SW_Push",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "A",
+          "kind": "passive",
+          "position": {
+            "x": -5080000,
+            "y": 0
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "B",
+          "kind": "passive",
+          "position": {
+            "x": 5080000,
+            "y": 0
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -2540000,
+              "y": -1270000
+            },
+            "max": {
+              "x": 2540000,
+              "y": 1270000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "Tactile push button (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    {
+      "name": "USB_Micro_B",
+      "reference_prefix": "J",
+      "default_value": "USB_Micro_B",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "VBUS",
+          "kind": "power_output",
+          "position": {
+            "x": -7620000,
+            "y": 5080000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "D-",
+          "kind": "bidirectional",
+          "position": {
+            "x": -7620000,
+            "y": 2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "D+",
+          "kind": "bidirectional",
+          "position": {
+            "x": -7620000,
+            "y": 0
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "ID",
+          "kind": "passive",
+          "position": {
+            "x": -7620000,
+            "y": -2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "5",
+          "name": "GND",
+          "kind": "passive",
+          "position": {
+            "x": -7620000,
+            "y": -5080000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "6",
+          "name": "SHIELD",
+          "kind": "passive",
+          "position": {
+            "x": 0,
+            "y": -10160000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -5080000,
+              "y": -7620000
+            },
+            "max": {
+              "x": 2540000,
+              "y": 7620000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "USB 2.0 Micro-B receptacle, SMD (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    }
+  ]
+}

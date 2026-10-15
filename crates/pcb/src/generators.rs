@@ -397,13 +397,20 @@ pub struct Qfn {
 impl Qfn {
     /// A square QFN of `body` size, 0.5 mm pitch by default.
     pub fn square(pins_per_side: u32, body: Coord, pitch: Coord) -> Self {
+        let pad_width = pitch * 5 / 10 - pitch / 10;
+        // The longest pad that keeps 0.2 mm between the corner pads of adjacent sides (a fixed
+        // 0.8 mm made the corner pads of dense packages overlap, i.e. short each other).
+        let along_max = i128::from(pins_per_side.saturating_sub(1)) * i128::from(pitch) / 2
+            + i128::from(pad_width) / 2;
+        let fit = i128::from(body) / 2 + 100_000 - along_max - 200_000;
+        let pad_length = fit.clamp(300_000, i128::from(mm(0.8))) as Coord;
         Self {
             pins_per_side,
             pitch,
             body_width: body,
             body_length: body,
-            pad_width: pitch * 5 / 10 - pitch / 10,
-            pad_length: mm(0.8),
+            pad_width,
+            pad_length,
             exposed: None,
         }
     }
@@ -425,6 +432,13 @@ impl Qfn {
             return bad("the pads do not fit along the body edge");
         }
         let (hw, hl) = (self.body_width / 2, self.body_length / 2);
+        // Corner pads of adjacent sides must not touch: a footprint that shorts itself is invalid.
+        let along_max =
+            i128::from(n - 1) * i128::from(self.pitch) / 2 + i128::from(self.pad_width) / 2;
+        let inner = |half: Coord| i128::from(half) + 100_000 - i128::from(self.pad_length);
+        if along_max >= inner(hw).min(inner(hl)) {
+            return bad("the corner pads of adjacent sides would overlap: use shorter pads, a larger body or fewer pins");
+        }
         // Pad centres sit so the pad extends 0.1 mm outside the body and the rest underneath.
         let outside = 100_000;
         let cx = hw + outside - self.pad_length / 2;
@@ -1123,5 +1137,56 @@ mod chip_tests {
             assert_eq!(f.pads[0].number, "1");
         }
         assert!(chip("9999").is_err());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
+mod qfn_overlap_tests {
+    use super::*;
+
+    fn overlaps(f: &Footprint) -> Vec<(String, String)> {
+        let mut out = Vec::new();
+        for (i, a) in f.pads.iter().enumerate() {
+            for b in &f.pads[i + 1..] {
+                let (al, ah) = a.bounds();
+                let (bl, bh) = b.bounds();
+                if al.x < bh.x && bl.x < ah.x && al.y < bh.y && bl.y < ah.y {
+                    out.push((a.number.clone(), b.number.clone()));
+                }
+            }
+        }
+        out
+    }
+
+    /// Found by the stage-47 validation board: a 48-pin 7 mm QFN had overlapping corner pads.
+    #[test]
+    fn dense_qfn_pads_never_overlap() {
+        for (n, body, pitch, ep) in [
+            (12, 7.0, 0.5, 5.0),
+            (8, 5.0, 0.5, 3.0),
+            (4, 4.0, 0.5, 2.0),
+            (16, 7.0, 0.4, 0.0),
+        ] {
+            let mut q = Qfn::square(n, mm(body), mm(pitch));
+            if ep > 0.0 {
+                q.exposed = Some((mm(ep), mm(ep)));
+            }
+            match q.generate() {
+                Ok(f) => assert!(
+                    overlaps(&f).is_empty(),
+                    "{n}/{body}/{pitch}: {:?}",
+                    overlaps(&f)
+                ),
+                Err(e) => panic!("{n}/{body}/{pitch}: {e}"),
+            }
+        }
+    }
+
+    #[test]
+    fn an_impossible_qfn_is_refused_instead_of_shorting() {
+        let mut q = Qfn::square(12, mm(7.0), mm(0.5));
+        q.pad_length = mm(0.8); // the old default
+        assert!(q.generate().is_err());
     }
 }

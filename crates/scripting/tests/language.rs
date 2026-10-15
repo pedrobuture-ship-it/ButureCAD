@@ -345,3 +345,29 @@ fn absurd_coordinates_are_refused_not_overflowed() {
         );
     }
 }
+
+/// Found by the stage-47 validation board: `zone "+3V3" …` (a power plane) was a syntax error
+/// although `connect "+3V3" -> …` worked.
+#[test]
+fn quoted_net_names_work_in_zone_track_via_and_net_statements() {
+    let src = r#"
+project "p"
+board { outline = rect(0mm, 0mm, 20mm, 20mm) layers = 4 }
+component R1 { value = "1k" footprint = "0603" }
+component R2 { value = "1k" footprint = "0603" }
+net "+3V3" { R1.1, R2.1 }
+connect R1.2 -> GND
+connect R2.2 -> GND
+place R1 at (5mm, 10mm)
+place R2 at (9mm, 10mm)
+via "+3V3" at (7mm, 6mm)
+track "+3V3" on F.Cu width 0.25mm path (5mm, 10mm) -> (6mm, 10mm)
+zone "+3V3" on In2.Cu { outline = rect(1mm, 1mm, 19mm, 19mm) }
+"#;
+    let b = build(src, &opts(), None).unwrap_or_else(|e| panic!("{e:?}"));
+    let pcb = b.engine.project().pcb();
+    assert_eq!(
+        (pcb.vias.len(), pcb.tracks.len(), pcb.zones.len()),
+        (1, 1, 1)
+    );
+}

@@ -49,4 +49,5 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 44 | Heavy performance profiling | done (`benchmarks/README.md`): benchmarks at 100/500/2000/5000 parts; 2 scale bugs fixed, 2 proven bottlenecks optimised, 1 attempt reverted |
 | 45 | Robustness | done (`docs/robustness.md`): mutation fuzzing, property tests, crash-safe saving with fault injection |
 | 46 | Professional UX | done (`docs/ux.md`): repeat last command, previous tool, recent-first palette, layer keys, shortcut sheet, per-view context menus; gaps listed (schematic align, PCB copy/paste, arrow nudge/pan) |
-| 47–50 | Validation project, audits, release | planned |
+| 47 | Validation project | done (`docs/validation-project.md`): reference 4-layer MCU board; 2 BLOCKER and 2 CRITICAL fixed, MAJOR/MINOR listed |
+| 48–50 | Audit, release cleanup, … | planned |

@@ -1,0 +1,3135 @@
+{
+  "format": "buturecad.schematic",
+  "schema_version": 3,
+  "root": 0,
+  "symbols": {
+    "Buture:+3V3": {
+      "name": "Buture:+3V3",
+      "reference_prefix": "",
+      "default_value": "+3V3",
+      "is_power": true,
+      "pins": [
+        {
+          "number": "1",
+          "name": "+3V3",
+          "kind": "power_input",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "orientation": "up",
+          "length": 0,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 0,
+              "y": 0
+            },
+            "b": {
+              "x": 0,
+              "y": 1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -762000,
+              "y": 1270000
+            },
+            "b": {
+              "x": 762000,
+              "y": 1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "text",
+          "origin": {
+            "x": -1200000,
+            "y": 2000000
+          },
+          "height": 1270000,
+          "text": "+3V3",
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Buture:+5V": {
+      "name": "Buture:+5V",
+      "reference_prefix": "",
+      "default_value": "+5V",
+      "is_power": true,
+      "pins": [
+        {
+          "number": "1",
+          "name": "+5V",
+          "kind": "power_input",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "orientation": "up",
+          "length": 0,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 0,
+              "y": 0
+            },
+            "b": {
+              "x": 0,
+              "y": 1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -762000,
+              "y": 1270000
+            },
+            "b": {
+              "x": 762000,
+              "y": 1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "text",
+          "origin": {
+            "x": -1200000,
+            "y": 2000000
+          },
+          "height": 1270000,
+          "text": "+5V",
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Buture:C": {
+      "name": "Buture:C",
+      "reference_prefix": "C",
+      "default_value": "100n",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "~",
+          "kind": "passive",
+          "position": {
+            "x": 0,
+            "y": 3810000
+          },
+          "orientation": "down",
+          "length": 3175000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "~",
+          "kind": "passive",
+          "position": {
+            "x": 0,
+            "y": -3810000
+          },
+          "orientation": "up",
+          "length": 3175000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -1905000,
+              "y": 635000
+            },
+            "b": {
+              "x": 1905000,
+              "y": 635000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -1905000,
+              "y": -635000
+            },
+            "b": {
+              "x": 1905000,
+              "y": -635000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Buture:Conn_01x04": {
+      "name": "Buture:Conn_01x04",
+      "reference_prefix": "J",
+      "default_value": "Conn_01x04",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "Pin_1",
+          "kind": "passive",
+          "position": {
+            "x": -5080000,
+            "y": 3810000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "Pin_2",
+          "kind": "passive",
+          "position": {
+            "x": -5080000,
+            "y": 1270000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "Pin_3",
+          "kind": "passive",
+          "position": {
+            "x": -5080000,
+            "y": -1270000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "Pin_4",
+          "kind": "passive",
+          "position": {
+            "x": -5080000,
+            "y": -3810000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -2540000,
+              "y": -5080000
+            },
+            "max": {
+              "x": 0,
+              "y": 5080000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Buture:GND": {
+      "name": "Buture:GND",
+      "reference_prefix": "",
+      "default_value": "GND",
+      "is_power": true,
+      "pins": [
+        {
+          "number": "1",
+          "name": "GND",
+          "kind": "power_input",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "orientation": "down",
+          "length": 0,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 0,
+              "y": 0
+            },
+            "b": {
+              "x": 0,
+              "y": -1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -1270000,
+              "y": -1270000
+            },
+            "b": {
+              "x": 1270000,
+              "y": -1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -762000,
+              "y": -1778000
+            },
+            "b": {
+              "x": 762000,
+              "y": -1778000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -254000,
+              "y": -2286000
+            },
+            "b": {
+              "x": 254000,
+              "y": -2286000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Buture:LED": {
+      "name": "Buture:LED",
+      "reference_prefix": "D",
+      "default_value": "LED",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "K",
+          "kind": "passive",
+          "position": {
+            "x": -3810000,
+            "y": 0
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "A",
+          "kind": "passive",
+          "position": {
+            "x": 3810000,
+            "y": 0
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 1270000,
+              "y": 1270000
+            },
+            "b": {
+              "x": 1270000,
+              "y": -1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 1270000,
+              "y": 1270000
+            },
+            "b": {
+              "x": -1270000,
+              "y": 0
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 1270000,
+              "y": -1270000
+            },
+            "b": {
+              "x": -1270000,
+              "y": 0
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -1270000,
+              "y": 1270000
+            },
+            "b": {
+              "x": -1270000,
+              "y": -1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -254000,
+              "y": 1778000
+            },
+            "b": {
+              "x": 1016000,
+              "y": 3048000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 762000,
+              "y": 1778000
+            },
+            "b": {
+              "x": 2032000,
+              "y": 3048000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Buture:PWR_FLAG": {
+      "name": "Buture:PWR_FLAG",
+      "reference_prefix": "#FLG",
+      "default_value": "PWR_FLAG",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "pwr",
+          "kind": "power_output",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "orientation": "up",
+          "length": 0,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 0,
+              "y": 0
+            },
+            "b": {
+              "x": 0,
+              "y": 1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 0,
+              "y": 1270000
+            },
+            "b": {
+              "x": 1270000,
+              "y": 2540000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 1270000,
+              "y": 2540000
+            },
+            "b": {
+              "x": 0,
+              "y": 3810000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": 0,
+              "y": 3810000
+            },
+            "b": {
+              "x": -1270000,
+              "y": 2540000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "line",
+          "segment": {
+            "a": {
+              "x": -1270000,
+              "y": 2540000
+            },
+            "b": {
+              "x": 0,
+              "y": 1270000
+            }
+          },
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "type": "text",
+          "origin": {
+            "x": 1900000,
+            "y": 2000000
+          },
+          "height": 1270000,
+          "text": "PWR_FLAG",
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "Marks a net as supplied from outside the schematic (satisfies the ERC \"power input not driven\" check)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Buture:R": {
+      "name": "Buture:R",
+      "reference_prefix": "R",
+      "default_value": "10k",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "~",
+          "kind": "passive",
+          "position": {
+            "x": 0,
+            "y": 3810000
+          },
+          "orientation": "down",
+          "length": 1270000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "~",
+          "kind": "passive",
+          "position": {
+            "x": 0,
+            "y": -3810000
+          },
+          "orientation": "up",
+          "length": 1270000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -1016000,
+              "y": -2540000
+            },
+            "max": {
+              "x": 1016000,
+              "y": 2540000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Ref:AP2112K-3.3": {
+      "name": "Ref:AP2112K-3.3",
+      "reference_prefix": "U",
+      "default_value": "AP2112K-3.3",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "VIN",
+          "kind": "power_input",
+          "position": {
+            "x": -7620000,
+            "y": 2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "EN",
+          "kind": "input",
+          "position": {
+            "x": -7620000,
+            "y": -2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "5",
+          "name": "VOUT",
+          "kind": "power_output",
+          "position": {
+            "x": 7620000,
+            "y": 2540000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "NC",
+          "kind": "no_connect",
+          "position": {
+            "x": 7620000,
+            "y": -2540000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "GND",
+          "kind": "power_input",
+          "position": {
+            "x": 0,
+            "y": -7620000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -5080000,
+              "y": -5080000
+            },
+            "max": {
+              "x": 5080000,
+              "y": 5080000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "600 mA 3.3 V LDO regulator, SOT-23-5 (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Ref:Crystal_4Pad": {
+      "name": "Ref:Crystal_4Pad",
+      "reference_prefix": "Y",
+      "default_value": "8MHz",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "XIN",
+          "kind": "passive",
+          "position": {
+            "x": -7620000,
+            "y": 0
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "XOUT",
+          "kind": "passive",
+          "position": {
+            "x": 7620000,
+            "y": 0
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "GND_1",
+          "kind": "passive",
+          "position": {
+            "x": -2540000,
+            "y": -7620000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "GND_2",
+          "kind": "passive",
+          "position": {
+            "x": 2540000,
+            "y": -7620000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -5080000,
+              "y": -5080000
+            },
+            "max": {
+              "x": 5080000,
+              "y": 5080000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "Crystal, 4 pads (2 are ground), 3.2 x 2.5 mm (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Ref:STM32F103C8U6": {
+      "name": "Ref:STM32F103C8U6",
+      "reference_prefix": "U",
+      "default_value": "STM32F103C8U6",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "18",
+          "name": "PB0",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 19050000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "19",
+          "name": "PB1",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 16510000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "20",
+          "name": "PB2_BOOT1",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 13970000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "39",
+          "name": "PB3",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 11430000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "40",
+          "name": "PB4",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 8890000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "41",
+          "name": "PB5",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 6350000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "42",
+          "name": "PB6",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 3810000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "43",
+          "name": "PB7",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": 1270000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "45",
+          "name": "PB8",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -1270000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "46",
+          "name": "PB9",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -3810000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "21",
+          "name": "PB10",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -6350000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "22",
+          "name": "PB11",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -8890000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "25",
+          "name": "PB12",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -11430000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "26",
+          "name": "PB13",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -13970000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "27",
+          "name": "PB14",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -16510000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "28",
+          "name": "PB15",
+          "kind": "bidirectional",
+          "position": {
+            "x": -20320000,
+            "y": -19050000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "10",
+          "name": "PA0",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 19050000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "11",
+          "name": "PA1",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 16510000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "12",
+          "name": "PA2",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 13970000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "13",
+          "name": "PA3",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 11430000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "14",
+          "name": "PA4",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 8890000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "15",
+          "name": "PA5",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 6350000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "16",
+          "name": "PA6",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 3810000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "17",
+          "name": "PA7",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": 1270000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "29",
+          "name": "PA8",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -1270000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "30",
+          "name": "PA9",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -3810000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "31",
+          "name": "PA10",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -6350000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "32",
+          "name": "PA11_USB_DM",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -8890000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "33",
+          "name": "PA12_USB_DP",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -11430000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "34",
+          "name": "PA13_SWDIO",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -13970000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "37",
+          "name": "PA14_SWCLK",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -16510000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "38",
+          "name": "PA15",
+          "kind": "bidirectional",
+          "position": {
+            "x": 20320000,
+            "y": -19050000
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "1",
+          "name": "VBAT",
+          "kind": "power_input",
+          "position": {
+            "x": -7620000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "9",
+          "name": "VDDA",
+          "kind": "power_input",
+          "position": {
+            "x": -5080000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "24",
+          "name": "VDD_1",
+          "kind": "power_input",
+          "position": {
+            "x": -2540000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "36",
+          "name": "VDD_2",
+          "kind": "power_input",
+          "position": {
+            "x": 0,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "48",
+          "name": "VDD_3",
+          "kind": "power_input",
+          "position": {
+            "x": 2540000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "7",
+          "name": "NRST",
+          "kind": "input",
+          "position": {
+            "x": 5080000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "44",
+          "name": "BOOT0",
+          "kind": "input",
+          "position": {
+            "x": 7620000,
+            "y": 22860000
+          },
+          "orientation": "down",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "8",
+          "name": "VSSA",
+          "kind": "power_input",
+          "position": {
+            "x": -11430000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "23",
+          "name": "VSS_1",
+          "kind": "power_input",
+          "position": {
+            "x": -8890000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "35",
+          "name": "VSS_2",
+          "kind": "power_input",
+          "position": {
+            "x": -6350000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "47",
+          "name": "VSS_3",
+          "kind": "power_input",
+          "position": {
+            "x": -3810000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "49",
+          "name": "EP",
+          "kind": "power_input",
+          "position": {
+            "x": -1270000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "5",
+          "name": "PD0_OSC_IN",
+          "kind": "bidirectional",
+          "position": {
+            "x": 1270000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "6",
+          "name": "PD1_OSC_OUT",
+          "kind": "bidirectional",
+          "position": {
+            "x": 3810000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "PC13",
+          "kind": "bidirectional",
+          "position": {
+            "x": 6350000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "PC14_OSC32_IN",
+          "kind": "bidirectional",
+          "position": {
+            "x": 8890000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "PC15_OSC32_OUT",
+          "kind": "bidirectional",
+          "position": {
+            "x": 11430000,
+            "y": -22860000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -17780000,
+              "y": -20320000
+            },
+            "max": {
+              "x": 17780000,
+              "y": 20320000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "ARM Cortex-M3 microcontroller, 64 KB flash, USB FS, UFQFPN48 (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Ref:SW_Push": {
+      "name": "Ref:SW_Push",
+      "reference_prefix": "SW",
+      "default_value": "SW_Push",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "A",
+          "kind": "passive",
+          "position": {
+            "x": -5080000,
+            "y": 0
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "B",
+          "kind": "passive",
+          "position": {
+            "x": 5080000,
+            "y": 0
+          },
+          "orientation": "left",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -2540000,
+              "y": -1270000
+            },
+            "max": {
+              "x": 2540000,
+              "y": 1270000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "Tactile push button (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    },
+    "Ref:USB_Micro_B": {
+      "name": "Ref:USB_Micro_B",
+      "reference_prefix": "J",
+      "default_value": "USB_Micro_B",
+      "is_power": false,
+      "pins": [
+        {
+          "number": "1",
+          "name": "VBUS",
+          "kind": "power_output",
+          "position": {
+            "x": -7620000,
+            "y": 5080000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "2",
+          "name": "D-",
+          "kind": "bidirectional",
+          "position": {
+            "x": -7620000,
+            "y": 2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "3",
+          "name": "D+",
+          "kind": "bidirectional",
+          "position": {
+            "x": -7620000,
+            "y": 0
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "4",
+          "name": "ID",
+          "kind": "passive",
+          "position": {
+            "x": -7620000,
+            "y": -2540000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "5",
+          "name": "GND",
+          "kind": "passive",
+          "position": {
+            "x": -7620000,
+            "y": -5080000
+          },
+          "orientation": "right",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        },
+        {
+          "number": "6",
+          "name": "SHIELD",
+          "kind": "passive",
+          "position": {
+            "x": 0,
+            "y": -10160000
+          },
+          "orientation": "up",
+          "length": 2540000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "graphics": [
+        {
+          "type": "rect",
+          "rect": {
+            "min": {
+              "x": -5080000,
+              "y": -7620000
+            },
+            "max": {
+              "x": 2540000,
+              "y": 7620000
+            }
+          },
+          "filled": false,
+          "width": 150000,
+          "unit": 0,
+          "representation": 0
+        }
+      ],
+      "unit_count": 1,
+      "meta": {
+        "description": "USB 2.0 Micro-B receptacle, SMD (reference symbol)",
+        "keywords": "",
+        "datasheet": "",
+        "manufacturer": "",
+        "mpn": "",
+        "default_footprint": "",
+        "footprint_filters": [],
+        "properties": {}
+      }
+    }
+  },
+  "sheets": {
+    "0": {
+      "name": "Root",
+      "objects": {
+        "1": {
+          "type": "component",
+          "lib_id": "Ref:STM32F103C8U6",
+          "reference": "U1",
+          "value": "STM32F103C8U6",
+          "footprint": "qfn(pins_per_side=12, body=7, pitch=0.5, exposed=5)",
+          "properties": {
+            "mpn": "STM32F103C8U6"
+          },
+          "placement": {
+            "position": {
+              "x": 33020000,
+              "y": 35560000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "2": {
+          "type": "component",
+          "lib_id": "Ref:USB_Micro_B",
+          "reference": "J1",
+          "value": "USB_Micro_B",
+          "footprint": "Ref:USB_Micro_B",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 62230000,
+              "y": 22860000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "3": {
+          "type": "component",
+          "lib_id": "Ref:AP2112K-3.3",
+          "reference": "U2",
+          "value": "AP2112K-3.3",
+          "footprint": "Ref:SOT-23-5",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 73660000,
+              "y": 20320000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "4": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C10",
+          "value": "1u",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 85090000,
+              "y": 16510000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "5": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C11",
+          "value": "1u",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 15240000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "6": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C8",
+          "value": "4.7u",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 21590000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "7": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C3",
+          "value": "100n",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 27940000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "8": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C4",
+          "value": "100n",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 34290000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "9": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C5",
+          "value": "100n",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 40640000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "10": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C6",
+          "value": "100n",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 46990000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "11": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C7",
+          "value": "100n",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 53340000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "12": {
+          "type": "component",
+          "lib_id": "Buture:PWR_FLAG",
+          "reference": "FLG1",
+          "value": "PWR_FLAG",
+          "footprint": "",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 58420000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "13": {
+          "type": "component",
+          "lib_id": "Ref:Crystal_4Pad",
+          "reference": "Y1",
+          "value": "8MHz",
+          "footprint": "Ref:Crystal_3225",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 69850000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "14": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C1",
+          "value": "20p",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 81280000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "15": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C2",
+          "value": "20p",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 87630000,
+              "y": 63500000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "16": {
+          "type": "component",
+          "lib_id": "Ref:SW_Push",
+          "reference": "SW1",
+          "value": "RESET",
+          "footprint": "Ref:SW_Tact_6x6",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 17780000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "17": {
+          "type": "component",
+          "lib_id": "Ref:SW_Push",
+          "reference": "SW2",
+          "value": "BOOT0",
+          "footprint": "Ref:SW_Tact_6x6",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 29210000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "18": {
+          "type": "component",
+          "lib_id": "Buture:R",
+          "reference": "R4",
+          "value": "10k",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 36830000,
+              "y": 77470000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "19": {
+          "type": "component",
+          "lib_id": "Buture:C",
+          "reference": "C12",
+          "value": "100n",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 41910000,
+              "y": 77470000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "20": {
+          "type": "component",
+          "lib_id": "Buture:R",
+          "reference": "R1",
+          "value": "1.5k",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 46990000,
+              "y": 77470000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "21": {
+          "type": "component",
+          "lib_id": "Buture:R",
+          "reference": "R5",
+          "value": "1k",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 50800000,
+              "y": 77470000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "22": {
+          "type": "component",
+          "lib_id": "Buture:R",
+          "reference": "R6",
+          "value": "1k",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 54610000,
+              "y": 77470000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "23": {
+          "type": "component",
+          "lib_id": "Buture:LED",
+          "reference": "LED1",
+          "value": "green",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 60960000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "24": {
+          "type": "component",
+          "lib_id": "Buture:LED",
+          "reference": "LED2",
+          "value": "yellow",
+          "footprint": "0603",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 69850000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "25": {
+          "type": "component",
+          "lib_id": "Buture:Conn_01x04",
+          "reference": "J2",
+          "value": "SWD",
+          "footprint": "header4",
+          "properties": {},
+          "placement": {
+            "position": {
+              "x": 80010000,
+              "y": 78740000
+            },
+            "rotation": 0,
+            "mirror": false
+          },
+          "unit": 1,
+          "representation": 1
+        },
+        "26": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 15240000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "27": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 27940000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "28": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 34290000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "29": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 40640000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "30": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 46990000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "31": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 53340000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "32": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 21590000,
+              "y": 67310000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "33": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 74930000,
+              "y": 82550000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "34": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 46990000,
+              "y": 73660000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "35": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 50800000,
+              "y": 81280000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "36": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 34290000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "37": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 25400000,
+              "y": 58420000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "38": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 27940000,
+              "y": 58420000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "39": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 30480000,
+              "y": 58420000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "40": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 33020000,
+              "y": 58420000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "41": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 35560000,
+              "y": 58420000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "42": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+3V3",
+          "net_name": "+3V3",
+          "placement": {
+            "position": {
+              "x": 81280000,
+              "y": 22860000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "43": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+5V",
+          "net_name": "+5V",
+          "placement": {
+            "position": {
+              "x": 85090000,
+              "y": 20320000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "44": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+5V",
+          "net_name": "+5V",
+          "placement": {
+            "position": {
+              "x": 54610000,
+              "y": 27940000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "45": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+5V",
+          "net_name": "+5V",
+          "placement": {
+            "position": {
+              "x": 66040000,
+              "y": 17780000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "46": {
+          "type": "power_symbol",
+          "lib_id": "Buture:+5V",
+          "net_name": "+5V",
+          "placement": {
+            "position": {
+              "x": 66040000,
+              "y": 22860000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "47": {
+          "type": "global_label",
+          "position": {
+            "x": 36830000,
+            "y": 81280000
+          },
+          "name": "BOOT0",
+          "orientation": "right"
+        },
+        "48": {
+          "type": "global_label",
+          "position": {
+            "x": 24130000,
+            "y": 74930000
+          },
+          "name": "BOOT0",
+          "orientation": "right"
+        },
+        "49": {
+          "type": "global_label",
+          "position": {
+            "x": 40640000,
+            "y": 58420000
+          },
+          "name": "BOOT0",
+          "orientation": "right"
+        },
+        "50": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 81280000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "51": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 85090000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "52": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 15240000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "53": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 41910000,
+              "y": 73660000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "54": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 87630000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "55": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 27940000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "56": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 34290000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "57": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 40640000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "58": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 46990000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "59": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 53340000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "60": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 21590000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "61": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 58420000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "62": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 54610000,
+              "y": 17780000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "63": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 62230000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "64": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 74930000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "65": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 57150000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "66": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 66040000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "67": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 36830000,
+              "y": 73660000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "68": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 22860000,
+              "y": 74930000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "69": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 31750000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "70": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 21590000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "71": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 24130000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "72": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 26670000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "73": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 29210000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "74": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 73660000,
+              "y": 12700000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "75": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 67310000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "76": {
+          "type": "power_symbol",
+          "lib_id": "Buture:GND",
+          "net_name": "GND",
+          "placement": {
+            "position": {
+              "x": 72390000,
+              "y": 59690000
+            },
+            "rotation": 0,
+            "mirror": false
+          }
+        },
+        "77": {
+          "type": "global_label",
+          "position": {
+            "x": 64770000,
+            "y": 74930000
+          },
+          "name": "LED1_A",
+          "orientation": "right"
+        },
+        "78": {
+          "type": "global_label",
+          "position": {
+            "x": 50800000,
+            "y": 73660000
+          },
+          "name": "LED1_A",
+          "orientation": "right"
+        },
+        "79": {
+          "type": "global_label",
+          "position": {
+            "x": 73660000,
+            "y": 74930000
+          },
+          "name": "LED2_A",
+          "orientation": "right"
+        },
+        "80": {
+          "type": "global_label",
+          "position": {
+            "x": 54610000,
+            "y": 73660000
+          },
+          "name": "LED2_A",
+          "orientation": "right"
+        },
+        "81": {
+          "type": "global_label",
+          "position": {
+            "x": 41910000,
+            "y": 81280000
+          },
+          "name": "NRST",
+          "orientation": "right"
+        },
+        "82": {
+          "type": "global_label",
+          "position": {
+            "x": 12700000,
+            "y": 74930000
+          },
+          "name": "NRST",
+          "orientation": "right"
+        },
+        "83": {
+          "type": "global_label",
+          "position": {
+            "x": 38100000,
+            "y": 58420000
+          },
+          "name": "NRST",
+          "orientation": "right"
+        },
+        "84": {
+          "type": "global_label",
+          "position": {
+            "x": 81280000,
+            "y": 67310000
+          },
+          "name": "OSC_IN",
+          "orientation": "right"
+        },
+        "85": {
+          "type": "global_label",
+          "position": {
+            "x": 34290000,
+            "y": 12700000
+          },
+          "name": "OSC_IN",
+          "orientation": "right"
+        },
+        "86": {
+          "type": "global_label",
+          "position": {
+            "x": 62230000,
+            "y": 67310000
+          },
+          "name": "OSC_IN",
+          "orientation": "right"
+        },
+        "87": {
+          "type": "global_label",
+          "position": {
+            "x": 87630000,
+            "y": 67310000
+          },
+          "name": "OSC_OUT",
+          "orientation": "right"
+        },
+        "88": {
+          "type": "global_label",
+          "position": {
+            "x": 36830000,
+            "y": 12700000
+          },
+          "name": "OSC_OUT",
+          "orientation": "right"
+        },
+        "89": {
+          "type": "global_label",
+          "position": {
+            "x": 77470000,
+            "y": 67310000
+          },
+          "name": "OSC_OUT",
+          "orientation": "right"
+        },
+        "90": {
+          "type": "global_label",
+          "position": {
+            "x": 74930000,
+            "y": 77470000
+          },
+          "name": "SWCLK",
+          "orientation": "right"
+        },
+        "91": {
+          "type": "global_label",
+          "position": {
+            "x": 53340000,
+            "y": 19050000
+          },
+          "name": "SWCLK",
+          "orientation": "right"
+        },
+        "92": {
+          "type": "global_label",
+          "position": {
+            "x": 74930000,
+            "y": 80010000
+          },
+          "name": "SWDIO",
+          "orientation": "right"
+        },
+        "93": {
+          "type": "global_label",
+          "position": {
+            "x": 53340000,
+            "y": 21590000
+          },
+          "name": "SWDIO",
+          "orientation": "right"
+        },
+        "94": {
+          "type": "global_label",
+          "position": {
+            "x": 54610000,
+            "y": 25400000
+          },
+          "name": "USB_DM",
+          "orientation": "right"
+        },
+        "95": {
+          "type": "global_label",
+          "position": {
+            "x": 53340000,
+            "y": 26670000
+          },
+          "name": "USB_DM",
+          "orientation": "right"
+        },
+        "96": {
+          "type": "global_label",
+          "position": {
+            "x": 54610000,
+            "y": 22860000
+          },
+          "name": "USB_DP",
+          "orientation": "right"
+        },
+        "97": {
+          "type": "global_label",
+          "position": {
+            "x": 46990000,
+            "y": 81280000
+          },
+          "name": "USB_DP",
+          "orientation": "right"
+        },
+        "98": {
+          "type": "global_label",
+          "position": {
+            "x": 53340000,
+            "y": 24130000
+          },
+          "name": "USB_DP",
+          "orientation": "right"
+        },
+        "99": {
+          "type": "global_label",
+          "position": {
+            "x": 54610000,
+            "y": 81280000
+          },
+          "name": "USER_LED",
+          "orientation": "right"
+        },
+        "100": {
+          "type": "global_label",
+          "position": {
+            "x": 39370000,
+            "y": 12700000
+          },
+          "name": "USER_LED",
+          "orientation": "right"
+        }
+      }
+    }
+  },
+  "erc_waivers": []
+}

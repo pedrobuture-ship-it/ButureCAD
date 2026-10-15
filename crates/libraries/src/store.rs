@@ -40,6 +40,15 @@ pub struct LibrarySummary {
     pub error: Option<String>,
 }
 
+/// Everything usable by a design, read from one folder: library-qualified (`Library:Name`) copies.
+#[derive(Debug, Clone, Default)]
+pub struct LibraryContents {
+    pub symbols: Vec<Symbol>,
+    pub footprints: Vec<Footprint>,
+    /// Libraries that could not be read (name and reason). They are reported, never skipped silently.
+    pub problems: Vec<String>,
+}
+
 /// A folder holding library files. The folder is created on first write.
 #[derive(Debug, Clone)]
 pub struct LibraryDir {
@@ -53,6 +62,31 @@ impl LibraryDir {
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// Reads every symbol and footprint library of the folder. Damaged libraries are listed in
+    /// [`LibraryContents::problems`]; the others are still loaded.
+    pub fn load_all(&self) -> LibraryContents {
+        let mut out = LibraryContents::default();
+        for l in self.list_symbol_libraries() {
+            match self.load_symbol_library(&l.name) {
+                Ok(lib) => out
+                    .symbols
+                    .extend(lib.names().filter_map(|n| lib.instantiate(n))),
+                Err(e) => out.problems.push(format!("symbol library {}: {e}", l.name)),
+            }
+        }
+        for l in self.list_footprint_libraries() {
+            match self.load_footprint_library(&l.name) {
+                Ok(lib) => out
+                    .footprints
+                    .extend(lib.names().filter_map(|n| lib.instantiate(n))),
+                Err(e) => out
+                    .problems
+                    .push(format!("footprint library {}: {e}", l.name)),
+            }
+        }
+        out
     }
 
     fn symbol_path(&self, name: &str) -> Result<PathBuf> {

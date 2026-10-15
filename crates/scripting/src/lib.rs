@@ -24,14 +24,29 @@ pub use diag::{Diagnostic, Severity, Span};
 pub use footprints::resolve_footprint;
 
 use buturecad_eda_core::ir::Design;
-use buturecad_eda_core::ir_apply::{apply_design, ApplyError, ApplyReport};
+use buturecad_eda_core::ir_apply::{apply_design_with, ApplyError, ApplyReport};
 use buturecad_eda_core::{CommandEngine, Project};
+use buturecad_pcb::Footprint;
 use std::collections::BTreeMap;
 
 /// Overrides for `param` declarations: name → value written as in the language (`3.3V`).
 #[derive(Debug, Clone, Default)]
 pub struct CompileOptions {
     pub params: BTreeMap<String, String>,
+    /// Symbols from user libraries (`Library:Name`), usable besides the built-in ones.
+    pub symbols: Vec<buturecad_schematic::Symbol>,
+    /// Footprints from user libraries (`Library:Name`), usable besides the generated ones.
+    pub footprints: Vec<Footprint>,
+}
+
+impl CompileOptions {
+    /// Generated footprints first, then the libraries (exact `Library:Name`).
+    pub fn resolve_footprint(&self, name: &str) -> Option<Footprint> {
+        resolve_footprint(name).or_else(|| {
+            let n = name.trim();
+            self.footprints.iter().find(|f| f.name == n).cloned()
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -86,7 +101,7 @@ pub fn compile(src: &str, opts: &CompileOptions) -> CompileOutput {
             )),
         }
     }
-    let mut el = eval::Elaborator::new(overrides);
+    let mut el = eval::Elaborator::new(overrides).with_symbols(&opts.symbols);
     el.run(&program);
     let (design, mut more) = el.into_design();
     diags.append(&mut more);
@@ -133,7 +148,9 @@ pub fn build(
     let name = name_override.unwrap_or(&design.name);
     let project = Project::new(name).map_err(|e| BuildError::Project(e.to_string()))?;
     let mut engine = CommandEngine::new(project);
-    let report = apply_design(&mut engine, &design, &|n| resolve_footprint(n))?;
+    let report = apply_design_with(&mut engine, &design, &opts.symbols, &|n| {
+        opts.resolve_footprint(n)
+    })?;
     Ok(Built {
         engine,
         report,

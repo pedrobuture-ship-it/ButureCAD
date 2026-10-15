@@ -25,5 +25,5 @@ pub use index::{Entry, Index, Kind, Query};
 pub use model_lib::{ModelEntry, ModelLibrary, MODEL_LIB_EXT};
 pub use prefs::Prefs;
 pub use stackup_lib::{StackupPreset, STACKUP_PRESET_EXT};
-pub use store::{LibraryDir, LibrarySummary};
+pub use store::{LibraryContents, LibraryDir, LibrarySummary};
 pub use symbol_lib::{qualify, split_lib_id, SymbolLibrary, SYMBOL_LIB_EXT};

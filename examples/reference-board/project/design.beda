@@ -1,0 +1,135 @@
+// ButureCAD reference design: STM32F103 USB board (roadmap stage 47 validation project).
+//
+// A small 4-layer board (GND and +3V3 planes on the inner layers) with a Cortex-M3 microcontroller, USB Micro-B, a 3.3 V LDO, an 8 MHz
+// crystal, decoupling, two LEDs, two buttons and an SWD programming header.
+//
+// This is a VALIDATION design for ButureCAD. Symbols and land patterns in libraries/ are nominal
+// (see docs/validation-project.md); it is not approved for fabrication.
+project "reference-mcu-board"
+
+board { outline = rect(0mm, 0mm, 56mm, 44mm)  layers = 4 }
+
+// -- microcontroller --------------------------------------------------------------------------
+component U1 {
+  symbol = "Ref:STM32F103C8U6"
+  value = "STM32F103C8U6"
+  footprint = "qfn(pins_per_side=12, body=7, pitch=0.5, exposed=5)"
+  mpn = "STM32F103C8U6"
+}
+
+// -- power ------------------------------------------------------------------------------------
+component J1 { symbol = "Ref:USB_Micro_B"  value = "USB_Micro_B"  footprint = "Ref:USB_Micro_B" }
+component U2 { symbol = "Ref:AP2112K-3.3"  value = "AP2112K-3.3"  footprint = "Ref:SOT-23-5" }
+component C10 { value = "1u"   footprint = "0603" }    // LDO input
+component C11 { value = "1u"   footprint = "0603" }    // LDO output
+component C8  { value = "4.7u" footprint = "0603" }    // bulk on 3V3
+
+connect J1.VBUS -> "+5V"
+connect "+5V" -> U2.VIN, C10.1, U2.EN
+connect U2.VOUT -> "+3V3"
+connect "+3V3" -> C11.1, C8.1
+connect U2.GND -> GND
+connect C10.2 -> GND
+connect C11.2 -> GND
+connect C8.2 -> GND
+connect J1.GND -> GND
+connect J1.SHIELD -> GND
+
+// -- decoupling and supplies of the MCU -------------------------------------------------------
+for i in 0..5 {
+  component C[i + 3] { value = "100n" footprint = "0603" }
+}
+connect "+3V3" -> U1.VDD_1, U1.VDD_2, U1.VDD_3, U1.VDDA, U1.VBAT
+connect "+3V3" -> C3.1, C4.1, C5.1, C6.1, C7.1
+connect GND -> C3.2, C4.2, C5.2, C6.2, C7.2
+connect GND -> U1.VSS_1, U1.VSS_2, U1.VSS_3, U1.VSSA, U1.EP
+
+// -- power flag: GND is supplied by the USB host, outside this schematic -----------------------
+component FLG1 { symbol = "Buture:PWR_FLAG"  value = "PWR_FLAG" }
+connect FLG1.1 -> GND
+
+// -- crystal ----------------------------------------------------------------------------------
+component Y1 { symbol = "Ref:Crystal_4Pad" value = "8MHz" footprint = "Ref:Crystal_3225" }
+component C1 { value = "20p" footprint = "0603" }
+component C2 { value = "20p" footprint = "0603" }
+connect U1.PD0_OSC_IN -> OSC_IN
+connect OSC_IN -> Y1.XIN, C1.1
+connect U1.PD1_OSC_OUT -> OSC_OUT
+connect OSC_OUT -> Y1.XOUT, C2.1
+connect GND -> C1.2, C2.2, Y1.GND_1, Y1.GND_2
+
+// -- reset and boot ---------------------------------------------------------------------------
+component SW1 { symbol = "Ref:SW_Push" value = "RESET" footprint = "Ref:SW_Tact_6x6" }
+component SW2 { symbol = "Ref:SW_Push" value = "BOOT0" footprint = "Ref:SW_Tact_6x6" }
+component R4 { value = "10k" footprint = "0603" }     // BOOT0 pull-down
+component C12 { value = "100n" footprint = "0603" }   // NRST filter
+connect U1.NRST -> NRST
+connect NRST -> SW1.A, C12.1
+connect GND -> SW1.B, C12.2
+connect U1.BOOT0 -> BOOT0
+connect BOOT0 -> SW2.A, R4.1
+connect "+3V3" -> SW2.B
+connect GND -> R4.2
+
+// -- USB --------------------------------------------------------------------------------------
+component R1 { value = "1.5k" footprint = "0603" }    // D+ pull-up (full-speed identification)
+connect J1.3 -> USB_DP       // pin D+ (the name “D+” cannot be written in a pin reference)
+connect USB_DP -> U1.PA12_USB_DP, R1.1
+connect "+3V3" -> R1.2
+connect J1.2 -> USB_DM       // pin D-
+connect USB_DM -> U1.PA11_USB_DM
+
+// -- LEDs -------------------------------------------------------------------------------------
+component R5 { value = "1k" footprint = "0603" }
+component R6 { value = "1k" footprint = "0603" }
+component LED1 { value = "green" footprint = "0603" }   // power
+component LED2 { value = "yellow" footprint = "0603" } // user (PC13)
+connect "+3V3" -> R5.1
+connect R5.2 -> LED1_A
+connect LED1_A -> LED1.A
+connect LED1.K -> GND
+connect U1.PC13 -> USER_LED
+connect USER_LED -> R6.1
+connect R6.2 -> LED2_A
+connect LED2_A -> LED2.A
+connect LED2.K -> GND
+
+// -- SWD header -------------------------------------------------------------------------------
+component J2 { symbol = "Buture:Conn_01x04" value = "SWD" footprint = "header4" }
+connect "+3V3" -> J2.1
+connect U1.PA13_SWDIO -> SWDIO
+connect SWDIO -> J2.2
+connect U1.PA14_SWCLK -> SWCLK
+connect SWCLK -> J2.3
+connect GND -> J2.4
+
+// -- placement (millimetres, board origin at the lower left corner) ---------------------------
+place U1 at (28mm, 22mm)
+place J1 at (51mm, 22mm) rotate 90
+place U2 at (44mm, 36mm)
+place C10 at (49mm, 36mm)
+place C11 at (40mm, 36mm)
+place C8 at (36mm, 38mm)
+place C3 at (25.2mm, 29.5mm)
+place C4 at (35.5mm, 26mm)
+place C5 at (32mm, 16mm)
+place C6 at (21.5mm, 20mm)
+place C7 at (21.5mm, 26.5mm)
+place Y1 at (10mm, 22mm)
+place C1 at (10mm, 27mm)
+place C2 at (10mm, 17mm)
+place SW1 at (10mm, 8mm)
+place SW2 at (24mm, 8mm)
+place R4 at (30mm, 8mm)
+place C12 at (16mm, 8mm)
+place R1 at (42mm, 22mm)
+place R5 at (14mm, 38mm)
+place R6 at (24mm, 38mm)
+place LED1 at (18mm, 38mm)
+place LED2 at (28mm, 38mm)
+place J2 at (46mm, 8mm) rotate 90
+
+rule { clearance = 0.15mm  min_track_width = 0.15mm  min_via_diameter = 0.5mm  min_via_drill = 0.25mm  min_annular_ring = 0.125mm  copper_to_edge = 0.3mm }
+class Power { width = 0.4mm  clearance = 0.2mm  nets = ["+5V", "+3V3", GND] }
+zone GND on In1.Cu { outline = rect(1mm, 1mm, 55mm, 43mm)  clearance = 0.25mm  min_width = 0.2mm }
+zone "+3V3" on In2.Cu { outline = rect(1mm, 1mm, 55mm, 43mm)  clearance = 0.25mm  min_width = 0.2mm }
