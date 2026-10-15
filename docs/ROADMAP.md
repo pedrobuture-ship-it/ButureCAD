@@ -38,6 +38,8 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 33 | Component Provider API | done (`docs/plugin-sdk/README.md`) |
 | 34 | Simulation architecture (SPICE) | done (`docs/simulation.md`): built-in linear engine + ngspice backend verified against ngspice 47 |
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
-| 35–37 | ButureScript, parametric ButureScript, code ↔ visual | planned |
+| 35 | ButureScript (lexer, parser, AST, semantic analysis, diagnostics, compiler → EDA IR → core) | done (`docs/buturescript/README.md`) |
+| 36 | Parametric ButureScript (variables, functions, modules, loops, conditions, units) | done |
+| 37 | Code ↔ Visual | planned |
 | 38–42 | CLI, headless, Agent API, AI workspace, protocol | planned |
 | 43–50 | Import, performance, robustness, UX, validation project, audits, release | planned |

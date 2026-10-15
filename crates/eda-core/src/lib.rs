@@ -8,6 +8,8 @@ pub mod command;
 pub mod commands;
 pub mod copper;
 pub mod engine;
+pub mod ir;
+pub mod ir_apply;
 pub mod length;
 pub mod model;
 pub mod outline;

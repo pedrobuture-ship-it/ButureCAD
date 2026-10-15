@@ -1042,3 +1042,86 @@ mod tests {
         assert!(generate("dip", &[("pins".into(), "abc".into())]).is_err());
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Two-terminal chip (resistors, capacitors, inductors, LEDs)
+// ---------------------------------------------------------------------------------------------
+
+/// Imperial chip sizes: `(code, pad width along the axis, pad height, centre-to-centre of pads,
+/// body length, body width)` in mm. Nominal values for general-purpose land patterns; check them
+/// against the part's datasheet and your fabricator's capabilities.
+const CHIP_SIZES: [(&str, f64, f64, f64, f64, f64); 5] = [
+    ("0201", 0.40, 0.40, 0.66, 0.60, 0.30),
+    ("0402", 0.55, 0.60, 1.02, 1.00, 0.50),
+    ("0603", 0.80, 0.95, 1.65, 1.60, 0.80),
+    ("0805", 1.00, 1.45, 1.90, 2.00, 1.25),
+    ("1206", 1.15, 1.80, 2.95, 3.20, 1.60),
+];
+
+/// Imperial chip codes the generator knows.
+pub const CHIP_CODES: [&str; 5] = ["0201", "0402", "0603", "0805", "1206"];
+
+/// A two-pad chip footprint (`0402`, `0603`, …) named `Chip_<code>`. Pin 1 is on the left.
+pub fn chip(code: &str) -> Result<Footprint> {
+    let Some(&(_, pw, ph, cc, bl, bw)) = CHIP_SIZES.iter().find(|s| s.0 == code) else {
+        return bad(format!(
+            "unknown chip size “{code}” (known: {})",
+            CHIP_CODES.join(", ")
+        ));
+    };
+    let mut fp = Footprint::new(format!("Chip_{code}"));
+    fp.description = format!("{code} (imperial) two-terminal chip component");
+    fp.tags = format!("chip {code} smd");
+    fp.attributes.mount = MountType::Smd;
+    let x = mm(cc / 2.0);
+    fp.pads
+        .push(Pad::smd("1", Point::new(-x, 0), mm(pw), mm(ph)));
+    fp.pads
+        .push(Pad::smd("2", Point::new(x, 0), mm(pw), mm(ph)));
+    let (hl, hw) = (mm(bl / 2.0), mm(bw / 2.0));
+    fp.graphics.extend(rect(
+        FpLayer::Fabrication,
+        Point::new(-hl, -hw),
+        Point::new(hl, hw),
+        FAB,
+    ));
+    // Silkscreen ticks above and below the body, clear of the pads.
+    let sx = mm((cc - pw) / 2.0 - 0.1).max(0);
+    let sy = hw.max(mm(ph / 2.0)) + mm(0.2);
+    fp.graphics.push(line(
+        FpLayer::Silkscreen,
+        Point::new(-sx, -sy),
+        Point::new(sx, -sy),
+        SILK,
+    ));
+    fp.graphics.push(line(
+        FpLayer::Silkscreen,
+        Point::new(-sx, sy),
+        Point::new(sx, sy),
+        SILK,
+    ));
+    let ext = x + mm(pw / 2.0);
+    let top = sy + SILK / 2;
+    fp.graphics
+        .push(courtyard(Point::new(-ext, -top), Point::new(ext, top))?);
+    fp.texts = texts(top + COURT_MARGIN, -top - COURT_MARGIN);
+    finish(fp)
+}
+
+#[cfg(test)]
+mod chip_tests {
+    use super::*;
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn every_chip_size_is_valid_and_symmetric() {
+        for c in CHIP_CODES {
+            let f = chip(c).unwrap();
+            assert_eq!(f.name, format!("Chip_{c}"));
+            assert_eq!(f.pads.len(), 2);
+            assert_eq!(f.pads[0].position.x, -f.pads[1].position.x);
+            assert_eq!(f.pads[0].number, "1");
+        }
+        assert!(chip("9999").is_err());
+    }
+}
