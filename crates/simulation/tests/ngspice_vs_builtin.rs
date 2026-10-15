@@ -134,3 +134,37 @@ fn ngspice_errors_are_reported() {
     let e = n.run(&c, &Analysis::Op).unwrap_err();
     assert!(matches!(e, SimError::Failed(_)), "{e:?}");
 }
+
+/// Release cleanup (stage 49): the temporary folder is removed on success and on error, and a
+/// chatty run cannot block on a full output pipe.
+#[test]
+fn no_temporary_folder_is_left_behind() {
+    let Some(n) = ng() else { return };
+    let mine = format!("buturecad-ngspice-{}-", std::process::id());
+    let left = || {
+        std::fs::read_dir(std::env::temp_dir())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().starts_with(&mine))
+            .count()
+    };
+    n.run(&rc("5"), &Analysis::Op).unwrap();
+    let mut bad = rc("5");
+    bad.elements.push(el(
+        "D1",
+        Kind::D,
+        &["out", "0"],
+        Value::Model("NOSUCHMODEL".into()),
+    ));
+    assert!(n.run(&bad, &Analysis::Op).is_err());
+    // Other tests of this binary run ngspice at the same time: wait for their folders to go.
+    let t = std::time::Instant::now();
+    while left() > 0 && t.elapsed() < std::time::Duration::from_secs(20) {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert_eq!(
+        left(),
+        0,
+        "temporary folders were left in the temp directory"
+    );
+}

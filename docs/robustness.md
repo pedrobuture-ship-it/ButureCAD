@@ -59,6 +59,17 @@ FUZZ_ITERS=200000 cargo test --release -- fuzz damaged mutated hostile tampering
   the marker. It also checks that the target of a failed atomic write is untouched and that stale
   temporary files do not matter.
 
+## Platforms (stage 49)
+
+* **Linux:** everything is built and tested.
+* **Windows / macOS:** the core, the CLI and every crate they link were **type-checked** for
+  `x86_64-pc-windows-gnu` and `x86_64-apple-darwin` (`cargo check -p buturecad-cli --target …`); no test
+  was run there and the desktop app (Tauri/WebView, wgpu) was not built there. CI has an
+  *experimental* job that runs the core tests on both; until it is green, treat these platforms as
+  unverified.
+* On non-Unix systems the directory is not fsynced after the atomic rename (not portable), so a
+  power failure right after a save may lose the very latest save there; the old file is never corrupted.
+
 ## Limits
 
 * The fault hook simulates process death; it cannot simulate power loss with unsynced data or

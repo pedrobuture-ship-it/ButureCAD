@@ -61,7 +61,8 @@ impl Backend for NgspiceBackend {
         c.validate()?;
         analysis.validate()?;
         let exe = self.exe.as_ref().ok_or(SimError::Unavailable("ngspice"))?;
-        let dir = tempdir()?;
+        let guard = TempDirGuard(tempdir()?);
+        let dir = guard.0.clone();
         let net = dir.join("circuit.cir");
         let raw = dir.join("out.raw");
         let mut text = c.to_spice(analysis);
@@ -74,13 +75,21 @@ impl Backend for NgspiceBackend {
             ),
         );
         std::fs::write(&net, text).map_err(|e| SimError::Failed(e.to_string()))?;
+        // Output goes to files, not pipes: a chatty ngspice cannot fill a pipe and block while
+        // we wait for it to exit.
+        let log_path = dir.join("ngspice.log");
+        let log_file =
+            std::fs::File::create(&log_path).map_err(|e| SimError::Failed(e.to_string()))?;
+        let log_err = log_file
+            .try_clone()
+            .map_err(|e| SimError::Failed(e.to_string()))?;
         let mut child = Command::new(exe)
             .arg("-b")
             .arg(&net)
             .current_dir(&dir)
             .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::from(log_file))
+            .stderr(Stdio::from(log_err))
             .spawn()
             .map_err(|e| SimError::Failed(format!("cannot start ngspice: {e}")))?;
         let started = Instant::now();
@@ -90,22 +99,21 @@ impl Backend for NgspiceBackend {
                 Ok(None) if started.elapsed() > TIMEOUT => {
                     let _ = child.kill();
                     let _ = child.wait();
-                    let _ = std::fs::remove_dir_all(&dir);
                     return Err(SimError::Failed(
                         "ngspice did not finish within 60 s and was stopped".into(),
                     ));
                 }
                 Ok(None) => std::thread::sleep(Duration::from_millis(20)),
-                Err(e) => return Err(SimError::Failed(e.to_string())),
+                Err(e) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(SimError::Failed(e.to_string()));
+                }
             }
         };
-        let out = child
-            .wait_with_output()
-            .map_err(|e| SimError::Failed(e.to_string()))?;
-        let log = String::from_utf8_lossy(&[out.stdout.as_slice(), out.stderr.as_slice()].concat())
-            .into_owned();
+        let log =
+            String::from_utf8_lossy(&std::fs::read(&log_path).unwrap_or_default()).into_owned();
         let data = std::fs::read(&raw);
-        let _ = std::fs::remove_dir_all(&dir);
         let data = data.map_err(|_| {
             let tail: String = log
                 .lines()
@@ -121,6 +129,15 @@ impl Backend for NgspiceBackend {
         let mut r = parse_raw(&String::from_utf8_lossy(&data), analysis)?;
         r.backend = self.name().into();
         Ok(r)
+    }
+}
+
+/// Removes the temporary folder on every exit path (success, error, timeout).
+struct TempDirGuard(PathBuf);
+
+impl Drop for TempDirGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
     }
 }
 

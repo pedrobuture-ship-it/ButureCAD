@@ -2,7 +2,7 @@
 
 use crate::error::{IoError, Result};
 use std::cell::Cell;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
@@ -110,7 +110,7 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
 
 #[cfg(unix)]
 fn sync_dir(dir: &Path) -> std::io::Result<()> {
-    File::open(dir)?.sync_all()
+    std::fs::File::open(dir)?.sync_all()
 }
 
 #[cfg(not(unix))]

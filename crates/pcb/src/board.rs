@@ -1061,7 +1061,7 @@ impl DesignRules {
             if !(1..=10_000_000_000).contains(&t.target)
                 || !(0..=1_000_000_000).contains(&t.tolerance)
             {
-                return bad(format!("the length target of net {n:?} is out of range"));
+                return bad(format!("the length target of net #{} is out of range", n.0));
             }
         }
         let mut seen = std::collections::BTreeSet::new();

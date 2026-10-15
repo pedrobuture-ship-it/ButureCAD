@@ -13,16 +13,28 @@ pub struct AppState(pub Mutex<Workspace>);
 
 impl AppState {
     fn with<T>(&self, f: impl FnOnce(&mut Workspace) -> Result<T, String>) -> Result<T, String> {
-        let mut ws = self
-            .0
-            .lock()
-            .map_err(|_| "internal error: workspace lock poisoned".to_string())?;
+        // A panic inside an earlier command poisons the lock. The project itself lives in the
+        // Command Engine (edits are applied whole), so keep the app usable: take the workspace
+        // back, tell the user, and carry on rather than failing every later command.
+        let (mut ws, recovered) = match self.0.lock() {
+            Ok(ws) => (ws, false),
+            Err(poisoned) => {
+                self.0.clear_poison();
+                (poisoned.into_inner(), true)
+            }
+        };
+        if recovered {
+            ws.log(
+                MessageLevel::Error,
+                "An earlier operation failed unexpectedly. The project was not changed by the failed step; consider saving and restarting.".to_string(),
+            );
+        }
         f(&mut ws)
     }
 
     /// Runs a state-changing action and returns the fresh snapshot. Failures are logged to the
     /// Messages panel as well as returned to the caller.
-    fn act(
+    pub fn act(
         &self,
         f: impl FnOnce(&mut Workspace) -> Result<(), String>,
     ) -> Result<Snapshot, String> {

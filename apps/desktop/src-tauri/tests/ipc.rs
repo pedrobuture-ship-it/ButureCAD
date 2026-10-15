@@ -226,3 +226,27 @@ fn editing_commands_work_over_ipc() {
         .unwrap_err();
     assert!(err.as_str().unwrap().contains("cannot be edited"));
 }
+
+/// Release cleanup (stage 49): a panic inside one command must not make every later command fail.
+#[test]
+fn a_poisoned_workspace_lock_is_recovered() {
+    use std::sync::Arc;
+    let state = Arc::new(AppState(Mutex::new(Workspace::new(None))));
+    let s2 = Arc::clone(&state);
+    let _ = std::thread::spawn(move || {
+        let _guard = s2.0.lock().unwrap();
+        panic!("simulated failure inside a command");
+    })
+    .join();
+    assert!(state.0.is_poisoned());
+    // The next command still works and a warning is logged.
+    let snap = state.act(|_| Ok(())).unwrap();
+    assert!(!state.0.is_poisoned());
+    assert!(
+        snap.messages
+            .iter()
+            .any(|m| m.text.contains("failed unexpectedly")),
+        "{:?}",
+        snap.messages
+    );
+}

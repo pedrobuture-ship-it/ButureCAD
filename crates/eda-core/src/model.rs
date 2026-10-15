@@ -273,9 +273,10 @@ impl PcbDoc {
         };
         let net_ok = |n: Option<Id>| -> Result<(), ModelError> {
             match n {
-                Some(id) if !self.nets.contains_key(&id) => {
-                    Err(ModelError::BadObject(format!("net {id:?} does not exist")))
-                }
+                Some(id) if !self.nets.contains_key(&id) => Err(ModelError::BadObject(format!(
+                    "net #{} does not exist",
+                    id.0
+                ))),
                 _ => Ok(()),
             }
         };

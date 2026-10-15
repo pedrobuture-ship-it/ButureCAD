@@ -371,3 +371,20 @@ zone "+3V3" on In2.Cu { outline = rect(1mm, 1mm, 19mm, 19mm) }
         (1, 1, 1)
     );
 }
+
+#[test]
+fn syntax_errors_name_the_symbol_found_not_an_internal_token() {
+    for (src, want) in [
+        ("project \"x\"\nlet a = 1 + * 2\n", "found “*”"),
+        ("project \"x\"\nconnect A.1 -> * B.2\n", "found “*”"),
+        ("project \"x\"\nlet b = (1 }\n", "found “}”"),
+    ] {
+        let e = errors(src);
+        assert!(e.iter().any(|m| m.contains(want)), "{src}: {e:?}");
+        assert!(
+            e.iter()
+                .all(|m| !m.contains("Star") && !m.contains("RBrace")),
+            "{e:?}"
+        );
+    }
+}

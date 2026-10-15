@@ -30,25 +30,6 @@ fn bad<T>(m: impl Into<String>) -> Result<T, ApplyError> {
     Err(ApplyError::Invalid(m.into()))
 }
 
-/// Opt-in phase timing: set `BUTURECAD_TRACE=1` to print how long each step of applying a design
-/// takes (used by the benchmarks to find bottlenecks).
-struct Lap(Option<std::time::Instant>);
-
-impl Lap {
-    fn new() -> Self {
-        Lap(std::env::var_os("BUTURECAD_TRACE").map(|_| std::time::Instant::now()))
-    }
-    fn mark(&mut self, what: &str) {
-        if let Some(t) = self.0.as_mut() {
-            eprintln!(
-                "  [apply] {what}: {:.1} ms",
-                t.elapsed().as_secs_f64() * 1e3
-            );
-            *t = std::time::Instant::now();
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ApplyReport {
     pub components: usize,
@@ -318,7 +299,6 @@ pub fn apply_design_with(
 ) -> Result<ApplyReport, ApplyError> {
     check_ranges(design)?;
     let mut report = ApplyReport::default();
-    let mut lap = Lap::new();
     {
         let p = engine.project();
         if p.schematic().object_count() != 0 || !p.pcb().placed.is_empty() {
@@ -372,8 +352,6 @@ pub fn apply_design_with(
     if !add.is_empty() {
         engine.execute(AddSymbolsCommand::new(add))?;
     }
-
-    lap.mark("symbols");
     // -- schematic: components on a grid ---------------------------------------------------------
     const G: i64 = 1_270_000;
     let mut comps: BTreeMap<String, Component> = BTreeMap::new();
@@ -462,7 +440,6 @@ pub fn apply_design_with(
             "{n_comp} components do not fit one schematic sheet with automatic layout"
         ));
     }
-    lap.mark("schematic components");
     // -- schematic: nets as labels / power symbols at the pins -----------------------------------
     {
         let sch = engine.project().schematic();
@@ -516,7 +493,6 @@ pub fn apply_design_with(
             changes.push(Change::create(ROOT_SHEET, id, obj));
         }
     }
-    lap.mark("schematic net markers");
     if !changes.is_empty() {
         engine.execute(SchematicEditCommand::new(
             "ButureScript: schematic",
@@ -526,16 +502,12 @@ pub fn apply_design_with(
     report.components = design.components.len();
     report.nets = design.nets.len();
     verify_connectivity(engine, design, &comps, &ids)?;
-
-    lap.mark("schematic command");
     // -- board: footprints and nets from the schematic -------------------------------------------
     let plan = crate::sync::plan_update(engine.project(), resolve_footprint);
     for w in plan.warnings() {
         report.warnings.push(w.text.clone());
     }
-    lap.mark("PCB sync: plan");
     plan.apply(engine)?;
-    lap.mark("PCB sync: apply");
 
     // -- board: layers, outline ------------------------------------------------------------------
     if let Some(layers) = design.board.as_ref().and_then(|b| b.layers) {
@@ -690,11 +662,9 @@ pub fn apply_design_with(
         pcb.push(PcbChange::create(id, PcbObject::Zone(zone)));
         report.zones += 1;
     }
-    lap.mark("board changes built");
     if !pcb.is_empty() {
         engine.execute(PcbEditCommand::new("ButureScript: board", pcb))?;
     }
-    lap.mark("board command");
     if !design.zones.is_empty() {
         let fill = crate::zonefill::fill_changes(engine.project().pcb(), None, true);
         if !fill.is_empty() {

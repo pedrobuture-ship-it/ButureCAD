@@ -311,7 +311,7 @@ impl Command for SetRulesCommand {
             .keys()
             .find(|n| !project.pcb.nets.contains_key(n))
         {
-            return Err(ModelError::BadObject(format!("net {n:?} does not exist")).into());
+            return Err(ModelError::BadObject(format!("net #{} does not exist", n.0)).into());
         }
         if let Some(n) = self
             .after
@@ -319,7 +319,7 @@ impl Command for SetRulesCommand {
             .keys()
             .find(|n| !project.pcb.nets.contains_key(n))
         {
-            return Err(ModelError::BadObject(format!("net {n:?} does not exist")).into());
+            return Err(ModelError::BadObject(format!("net #{} does not exist", n.0)).into());
         }
         if let Some(n) = self
             .after
@@ -328,7 +328,7 @@ impl Command for SetRulesCommand {
             .flat_map(|p| [p.positive, p.negative])
             .find(|n| !project.pcb.nets.contains_key(n))
         {
-            return Err(ModelError::BadObject(format!("net {n:?} does not exist")).into());
+            return Err(ModelError::BadObject(format!("net #{} does not exist", n.0)).into());
         }
         project.pcb.rules = self.after.clone();
         Ok(())

@@ -3,7 +3,7 @@
 //! from the PCB model: it draws exactly what the reader parsed.
 
 use crate::excellon_read::DrillFile;
-use crate::gerber_read::{half_extent, ApShape, Image, Prim, P};
+use crate::gerber_read::{ApShape, Image, Prim, P};
 use std::f64::consts::PI;
 
 pub enum Content<'a> {
@@ -299,11 +299,6 @@ pub fn bounds(layers: &[LayerDraw<'_>]) -> Option<(P, P)> {
         }
     }
     b
-}
-
-#[allow(dead_code)]
-fn _extent(ap: &ApShape) -> (i64, i64) {
-    half_extent(ap)
 }
 
 #[cfg(test)]

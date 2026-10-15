@@ -24,3 +24,18 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+  # The core and the CLI (no GUI crates) on the other desktop platforms. Marked experimental until
+  # it has been seen green: the Windows and macOS builds of the desktop app are not verified yet.
+  portable-core:
+    name: core on ${{ matrix.os }} (experimental)
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p buturecad-cli -p buturecad-io -p buturecad-scripting -p buturecad-rules -p buturecad-manufacturing -p buturecad-geometry -p buturecad-schematic -p buturecad-pcb -p buturecad-eda-core -p buturecad-router
