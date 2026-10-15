@@ -132,9 +132,11 @@ registry; documentation inside the app.
 Priorities reflect "what blocks a real board first". Nothing here is started.
 
 ### P0 — before any real board
-1. Curated libraries with **datasheet-verified footprints and symbols** (passives, common ICs,
-   connectors, crystals, regulators); component placement that brings symbol **and** footprint,
-   value and MPN.
+1. Curated libraries with **datasheet-verified footprints and symbols**. *Started in stage 51:* the
+   built-in `Std` library (~60 symbols, ~75 footprints, 17 components with MPN), package outlines
+   asserted against published JEDEC values, and component placement now brings footprint and MPN.
+   **Still open:** nobody has compared the land patterns with vendor datasheets or a fabricator; QFN/
+   BGA/USB-C/crystal entries and a much larger parts catalogue are missing (`docs/standard-library.md`).
 2. Manufacturing completeness: **silkscreen text** (references/values), **BOM MPN/supplier columns**,
    pick-and-place rotation offsets, assembly info.
 3. DRC rules: **hole-to-hole, drill-to-copper, silkscreen-over-pad, mask sliver, keepout**, fabricator

@@ -354,6 +354,11 @@ impl Parser {
                     self.bump();
                     PinPart::Name(s)
                 }
+                // A quoted pin name: `U1."V+"`, `J1."D-"`.
+                Tok::Str(s) => {
+                    self.bump();
+                    PinPart::Name(s)
+                }
                 Tok::Num(v, None) if v.fract() == 0.0 && v >= 0.0 => {
                     self.bump();
                     PinPart::Number((v as u64).to_string())
@@ -368,9 +373,9 @@ impl Parser {
                     return self.err(
                         psp,
                         format!(
-                            "expected a pin name or number after “.”, found {}",
-                            Self::describe(&other)
-                        ),
+                        "expected a pin name, a quoted pin name or a number after “.”, found {}",
+                        Self::describe(&other)
+                    ),
                     )
                 }
             };

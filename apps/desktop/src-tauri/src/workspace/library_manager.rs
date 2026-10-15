@@ -106,6 +106,32 @@ impl Workspace {
             e.footprint = s.meta.default_footprint.clone();
             extra.push(e);
         }
+        // The built-in Std library: symbols, footprints and components.
+        for s in buturecad_libraries::standard::symbols() {
+            let short = s.name.rsplit(':').next().unwrap_or(&s.name).to_owned();
+            let mut e = Entry::new(Kind::Symbol, "builtin", "Std", &short);
+            e.description = s.meta.description.clone();
+            e.keywords = s.meta.keywords.clone();
+            extra.push(e);
+        }
+        for f in buturecad_libraries::standard::footprints() {
+            let short = f.name.rsplit(':').next().unwrap_or(&f.name).to_owned();
+            let mut e = Entry::new(Kind::Footprint, "builtin", "Std", &short);
+            e.description = f.description.clone();
+            e.keywords = f.tags.clone();
+            extra.push(e);
+        }
+        for c in buturecad_libraries::standard::components() {
+            let mut e = Entry::new(Kind::Component, "builtin", "Std", &c.name);
+            e.description = c.description.clone();
+            e.keywords = c.tags.join(" ");
+            e.manufacturer = c.manufacturer.clone();
+            e.mpn = c.mpn.clone();
+            e.symbol = c.symbol.clone();
+            e.footprint = c.footprint.clone();
+            e.datasheet = c.datasheet.clone();
+            extra.push(e);
+        }
         let dirs = self.library_dirs();
         let refs: Vec<(&str, &buturecad_libraries::LibraryDir)> =
             dirs.iter().map(|(s, d)| (*s, d)).collect();
@@ -261,6 +287,22 @@ impl Workspace {
         if self.find_library_symbol(&id).is_none() {
             return Err(format!("symbol {id} was not found in any library"));
         }
+        // A library component brings its footprint and manufacturer data, not only its symbol.
+        self.editor.pending_part = match (
+            &e.kind,
+            self.libm.index.as_ref().and_then(|ix| ix.find(key)),
+        ) {
+            (Kind::Component, Some(c)) => Some((
+                id.clone(),
+                buturecad_schematic::edit::PartData {
+                    footprint: c.footprint.clone(),
+                    mpn: c.mpn.clone(),
+                    manufacturer: c.manufacturer.clone(),
+                    datasheet: c.datasheet.clone(),
+                },
+            )),
+            _ => None,
+        };
         self.libm.prefs.touch_recent(key);
         self.lm_save_prefs();
         Ok(id)

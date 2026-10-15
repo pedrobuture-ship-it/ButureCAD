@@ -20,3 +20,4 @@ thiserror = "2"
 
 [dev-dependencies]
 buturecad-testkit = { path = "../testkit" }
+buturecad-libraries = { path = "../libraries" }

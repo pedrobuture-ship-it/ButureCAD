@@ -388,3 +388,39 @@ fn syntax_errors_name_the_symbol_found_not_an_internal_token() {
         );
     }
 }
+
+/// Pins named like `V+`, `D-` or `-IN1` are written quoted after the dot (found by the stage-47
+/// reference board and the stage-51 standard library).
+#[test]
+fn quoted_pin_names_connect_pins_whose_names_are_not_identifiers() {
+    let src = r#"
+project "p"
+component J1 { symbol = "Std:USB_Micro_B" value = "usb" }
+component R1 { value = "1k" }
+connect J1."D+" -> USB_DP
+connect USB_DP -> R1.1
+connect J1."D-" -> USB_DM
+connect J1.GND -> GND
+connect R1.2 -> GND
+"#;
+    let std_syms = buturecad_libraries::standard::symbols();
+    let o = CompileOptions {
+        symbols: std_syms,
+        ..Default::default()
+    };
+    let out = compile(src, &o);
+    assert!(!out.has_errors(), "{:?}", out.diagnostics);
+    let d = out.design.unwrap();
+    let net = |n: &str| d.nets.iter().find(|x| x.name == n).unwrap();
+    assert!(net("USB_DP")
+        .pins
+        .iter()
+        .any(|p| p.reference == "J1" && p.pin == "D+"));
+    assert!(net("USB_DM")
+        .pins
+        .iter()
+        .any(|p| p.reference == "J1" && p.pin == "D-"));
+    // A quoted name that does not exist is still an error with the symbol's pins listed.
+    let bad = src.replace("J1.\"D+\"", "J1.\"X+\"");
+    assert!(compile(&bad, &o).has_errors());
+}

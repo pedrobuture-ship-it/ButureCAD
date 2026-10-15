@@ -32,7 +32,7 @@
 | **DRC** | Clearance, shorts, widths, vias, annular ring, copper-to-edge, courtyards, unrouted nets, pair skew, length targets |
 | **Manufacturing** | Gerber, Excellon, BOM, pick-and-place, preflight that blocks export on errors, an independent Gerber viewer |
 | **3D** | Board viewer with substrate, mask, copper, silkscreen and component bodies; mechanical exchange layer |
-| **Libraries** | Symbol / footprint / 3D / component libraries, fast local search, favourites |
+| **Libraries** | Symbol / footprint / 3D / component libraries, fast local search, favourites; a built-in `Std` library (~60 symbols, ~75 footprints, components with MPN; land patterns computed, not datasheet-verified) |
 | **Simulation** | Netlist extraction and OP / DC / AC / transient analysis |
 | **ButureScript** | Lexer → parser → semantic analysis → EDA IR → core; modules, loops, parameters, units, Code / Split / Visual views |
 | **CLI** | `build`, `check`, `erc`, `drc`, `fill`, `export-gerber`, `export-bom`, `inspect`, `import`, `agent` — no GUI code linked |

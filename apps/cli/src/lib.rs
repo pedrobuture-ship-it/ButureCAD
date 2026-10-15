@@ -275,17 +275,19 @@ fn options(a: &Args, script: &str, o: &mut Out) -> CompileOptions {
             d.is_dir().then_some(d)
         }
     };
+    // The built-in `Std` library is always available; libraries found on disk are added to it.
     let mut opts = CompileOptions {
         params: a.params.iter().cloned().collect(),
-        ..CompileOptions::default()
+        symbols: buturecad_libraries::standard::symbols(),
+        footprints: buturecad_libraries::standard::footprints(),
     };
     if let Some(dir) = dir {
         let loaded = buturecad_libraries::LibraryDir::new(dir).load_all();
         for p in &loaded.problems {
             o.warn(p);
         }
-        opts.symbols = loaded.symbols;
-        opts.footprints = loaded.footprints;
+        opts.symbols.extend(loaded.symbols);
+        opts.footprints.extend(loaded.footprints);
     }
     opts
 }

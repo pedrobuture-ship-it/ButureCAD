@@ -131,6 +131,9 @@ pub(crate) struct EditorState {
     /// The symbol of the active placement tool, resolved once when the tool is chosen (so the
     /// per-frame preview does not read library files).
     pending_symbol: Option<Symbol>,
+    /// Footprint and manufacturer data of the library component being placed, with the symbol it
+    /// belongs to (set by `library_place_symbol`, dropped when another tool is chosen).
+    pub(crate) pending_part: Option<(String, edit::PartData)>,
     pub clipboard: Option<Clipboard>,
     /// Elbow orientation for new wires: horizontal leg first.
     horizontal_first: bool,
@@ -486,6 +489,11 @@ impl Workspace {
         if tool != Tool::Select {
             self.require_schematic()?;
         }
+        // Part data only survives for the placement tool of its own symbol.
+        if !matches!(&tool, Tool::PlaceComponent(lib) if self.editor.pending_part.as_ref().is_some_and(|(s, _)| s == lib))
+        {
+            self.editor.pending_part = None;
+        }
         if let Tool::PlaceComponent(lib) | Tool::PlacePower(lib) = &tool {
             let sym = self
                 .symbol_by_id(lib)
@@ -776,6 +784,9 @@ impl Workspace {
     pub fn library_symbols(&self) -> Vec<SymbolInfo> {
         let mut all: BTreeMap<String, (Symbol, String)> = BTreeMap::new();
         for s in builtin::symbols() {
+            all.insert(s.name.clone(), (s, "builtin".into()));
+        }
+        for s in buturecad_libraries::standard::symbols() {
             all.insert(s.name.clone(), (s, "builtin".into()));
         }
         for (scope, dir) in self.library_dirs() {
@@ -1147,12 +1158,18 @@ impl Workspace {
                     Object::PowerSymbol(edit::new_power_symbol(&sym, placement))
                 } else {
                     // The reference must account for the symbol even if it is not embedded yet.
-                    Object::Component(edit::new_component_unit(
+                    let mut c = edit::new_component_unit(
                         sch,
                         &sym,
                         placement,
                         self.editor.pending_unit.max(1),
-                    ))
+                    );
+                    if let Some((s, data)) = &self.editor.pending_part {
+                        if *s == sym.name && c.unit == 1 {
+                            data.apply(&mut c);
+                        }
+                    }
+                    Object::Component(c)
                 };
                 let label = if power {
                     "Place power symbol"

@@ -1190,3 +1190,525 @@ mod qfn_overlap_tests {
         assert!(q.generate().is_err());
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Standard packages (stage 51): TSSOP, MSOP, LQFP, SOT-23, SOT-223, SOD-123, SMA, hole, test point
+// ---------------------------------------------------------------------------------------------
+//
+// Package outlines (pitch, body, lead span, pin counts) are the published nominal JEDEC / EIA
+// values. Land patterns follow a **simplified IPC-7351B** nominal rule for gull-wing and J-lead
+// parts (toe 0.35 mm, heel 0.35 mm, side 0.03 mm): they are computed, not copied from any vendor
+// or library, and vendors' recommended patterns differ. Always compare with the datasheet of the
+// part you use.
+
+/// Pad of a gull-wing style lead: `(length, width, |x| of the centre)` for a package whose lead
+/// tips span `tip_span`, with leads `lead_w` wide and a flat foot of `foot`.
+fn gull(pitch: Coord, tip_span: Coord, lead_w: Coord, foot: Coord) -> (Coord, Coord, Coord) {
+    let (toe, heel, side) = (350_000, 350_000, 30_000);
+    let length = toe + foot + heel;
+    let outer = tip_span / 2 + toe;
+    let width = (lead_w + 2 * side).min(pitch - 200_000).max(100_000);
+    (length, width, outer - length / 2)
+}
+
+/// Common drawing of a two-row package: body outline, silkscreen along the long sides, pin-1
+/// marker, courtyard and texts.
+fn finish_two_row(
+    mut fp: Footprint,
+    half_w: Coord,
+    half_l: Coord,
+    pad_outer_x: Coord,
+    marker_y: Coord,
+) -> Result<Footprint> {
+    fp.graphics.extend(rect(
+        FpLayer::Fabrication,
+        Point::new(-half_w, -half_l),
+        Point::new(half_w, half_l),
+        FAB,
+    ));
+    for y in [half_l, -half_l] {
+        fp.graphics.push(line(
+            FpLayer::Silkscreen,
+            Point::new(-half_w, y),
+            Point::new(half_w, y),
+            SILK,
+        ));
+    }
+    fp.graphics
+        .extend(pin1_marker(Point::new(-pad_outer_x, marker_y), -1, 1));
+    fp.graphics.push(courtyard(
+        Point::new(-pad_outer_x, -half_l),
+        Point::new(pad_outer_x, half_l),
+    )?);
+    fp.texts = texts(half_l + COURT_MARGIN, -half_l - COURT_MARGIN);
+    finish(fp)
+}
+
+/// Body length of a TSSOP (JEDEC MO-153, 4.4 mm wide) by pin count.
+fn tssop_body_length(pins: u32) -> Option<f64> {
+    Some(match pins {
+        8 => 3.0,
+        14 | 16 => 5.0,
+        20 => 6.5,
+        24 => 7.8,
+        28 => 9.7,
+        _ => return None,
+    })
+}
+
+/// A dual-row gull-wing package with pins numbered counter-clockwise from the top left.
+struct Leads {
+    pitch: Coord,
+    tip_span: Coord,
+    lead_w: Coord,
+    foot: Coord,
+}
+
+fn dual_row(
+    name: String,
+    description: String,
+    pins: u32,
+    body: (Coord, Coord),
+    leads: Leads,
+) -> Result<Footprint> {
+    let per_side = pins / 2;
+    let pitch = leads.pitch;
+    let (len, w, cx) = gull(pitch, leads.tip_span, leads.lead_w, leads.foot);
+    let mut fp = Footprint::new(name);
+    fp.description = description;
+    fp.tags = "smd".into();
+    fp.attributes.mount = MountType::Smd;
+    for i in 0..per_side {
+        let y = -along(i, per_side, pitch);
+        fp.pads
+            .push(Pad::smd((i + 1).to_string(), Point::new(-cx, y), len, w));
+        fp.pads
+            .push(Pad::smd((pins - i).to_string(), Point::new(cx, y), len, w));
+    }
+    let top = along(0, per_side, pitch).abs() + pitch / 2;
+    let half_l = (body.1 / 2).max(top);
+    finish_two_row(
+        fp,
+        body.0 / 2,
+        half_l,
+        cx + len / 2,
+        along(0, per_side, pitch).abs(),
+    )
+}
+
+/// TSSOP-`pins` (4.4 mm body, 0.65 mm pitch, 6.4 mm lead span; JEDEC MO-153).
+pub fn tssop(pins: u32) -> Result<Footprint> {
+    let Some(l) = tssop_body_length(pins) else {
+        return bad("TSSOP is available with 8, 14, 16, 20, 24 or 28 pins");
+    };
+    dual_row(
+        format!("TSSOP-{pins}_4.4x{l:.1}mm_P0.65mm"),
+        format!("{pins}-pin thin shrink small outline package, 4.4 mm body, 0.65 mm pitch (JEDEC MO-153), nominal land pattern"),
+        pins,
+        (mm(4.4), mm(l)),
+        Leads {
+            pitch: mm(0.65),
+            tip_span: mm(6.4),
+            lead_w: mm(0.3),
+            foot: mm(0.6),
+        },
+    )
+}
+
+/// MSOP-8 (3.0 x 3.0 mm body, 0.65 mm pitch, 4.9 mm lead span; JEDEC MO-187).
+pub fn msop8() -> Result<Footprint> {
+    dual_row(
+        "MSOP-8_3x3mm_P0.65mm".into(),
+        "8-pin mini small outline package, 3 x 3 mm body, 0.65 mm pitch (JEDEC MO-187), nominal land pattern".into(),
+        8,
+        (mm(3.0), mm(3.0)),
+        Leads {
+            pitch: mm(0.65),
+            tip_span: mm(4.9),
+            lead_w: mm(0.3),
+            foot: mm(0.6),
+        },
+    )
+}
+
+/// Nominal outlines of the LQFP packages offered: `(pins per side, pitch, body, lead span)` in mm.
+pub const LQFP_OUTLINES: [(u32, f64, f64, f64); 6] = [
+    (8, 0.8, 7.0, 9.0),    // LQFP-32
+    (11, 0.8, 10.0, 12.0), // LQFP-44
+    (12, 0.5, 7.0, 9.0),   // LQFP-48
+    (16, 0.5, 10.0, 12.0), // LQFP-64
+    (25, 0.5, 14.0, 16.0), // LQFP-100
+    (36, 0.5, 20.0, 22.0), // LQFP-144
+];
+
+/// LQFP-`4 × pins_per_side` (JEDEC MS-026): square body, gull-wing leads on four sides, pin 1 at the
+/// top of the left side, counter-clockwise.
+pub fn lqfp(pins_per_side: u32) -> Result<Footprint> {
+    let Some(&(n, pitch_mm, body_mm, span_mm)) =
+        LQFP_OUTLINES.iter().find(|o| o.0 == pins_per_side)
+    else {
+        return bad("LQFP is available with 32, 44, 48, 64, 100 or 144 pins");
+    };
+    let (pitch, body, span) = (mm(pitch_mm), mm(body_mm), mm(span_mm));
+    let lead_w = if pitch_mm >= 0.8 { mm(0.37) } else { mm(0.22) };
+    let (len, w, c) = gull(pitch, span, lead_w, mm(0.6));
+    let total = 4 * n;
+    let mut fp = Footprint::new(format!(
+        "LQFP-{total}_{body_mm:.0}x{body_mm:.0}mm_P{pitch_mm:.2}mm"
+    ));
+    fp.description = format!(
+        "{total}-pin low-profile quad flat package, {body_mm:.0} x {body_mm:.0} mm body, {pitch_mm:.2} mm pitch (JEDEC MS-026), nominal land pattern"
+    );
+    fp.tags = "lqfp qfp smd".into();
+    fp.attributes.mount = MountType::Smd;
+    for i in 0..n {
+        fp.pads.push(Pad::smd(
+            (i + 1).to_string(),
+            Point::new(-c, -along(i, n, pitch)),
+            len,
+            w,
+        ));
+    }
+    for i in 0..n {
+        fp.pads.push(Pad::smd(
+            (n + i + 1).to_string(),
+            Point::new(along(i, n, pitch), -c),
+            w,
+            len,
+        ));
+    }
+    for i in 0..n {
+        fp.pads.push(Pad::smd(
+            (2 * n + i + 1).to_string(),
+            Point::new(c, along(i, n, pitch)),
+            len,
+            w,
+        ));
+    }
+    for i in 0..n {
+        fp.pads.push(Pad::smd(
+            (3 * n + i + 1).to_string(),
+            Point::new(-along(i, n, pitch), c),
+            w,
+            len,
+        ));
+    }
+    let hb = body / 2;
+    fp.graphics.extend(rect(
+        FpLayer::Fabrication,
+        Point::new(-hb, -hb),
+        Point::new(hb, hb),
+        FAB,
+    ));
+    let edge = c + len / 2;
+    let k = 800_000.min(hb);
+    for (sx, sy) in [(1, 1), (1, -1), (-1, -1)] {
+        let (px, py) = (sx * (hb + 150_000), sy * (hb + 150_000));
+        fp.graphics.push(line(
+            FpLayer::Silkscreen,
+            Point::new(px, py),
+            Point::new(px - sx * k, py),
+            SILK,
+        ));
+        fp.graphics.push(line(
+            FpLayer::Silkscreen,
+            Point::new(px, py),
+            Point::new(px, py - sy * k),
+            SILK,
+        ));
+    }
+    fp.graphics
+        .extend(pin1_marker(Point::new(-edge - 100_000, hb), -1, 1));
+    fp.graphics
+        .push(courtyard(Point::new(-edge, -edge), Point::new(edge, edge))?);
+    fp.texts = texts(edge + COURT_MARGIN, -edge - COURT_MARGIN);
+    finish(fp)
+}
+
+/// SOT-23 with 3, 5 or 6 pins (JEDEC TO-236 / MO-178): 0.95 mm pitch, 2.4 mm lead span. Pins
+/// 1, 2, 3 run left to right along the bottom; the others continue right to left along the top.
+pub fn sot23(pins: u32) -> Result<Footprint> {
+    if ![3, 5, 6].contains(&pins) {
+        return bad("SOT-23 has 3, 5 or 6 pins");
+    }
+    let pitch = mm(0.95);
+    let (len, w, c) = gull(pitch, mm(2.4), mm(0.4), mm(0.45));
+    let mut fp = Footprint::new(format!("SOT-23-{pins}"));
+    fp.description = format!(
+        "SOT-23 with {pins} pins, 0.95 mm pitch, 2.9 mm body (JEDEC {}), nominal land pattern",
+        if pins == 3 { "TO-236" } else { "MO-178" }
+    );
+    fp.tags = "sot23 smd".into();
+    fp.attributes.mount = MountType::Smd;
+    let xs = [-pitch, 0, pitch];
+    // (number, x, y): bottom row first.
+    let mut spots: Vec<(u32, Coord, Coord)> = Vec::new();
+    match pins {
+        3 => {
+            spots.push((1, xs[0], -c));
+            spots.push((2, xs[2], -c));
+            spots.push((3, 0, c));
+        }
+        5 => {
+            for (i, x) in xs.iter().enumerate() {
+                spots.push((i as u32 + 1, *x, -c));
+            }
+            spots.push((4, xs[2], c));
+            spots.push((5, xs[0], c));
+        }
+        _ => {
+            for (i, x) in xs.iter().enumerate() {
+                spots.push((i as u32 + 1, *x, -c));
+            }
+            for (i, x) in xs.iter().rev().enumerate() {
+                spots.push((i as u32 + 4, *x, c));
+            }
+        }
+    }
+    for (n, x, y) in spots {
+        fp.pads
+            .push(Pad::smd(n.to_string(), Point::new(x, y), w, len));
+    }
+    let (hw, hl) = (mm(1.45), if pins == 3 { mm(0.65) } else { mm(0.8) });
+    fp.graphics.extend(rect(
+        FpLayer::Fabrication,
+        Point::new(-hw, -hl),
+        Point::new(hw, hl),
+        FAB,
+    ));
+    for y in [hl + 100_000, -hl - 100_000] {
+        fp.graphics.push(line(
+            FpLayer::Silkscreen,
+            Point::new(-hw, y),
+            Point::new(hw, y),
+            SILK,
+        ));
+    }
+    let ey = c + len / 2;
+    fp.graphics.extend(pin1_marker(
+        Point::new(-pitch - w / 2 - 100_000, -ey),
+        -1,
+        -1,
+    ));
+    fp.graphics.push(courtyard(
+        Point::new(-pitch - w / 2, -ey),
+        Point::new(pitch + w / 2, ey),
+    )?);
+    fp.texts = texts(ey + COURT_MARGIN, -ey - COURT_MARGIN);
+    finish(fp)
+}
+
+/// SOT-223 (JEDEC TO-261): 2.3 mm pitch, three leads on the bottom and the tab (pad 4) on top.
+pub fn sot223() -> Result<Footprint> {
+    let (len, w, c) = gull(mm(2.3), mm(7.0), mm(0.75), mm(1.0));
+    let mut fp = Footprint::new("SOT-223-3");
+    fp.description =
+        "SOT-223 with 3 leads and a tab (pad 4), 2.3 mm pitch (JEDEC TO-261), nominal land pattern"
+            .into();
+    fp.tags = "sot223 smd".into();
+    fp.attributes.mount = MountType::Smd;
+    for (i, x) in [-mm(2.3), 0, mm(2.3)].into_iter().enumerate() {
+        fp.pads
+            .push(Pad::smd((i + 1).to_string(), Point::new(x, -c), w, len));
+    }
+    fp.pads.push(Pad::smd("4", Point::new(0, c), mm(3.4), len));
+    let (hw, hl) = (mm(3.25), mm(1.75));
+    fp.graphics.extend(rect(
+        FpLayer::Fabrication,
+        Point::new(-hw, -hl),
+        Point::new(hw, hl),
+        FAB,
+    ));
+    let ey = c + len / 2;
+    fp.graphics.extend(pin1_marker(
+        Point::new(-mm(2.3) - w / 2 - 100_000, -ey),
+        -1,
+        -1,
+    ));
+    fp.graphics.push(courtyard(
+        Point::new(-mm(2.3) - w / 2, -ey),
+        Point::new(mm(2.3) + w / 2, ey),
+    )?);
+    fp.texts = texts(ey + COURT_MARGIN, -ey - COURT_MARGIN);
+    finish(fp)
+}
+
+/// Two-terminal diode packages. Pad 1 is the cathode (left), pad 2 the anode.
+fn two_pad(
+    name: &str,
+    description: &str,
+    body: (f64, f64),
+    tip_span: f64,
+    lead_w: f64,
+    foot: f64,
+) -> Result<Footprint> {
+    let (len, w, c) = gull(mm(10.0), mm(tip_span), mm(lead_w), mm(foot));
+    let mut fp = Footprint::new(name);
+    fp.description = description.into();
+    fp.tags = "diode smd".into();
+    fp.attributes.mount = MountType::Smd;
+    fp.pads.push(Pad::smd("1", Point::new(-c, 0), len, w));
+    fp.pads.push(Pad::smd("2", Point::new(c, 0), len, w));
+    let (hw, hl) = (mm(body.0 / 2.0), mm(body.1 / 2.0));
+    fp.graphics.extend(rect(
+        FpLayer::Fabrication,
+        Point::new(-hw, -hl),
+        Point::new(hw, hl),
+        FAB,
+    ));
+    let ey = (hl.max(w / 2)) + 150_000;
+    // The cathode bar on the silkscreen, beside the body.
+    fp.graphics.push(line(
+        FpLayer::Silkscreen,
+        Point::new(-c - len / 2, ey),
+        Point::new(c + len / 2, ey),
+        SILK,
+    ));
+    fp.graphics.push(line(
+        FpLayer::Silkscreen,
+        Point::new(-c - len / 2, -ey),
+        Point::new(c + len / 2, -ey),
+        SILK,
+    ));
+    fp.graphics.push(line(
+        FpLayer::Silkscreen,
+        Point::new(-c - len / 2 - 150_000, -ey),
+        Point::new(-c - len / 2 - 150_000, ey),
+        SILK,
+    ));
+    fp.graphics.push(courtyard(
+        Point::new(-c - len / 2, -ey),
+        Point::new(c + len / 2, ey),
+    )?);
+    fp.texts = texts(ey + COURT_MARGIN, -ey - COURT_MARGIN);
+    finish(fp)
+}
+
+/// SOD-123 (JEDEC MO-219): 2.7 x 1.6 mm body, 3.7 mm lead span.
+pub fn sod123() -> Result<Footprint> {
+    two_pad(
+        "SOD-123",
+        "SOD-123 diode package, 2.7 x 1.6 mm body, pad 1 = cathode, nominal land pattern",
+        (2.7, 1.6),
+        3.7,
+        1.0,
+        0.9,
+    )
+}
+
+/// SMA / DO-214AC: 4.3 x 2.6 mm body, 5.3 mm lead span.
+pub fn sma() -> Result<Footprint> {
+    two_pad(
+        "SMA_DO-214AC",
+        "SMA (DO-214AC) diode package, 4.3 x 2.6 mm body, pad 1 = cathode, nominal land pattern",
+        (4.3, 2.6),
+        5.3,
+        1.6,
+        1.0,
+    )
+}
+
+/// A non-plated mounting hole of `drill_mm` with a keep-out courtyard.
+pub fn mounting_hole(drill_mm: f64) -> Result<Footprint> {
+    let d = mm(drill_mm);
+    let mut fp = Footprint::new(format!("MountingHole_{drill_mm:.1}mm"));
+    fp.description = format!("Non-plated mounting hole, {drill_mm:.1} mm drill");
+    fp.tags = "mounting hole".into();
+    fp.attributes.mount = MountType::Unspecified;
+    fp.pads.push(Pad::npth(Point::ORIGIN, d));
+    let r = d / 2 + mm(1.0);
+    fp.graphics.push(courtyard(
+        Point::new(-r + COURT_MARGIN, -r + COURT_MARGIN),
+        Point::new(r - COURT_MARGIN, r - COURT_MARGIN),
+    )?);
+    fp.texts = texts(r + COURT_MARGIN, -r - COURT_MARGIN);
+    finish(fp)
+}
+
+/// A round SMD test point pad of `dia_mm`.
+pub fn test_point(dia_mm: f64) -> Result<Footprint> {
+    let d = mm(dia_mm);
+    let mut fp = Footprint::new(format!("TestPoint_{dia_mm:.1}mm"));
+    fp.description = format!("Round SMD test point pad, {dia_mm:.1} mm");
+    fp.tags = "test point".into();
+    fp.attributes.mount = MountType::Smd;
+    let mut p = Pad::smd("1", Point::ORIGIN, d, d);
+    p.shape = PadShape::Circle;
+    p.paste = false;
+    fp.pads.push(p);
+    let r = d / 2;
+    fp.graphics
+        .push(courtyard(Point::new(-r, -r), Point::new(r, r))?);
+    fp.texts = texts(r + COURT_MARGIN, -r - COURT_MARGIN);
+    finish(fp)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
+mod standard_package_tests {
+    use super::*;
+
+    fn overlaps(f: &Footprint) -> Vec<(String, String)> {
+        let mut out = Vec::new();
+        for (i, a) in f.pads.iter().enumerate() {
+            for b in &f.pads[i + 1..] {
+                let (al, ah) = a.bounds();
+                let (bl, bh) = b.bounds();
+                if al.x < bh.x && bl.x < ah.x && al.y < bh.y && bl.y < ah.y && a.number != b.number
+                {
+                    out.push((a.number.clone(), b.number.clone()));
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn every_standard_package_is_valid_with_distinct_non_overlapping_pads() {
+        let mut all = vec![
+            msop8().unwrap(),
+            sot223().unwrap(),
+            sod123().unwrap(),
+            sma().unwrap(),
+            mounting_hole(3.2).unwrap(),
+            test_point(1.5).unwrap(),
+        ];
+        for p in [8, 14, 16, 20, 24, 28] {
+            all.push(tssop(p).unwrap());
+        }
+        for p in [3, 5, 6] {
+            all.push(sot23(p).unwrap());
+        }
+        for o in LQFP_OUTLINES {
+            all.push(lqfp(o.0).unwrap());
+        }
+        for f in &all {
+            assert!(overlaps(f).is_empty(), "{}: {:?}", f.name, overlaps(f));
+            assert!(
+                f.graphics.iter().any(|g| g.layer == FpLayer::Courtyard),
+                "{} has no courtyard",
+                f.name
+            );
+        }
+    }
+
+    #[test]
+    fn pin_counts_and_numbering_follow_the_packages() {
+        assert_eq!(tssop(20).unwrap().pads.len(), 20);
+        assert_eq!(lqfp(12).unwrap().pads.len(), 48);
+        assert_eq!(lqfp(8).unwrap().pads.len(), 32);
+        assert_eq!(sot23(5).unwrap().pads.len(), 5);
+        assert_eq!(sot223().unwrap().pads.len(), 4);
+        // SOT-23-5: pins 1..3 along the bottom, left to right; 4 and 5 on top, right to left.
+        let f = sot23(5).unwrap();
+        let at = |n: &str| f.pads.iter().find(|p| p.number == n).unwrap().position;
+        assert!(
+            at("1").x < at("2").x
+                && at("2").x < at("3").x
+                && at("1").y == at("3").y
+                && at("1").y < 0
+        );
+        assert!(at("4").x > at("5").x && at("4").y > 0);
+        assert!(tssop(7).is_err() && sot23(4).is_err() && lqfp(9).is_err());
+    }
+}

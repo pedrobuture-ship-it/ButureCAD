@@ -1225,6 +1225,11 @@ impl Workspace {
         if lib == "Buture" {
             return builtin::symbols().into_iter().find(|s| s.name == lib_id);
         }
+        if lib == buturecad_libraries::standard::NAME {
+            return buturecad_libraries::standard::symbol_library()
+                .ok()
+                .and_then(|l| l.instantiate(name));
+        }
         self.library_dirs().into_iter().find_map(|(_, dir)| {
             dir.load_symbol_library(lib)
                 .ok()
@@ -1239,6 +1244,12 @@ impl Workspace {
             item_count: builtin::symbols().len() as u32,
             error: None,
         }];
+        out.push(LibraryInfo {
+            name: buturecad_libraries::standard::NAME.into(),
+            scope: "builtin".into(),
+            item_count: buturecad_libraries::standard::symbols().len() as u32,
+            error: None,
+        });
         for (scope, dir) in self.library_dirs() {
             for l in dir.list_symbol_libraries() {
                 out.push(LibraryInfo {

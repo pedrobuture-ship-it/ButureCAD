@@ -11,7 +11,7 @@
 use crate::model::*;
 use crate::schematic::{Change, Schematic, SchematicError};
 use buturecad_geometry::{BoundingBox, Coord, Point, Rectangle, Segment, Vector};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq, Clone)]
@@ -848,15 +848,55 @@ pub fn new_component(sch: &Schematic, symbol: &Symbol, placement: Placement) -> 
     } else {
         symbol.reference_prefix.as_str()
     };
+    // The part carries what the symbol knows about it: free-form properties first, then the
+    // standard fields (so a symbol's own `MPN` property cannot be shadowed by an empty field).
+    let mut properties = symbol.meta.properties.clone();
+    for (key, v) in [
+        ("MPN", &symbol.meta.mpn),
+        ("Manufacturer", &symbol.meta.manufacturer),
+        ("Datasheet", &symbol.meta.datasheet),
+    ] {
+        if !v.is_empty() {
+            properties.insert(key.to_owned(), v.clone());
+        }
+    }
     Component {
         lib_id: symbol.name.clone(),
         reference: sch.next_reference(prefix),
         value: symbol.default_value.clone(),
         footprint: symbol.meta.default_footprint.clone(),
-        properties: BTreeMap::new(),
+        properties,
         placement,
         unit: 1,
         representation: REPR_NORMAL,
+    }
+}
+
+/// What a library component adds to a part placed from it (stage 51: placing a component brings
+/// its footprint and manufacturer data, not only the symbol).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PartData {
+    pub footprint: String,
+    pub mpn: String,
+    pub manufacturer: String,
+    pub datasheet: String,
+}
+
+impl PartData {
+    /// Copies the non-empty fields onto `c`.
+    pub fn apply(&self, c: &mut Component) {
+        if !self.footprint.is_empty() {
+            c.footprint = self.footprint.clone();
+        }
+        for (key, v) in [
+            ("MPN", &self.mpn),
+            ("Manufacturer", &self.manufacturer),
+            ("Datasheet", &self.datasheet),
+        ] {
+            if !v.is_empty() {
+                c.properties.insert(key.to_owned(), v.clone());
+            }
+        }
     }
 }
 
@@ -1250,5 +1290,59 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod part_data_tests {
+    use super::*;
+
+    #[test]
+    fn a_new_part_carries_what_its_symbol_knows() {
+        let mut s = crate::builtin::symbols().into_iter().next().unwrap();
+        s.meta.mpn = "RC0603FR-0710KL".into();
+        s.meta.manufacturer = "Yageo".into();
+        s.meta.default_footprint = "Chip_0603".into();
+        s.meta.properties.insert("Tolerance".into(), "1%".into());
+        let c = new_component(
+            &Schematic::new(Id(0)),
+            &s,
+            Placement::at(buturecad_geometry::Point::new(0, 0)),
+        );
+        assert_eq!(c.footprint, "Chip_0603");
+        assert_eq!(c.properties["MPN"], "RC0603FR-0710KL");
+        assert_eq!(c.properties["Manufacturer"], "Yageo");
+        assert_eq!(c.properties["Tolerance"], "1%");
+        assert!(
+            !c.properties.contains_key("Datasheet"),
+            "empty fields are not written"
+        );
+    }
+
+    #[test]
+    fn part_data_overrides_only_what_it_has() {
+        let s = crate::builtin::symbols().into_iter().next().unwrap();
+        let mut c = new_component(
+            &Schematic::new(Id(0)),
+            &s,
+            Placement::at(buturecad_geometry::Point::new(0, 0)),
+        );
+        c.footprint = "Keep".into();
+        PartData {
+            mpn: "X1".into(),
+            ..PartData::default()
+        }
+        .apply(&mut c);
+        assert_eq!(
+            (c.footprint.as_str(), c.properties["MPN"].as_str()),
+            ("Keep", "X1")
+        );
+        PartData {
+            footprint: "New".into(),
+            ..PartData::default()
+        }
+        .apply(&mut c);
+        assert_eq!(c.footprint, "New");
     }
 }

@@ -15,6 +15,7 @@ pub mod index;
 pub mod model_lib;
 pub mod prefs;
 pub mod stackup_lib;
+pub mod standard;
 pub mod store;
 pub mod symbol_lib;
 

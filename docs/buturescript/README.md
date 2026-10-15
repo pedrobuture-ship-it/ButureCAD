@@ -45,6 +45,7 @@ if cond { … } else if cond { … } else { … }
 
 * `LED[i]` appends the index to the name: `LED3`. `U1.(expr)` computes a pin number.
 * Net names with characters outside identifiers are quoted: `"+3V3"`.
+* Pins whose names are not identifiers (`V+`, `D-`, `-IN1`) are written quoted after the dot: `U1."V+"`.
 * Pins are matched by number or name against the symbol (built-in symbols are checked at compile
   time with line:column; other symbols are checked when applied).
 * Default symbols by reference prefix: R C L V I D LED (`Buture:R` …); anything else needs
@@ -59,7 +60,7 @@ if cond { … } else if cond { … } else { … }
 
 ## Libraries (stage 47)
 
-`symbol = "Library:Name"` and `footprint = "Library:Name"` can name parts of user libraries
+The built-in `Std` library (`docs/standard-library.md`) is always available. `symbol = "Library:Name"` and `footprint = "Library:Name"` can name parts of it and of user libraries
 (`*.bsymlib.json`, `*.bfplib.json`). `buturecad build/check` read the `libraries/` folder next to the
 script, or `--libs <folder>`; the desktop app and library files are the same format (see
 `docs/library-manager.md`). Library symbols are embedded in the generated project and their pins are

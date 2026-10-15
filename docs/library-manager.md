@@ -4,6 +4,10 @@ Tab **Libraries** (`Ctrl+7`). Fully local: libraries are JSON files in the **pro
 (`<project>/libraries`) and the **user** folder; nothing is downloaded and the datasheet field is a
 stored path/URL that is never opened or fetched.
 
+## Built-in libraries
+
+`Buture` (bootstrap symbols) and **`Std`** (symbols, footprints and components, see `docs/standard-library.md`) are built into the program and read-only.
+
 ## Library types
 
 | Type | File | Holds |
@@ -37,8 +41,8 @@ arms the schematic placement tool with the item's symbol.
 
 ## Limits
 
-* Placing a component places its **symbol only**; footprint, value and manufacturer data are not
-  yet copied into the schematic part.
+* Placing a **component** copies its footprint, manufacturer, MPN and datasheet into the part (stage 51);
+  the value stays the symbol's default (components have no value field).
 * No import/export of third-party libraries, no library versioning, no duplicate-detection across
   libraries, no thumbnails/previews of symbols or footprints in the list.
 * Index rebuild is a full re-read (fast for thousands of items, not incremental).

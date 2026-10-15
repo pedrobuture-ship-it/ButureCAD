@@ -94,7 +94,7 @@ buturecad export-gerber project --out fab
 | M2 | **No headless/automatic routing and the router leaves free-angle diagonals** (no 45° clean-up, documented in `crates/router`); the result is DRC-clean but ugly (see image). The harness run took ~3 min for 66 connections on this small board; failed searches are the slow part (not profiled). | Interactive routing in the app is the intended flow. |
 | M3 | **Silkscreen text is not exported** (references/values), so a board comes out without designators. | Stated in the preflight notes. |
 | M4 | **BOM has no MPN/manufacturer columns** although components can carry them; the Footprint column of U1 shows the generator call text. | |
-| M5 | **Pin names such as `D+`, `D-` cannot be written in a pin reference**; numbers must be used. | Language limit. |
+| M5 | ~~Pin names such as `D+`, `D-` cannot be written in a pin reference~~ | **Fixed in stage 51:** write them quoted, `J1."D+"`. |
 | M6 | **The schematic has no drawn wires** (parts + net markers), so it is a netlist, not a readable drawing. | Documented limit of generated schematics. |
 
 ### MINOR

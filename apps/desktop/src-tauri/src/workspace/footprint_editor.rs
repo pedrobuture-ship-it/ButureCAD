@@ -1510,6 +1510,11 @@ impl Workspace {
 
     pub(crate) fn find_library_footprint(&self, id: &str) -> Option<Footprint> {
         let (lib, name) = split_lib_id(id)?;
+        if lib == buturecad_libraries::standard::NAME {
+            return buturecad_libraries::standard::footprint_library()
+                .ok()
+                .and_then(|l| l.instantiate(name));
+        }
         self.library_dirs().into_iter().find_map(|(_, dir)| {
             dir.load_footprint_library(lib)
                 .ok()
@@ -1518,7 +1523,12 @@ impl Workspace {
     }
 
     pub fn footprint_libraries(&self) -> Vec<LibraryInfo> {
-        let mut out = Vec::new();
+        let mut out = vec![LibraryInfo {
+            name: buturecad_libraries::standard::NAME.into(),
+            scope: "builtin".into(),
+            item_count: buturecad_libraries::standard::footprints().len() as u32,
+            error: None,
+        }];
         for (scope, dir) in self.library_dirs() {
             for l in dir.list_footprint_libraries() {
                 out.push(LibraryInfo {
@@ -1536,6 +1546,9 @@ impl Workspace {
     /// entry with the same id.
     pub fn library_footprints(&self) -> Vec<FootprintInfo> {
         let mut all: BTreeMap<String, (Footprint, String)> = BTreeMap::new();
+        for f in buturecad_libraries::standard::footprints() {
+            all.insert(f.name.clone(), (f, "builtin".into()));
+        }
         for (scope, dir) in self.library_dirs() {
             for l in dir.list_footprint_libraries() {
                 if let Ok(lib) = LibraryDir::load_footprint_library(&dir, &l.name) {

@@ -12,6 +12,15 @@
 
 use super::*;
 use buturecad_scripting::{build, compile, CompileOptions, Severity};
+
+/// Compile options with the built-in `Std` library available to scripts.
+fn standard_options() -> CompileOptions {
+    CompileOptions {
+        symbols: buturecad_libraries::standard::symbols(),
+        footprints: buturecad_libraries::standard::footprints(),
+        ..CompileOptions::default()
+    }
+}
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -151,7 +160,7 @@ impl Workspace {
     /// Re-runs the pipeline for `source`. Keeps the last good preview while the script has errors.
     pub(crate) fn script_update(&mut self, source: &str) {
         self.script.current = Some(source.to_owned());
-        let out = compile(source, &CompileOptions::default());
+        let out = compile(source, &standard_options());
         self.script.diagnostics = out
             .diagnostics
             .iter()
@@ -246,7 +255,7 @@ impl Workspace {
     /// Creates a new project from the script (the generated design is built through the Command
     /// Engine and saved) and opens it. The code editor's file `design.beda` is written next to it.
     fn script_generate(&mut self, folder: &std::path::Path, source: &str) -> Result<(), String> {
-        let built = build(source, &CompileOptions::default(), None).map_err(|e| match e {
+        let built = build(source, &standard_options(), None).map_err(|e| match e {
             buturecad_scripting::BuildError::Script(d) => {
                 format!(
                     "the script has {} error(s); fix them first",

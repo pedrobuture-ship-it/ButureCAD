@@ -2,7 +2,7 @@
 
 *Checkpoint note (after stage 34): workspace compiles, `fmt`/`clippy -D warnings` clean, 637 Rust tests and 21 frontend tests pass, a search for TODO/FIXME/mock/placeholder/temporary/fake/stub found only documented items (`builtin.rs` bootstrap symbols, UI input placeholders). The e2e screenshot scenarios (`apps/desktop/e2e`) were not re-run for stages 28–34.*
 
-*Checkpoint after roadmap stages 01–26; stages 27–50 added after it. Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–26; stages 27–51 added after it. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -45,6 +45,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Layer stack** (roadmap 26): physical stack model (copper/dielectric thickness, material, core/prepreg, εr/tan δ, solder mask, flex flag), Layer Stack Manager with built-in templates (2/4/6/8 layers, HDI, rigid-flex) and local presets (`*.bstack.json`), inner-layer exchange, one undo step; PCB schema 8. See `docs/stackup.md`.
 
 - **3D viewer** (roadmap 27): decoupled `buturecad-viewer3d` (model → mesh → software rasteriser, orbit/pan/zoom, perspective/orthographic); substrate, solder mask, copper, pads, vias, zone fills, silkscreen and component boxes; follows every PCB edit/undo; layer toggles and preset views. Component 3D models are referenced but not parsed (stage 28). See `docs/viewer3d.md`.
+- **Standard library** (stage 51, P0-1): built-in `Std` library (symbols, footprints, components with MPN) usable in the app and in scripts; component placement brings footprint/MPN; quoted pin names in ButureScript. Land patterns are computed, **not datasheet-verified** (`docs/standard-library.md`).
 - **Final audit** (roadmap 50): `docs/PRODUCTION_READINESS.md` — scores 3.5–7.5, verdict "working alpha, not for commercial boards", prioritised P0–P3 roadmap.
 - **Release cleanup** (roadmap 49): see `docs/ALPHA_CLEANUP.md`. Windows and macOS are type-checked only, not tested.
 - **Feature audit** (roadmap 48): `docs/FEATURE_AUDIT.md` compares ButureCAD with the expected modern EDA flow; nothing found broken, top gaps are library content, script no-connects, hierarchical sheet creation, cross-probing, router quality/autorouter, silkscreen text and BOM data.
