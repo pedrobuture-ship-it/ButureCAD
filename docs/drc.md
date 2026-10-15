@@ -57,9 +57,13 @@ from-scratch `run_drc` after every edit of a sequence.
 
 ## Limits
 
-* Zones are not copper yet (stage 25), so they are not checked; keepouts are not checked.
+* Zone fills **are** checked as copper (stage 25); keepouts are stored and honoured by the zone fill
+  but **not** checked by DRC (no violation is reported for copper inside a keepout).
 * No hole-to-hole, silkscreen, mask or drill-to-copper rules; no per-layer or per-pair clearance
-  overrides (only per net class); arcs on `Edge.Cuts` are approximated by 48-segment polylines.
+  overrides (only per net class); no custom rules or rule areas; arcs on `Edge.Cuts` are
+  approximated by 48-segment polylines.
 * Clearance between footprints' own graphics is not checked; courtyards use polygon courtyards.
-* The router does **not** yet avoid obstacles: it can draw tracks that DRC then reports (stage 21).
+* The router avoids obstacles (walk-around, push & shove) and validates what it draws with these
+  rules; edits made by other means (script tracks, harnesses) can still produce violations.
+* A stale zone fill is reported (`zone_stale`); refill with `B` in the app or `buturecad fill`.
 * DRC passing does not mean the board is fabrication-ready.

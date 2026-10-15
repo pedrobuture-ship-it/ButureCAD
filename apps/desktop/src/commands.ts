@@ -128,10 +128,12 @@ const hasSelection = (s: UiState): true | string => {
 const canDuplicate = (s: UiState): true | string =>
   s.snapshot?.mode === "pcb" ? hasPcbSelection(s) : hasSchematicSelection(s);
 
-/** Like `hasSelection`, for commands the Symbol Editor does not implement. */
+/** Like `hasSelection`, for commands only the schematic implements (the clipboard). */
 const hasSchematicSelection = (s: UiState): true | string =>
-  s.snapshot?.mode === "symbol_editor" || s.snapshot?.mode === "footprint_editor"
-    ? "Not available in the symbol and footprint editors"
+  s.snapshot?.mode === "symbol_editor" ||
+  s.snapshot?.mode === "footprint_editor" ||
+  s.snapshot?.mode === "pcb"
+    ? "Not available in the symbol, footprint and PCB editors yet"
     : hasSelection(s);
 
 const hasCanvas = (s: UiState): true | string => {

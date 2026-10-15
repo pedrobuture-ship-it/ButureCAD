@@ -26,7 +26,7 @@ reason.
 | Context menus | ✔ Per view. Only commands that work are enabled. |
 | Selection / multi-selection | ✔ Click, `Shift`/`Ctrl`+click to add or toggle, box select, `Ctrl+A`. |
 | Drag / move | ✔ Drag, `G` (drag with wire stretch), `M` (carry the selection with the pointer, schematic). |
-| Copy / cut / paste | ✔ Schematic. ✘ **PCB** (Duplicate works; copy/paste of board objects does not exist — listed as unavailable, with the reason). |
+| Copy / cut / paste | ✔ Schematic. ✘ **PCB** (Duplicate works; copy/cut/paste of board objects do not exist — shown as unavailable with the reason). |
 | Duplicate | ✔ Schematic and PCB. |
 | Align / distribute | ✔ **PCB** (footprints, tracks, vias; locked objects are skipped). ✘ **Schematic**: not implemented — moving parts must also stretch their wires without conflicting edits, which needs its own design. |
 | Properties | ✔ Inspector for each view. |

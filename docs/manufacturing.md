@@ -51,5 +51,6 @@ commands `fab_preview`/`fab_export`). The CLI will call the same crate (roadmap)
   polarity if drawn first (not seen in practice; zones are ordered before all other copper).
 * No inner-layer plane negatives, no ODB++/IPC-2581, no fiducials/panelisation, no centroid
   rotation offsets per footprint, no MPN/supplier data in the BOM (the library model has none yet).
-* The Gerbers are not independently viewed yet: the Gerber Viewer is roadmap stage 30. Tests check
-  the structure and exact coordinates of what is written, and Python's `zipfile` opens the archive.
+* The generated Gerbers are read back by the independent Gerber/Excellon readers of the Gerber
+  Viewer (stage 30) in tests (`apps/cli/tests/reference_board.rs`); that is still not a fabricator's
+  CAM check.

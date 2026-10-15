@@ -59,7 +59,7 @@ try {
 
   await b.eval(`[...document.querySelectorAll(".doctab")].find((x) => x.textContent === "3D Viewer").click()`);
   await b.wait(500);
-  check("3D viewer says it is not implemented", (await b.eval("document.body.innerText")).includes("not implemented yet"));
+  check("3D viewer tab shows its controls (it is implemented since stage 27)", (await b.eval("document.body.innerText")).includes("Perspective"));
 
   await b.eval(`[...document.querySelectorAll(".doctab")].find((x) => x.textContent === "Schematic").click()`);
   await b.wait(500);

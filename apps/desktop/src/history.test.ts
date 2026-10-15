@@ -218,3 +218,22 @@ describe("keyboard shortcuts per view", () => {
     expect(conflicts).toEqual([]);
   });
 });
+
+describe("commands the PCB editor does not implement say so", () => {
+  it("copy and cut are unavailable in the PCB editor, with a reason", () => {
+    const snapshot = {
+      project: { name: "P", path: "/p", dirty: false, can_undo: false, can_redo: false },
+      mode: "pcb",
+      tool: "select",
+      selection: [{ id: 1, title: "R1" }],
+      can_paste: true,
+      pcb: { copper_layers: 2, zones: 0, route: null, zone_drawing: false },
+    } as unknown as Snapshot;
+    const s: UiState = { ...store.getState(), snapshot };
+    for (const id of ["edit.copy", "edit.cut", "edit.paste"]) {
+      expect(availability(find(id), s), id).not.toBe(true);
+    }
+    // Duplicate does work on the board.
+    expect(availability(find("edit.duplicate"), s)).toBe(true);
+  });
+});
