@@ -1,21 +1,42 @@
 # Handoff — where the project stands and how to continue
 
-*Written at the end of the session that implemented roadmap stages 19–50. Read this, then
-`CLAUDE.md`, `docs/STATUS.md` and `docs/ROADMAP.md`, then ask for / read the next roadmap prompt
-in `promptsbuturecad.md` (the roadmap prompts 01–50 are complete; next work is the P0 list in `docs/PRODUCTION_READINESS.md`).*
+*Updated at the end of the session that implemented roadmap stages 19–52 (the 50 roadmap prompts plus
+the first two P0 items of the final audit). Read this, then `CLAUDE.md`, `docs/STATUS.md`,
+`docs/PRODUCTION_READINESS.md` (scores, verdict, P0–P3 roadmap) and `docs/ROADMAP.md`.*
+
+## Where to continue tomorrow
+
+**Next: P0 item 3 — DRC rules that are missing** (see `docs/PRODUCTION_READINESS.md`, `docs/drc.md`
+limits): hole-to-hole, drill-to-copper, silkscreen-over-pad (silkscreen *text* now exists and is
+not checked either), solder-mask sliver, **keepout violations** (keepouts are stored and honoured by
+the zone fill but DRC ignores them), and fabricator capability presets / custom rules. The DRC lives
+in `crates/rules/src/drc.rs` (+ the incremental engine, which must stay equal to the full run —
+property-tested); the reference board (`examples/reference-board`, tests in
+`apps/cli/tests/reference_board.rs`) must stay at 0 DRC errors or have the new findings explained.
+After that, in order: P0-4 independent verification of the Gerbers (third-party viewers, a real
+fabrication test), P0-5 design iteration (auto-annotation, cross-probing, back-annotation, no-connect
+in scripts, re-applying a script to an existing project), P0-6 Windows/macOS verification + installer.
+
+**Done in this session after the audit:** P0-1 `Std` standard library (`docs/standard-library.md`;
+land patterns are *computed, not datasheet-verified*), P0-2 manufacturing completeness
+(silkscreen text, BOM purchasing data, rotation offsets; `docs/manufacturing.md`).
+
+**Open question for the user (decide at the start of the next session):** commit attribution. The
+engagement rules below (from earlier in the project) say *no* Claude / Co-Authored-By lines and the
+`pedrobuture` identity; the recent commits of this session added a `Co-Authored-By: Claude Sonnet 5.5`
+trailer because the harness instructed it. Ask which one the user wants and follow it.
 
 ## State
 
-* Roadmap stages **01–50 are done**, tested and pushed to `https://github.com/pedrobuture-ship-it/ButureCAD`
-  (branch `main`). Last checkpoint (full review, no new features) was after stage 26; stages 27–29 were
-  added after it. Reasonable next step: implement 28–30, then do the next checkpoint.
+* Roadmap stages **01–50 are done**, plus P0-1 and P0-2 (stages 51–52), tested and pushed to
+  `https://github.com/pedrobuture-ship-it/ButureCAD` (branch `main`).
 * Verification commands (all green at the end of this session):
   ```bash
   eval "$(mise env)"                    # Rust toolchain via mise
   cargo fmt --all --check
   cargo clippy --workspace --all-targets -- -D warnings
-  cargo test --workspace                # ~530 tests
-  cd apps/desktop && npm run check      # typecheck, eslint, prettier, vitest (21)
+  cargo test --workspace                # ~760 tests (use run_in_background + Monitor: >120 s)
+  cd apps/desktop && npm run check      # typecheck, eslint, prettier, vitest (36)
   npm run build && cargo build -p buturecad-desktop --examples
   DEMO_PROJECT=/tmp/fresh-dir node e2e/<scenario>.mjs   # route, pcb, zone, stackup, viewer3d, …
   ```
