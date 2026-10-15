@@ -2,7 +2,13 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "./api";
 import type { Snapshot } from "./bindings/Snapshot";
-import type { Actions } from "./commands";
+import {
+  buildCommands,
+  previousToolTarget,
+  repeatTarget,
+  runCommand,
+  type Actions,
+} from "./commands";
 import { store } from "./store";
 import { GRID_PRESETS } from "./units";
 
@@ -77,7 +83,8 @@ export async function closeWindowNow(): Promise<void> {
 
 export function createActions(): Actions {
   const snap = () => store.getState().snapshot;
-  return {
+  const commands = buildCommands();
+  const self: Actions = {
     newProject: () =>
       void guardUnsaved("Create a new project", async () =>
         store.set({ dialog: { kind: "new-project" } }),
@@ -168,5 +175,25 @@ export function createActions(): Actions {
       const hasSel = (snap()?.selection.length ?? 0) > 0;
       void call(api.editorCommand(hasSel ? "start_move" : "tool:move"));
     },
+    repeatLast: () => {
+      const c = repeatTarget(commands, store.getState());
+      if (c) runCommand(c, self);
+      else toast("Nothing to repeat yet");
+    },
+    previousTool: () => {
+      const c = previousToolTarget(commands, store.getState());
+      if (c) runCommand(c, self);
+      else toast("No earlier tool to go back to");
+    },
+    cycleLayer: (direction) => {
+      // Copper layers in stack order (F.Cu, In1.Cu … B.Cu), as the core lists them.
+      const copper = (snap()?.layers ?? []).filter((l) => l.toggleable && l.name.endsWith(".Cu"));
+      if (copper.length < 2) return;
+      const at = copper.findIndex((l) => l.active);
+      const next = copper[(Math.max(at, 0) + direction + copper.length) % copper.length];
+      if (next) void call(api.setActiveLayer(next.id));
+    },
+    showShortcuts: () => store.set({ dialog: { kind: "shortcuts" } }),
   };
+  return self;
 }

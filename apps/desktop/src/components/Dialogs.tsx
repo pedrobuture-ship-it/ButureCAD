@@ -12,7 +12,9 @@ import type { PairInfo } from "../bindings/PairInfo";
 import type { DielRow } from "../bindings/DielRow";
 import type { RulesInfo } from "../bindings/RulesInfo";
 import type { StackupInfo } from "../bindings/StackupInfo";
+import { formatShortcut } from "../shortcuts";
 import { store, useUi } from "../store";
+import { useCommands } from "./hooks";
 
 function Modal({
   title,
@@ -1501,6 +1503,44 @@ function PcbPlaceDialog() {
   );
 }
 
+/** Every shortcut, generated from the command registry so the list cannot drift from reality. */
+function ShortcutsDialog() {
+  const commands = useCommands();
+  const groups = new Map<string, typeof commands>();
+  for (const c of commands) {
+    if (!c.shortcut) continue;
+    groups.set(c.category, [...(groups.get(c.category) ?? []), c]);
+  }
+  return (
+    <Modal title="Keyboard Shortcuts" onClose={close}>
+      <p className="muted">
+        Press <kbd>Ctrl+Shift+P</kbd> to search every command. Some keys mean different things in
+        different views (for example <kbd>P</kbd>); each is listed with the view it works in.
+      </p>
+      <div className="shortcut-list">
+        {[...groups.entries()].map(([cat, list]) => (
+          <section key={cat}>
+            <h4>{cat}</h4>
+            <ul>
+              {list.map((c) => (
+                <li key={c.id}>
+                  <span>{c.title}</span>
+                  <kbd>{formatShortcut(c.shortcut ?? "")}</kbd>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+      <div className="actions">
+        <button className="primary" onClick={close}>
+          Close
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function AboutDialog() {
   const [info, setInfo] = useState<CoreInfo | null>(null);
   useEffect(() => {
@@ -1540,6 +1580,8 @@ export function Dialogs() {
       return <RecoveryDialog />;
     case "about":
       return <AboutDialog />;
+    case "shortcuts":
+      return <ShortcutsDialog />;
     case "symbol-picker":
       return <SymbolPicker power={dialog.power} />;
     case "label-name":

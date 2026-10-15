@@ -15,7 +15,7 @@ import {
   Terminal,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { availability } from "../commands";
+import { availability, runCommand } from "../commands";
 import { formatShortcut } from "../shortcuts";
 import { useUi } from "../store";
 import { useActions, useCommands } from "./hooks";
@@ -42,7 +42,7 @@ export function Toolbar() {
         disabled={a !== true}
         title={tip}
         aria-label={c.title}
-        onClick={() => c.run(actions)}
+        onClick={() => runCommand(c, actions)}
       >
         {icon}
       </button>

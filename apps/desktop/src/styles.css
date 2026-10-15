@@ -1046,3 +1046,31 @@ textarea {
   overflow: auto;
   font-size: 11px;
 }
+
+.shortcut-list {
+  columns: 2 280px;
+  column-gap: 24px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.shortcut-list section {
+  break-inside: avoid;
+  margin-bottom: 10px;
+}
+.shortcut-list h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.shortcut-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shortcut-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1px 0;
+}

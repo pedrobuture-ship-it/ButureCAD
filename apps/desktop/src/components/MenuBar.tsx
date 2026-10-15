@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { availability, type Category } from "../commands";
+import { availability, runCommand, type Category } from "../commands";
 import { formatShortcut } from "../shortcuts";
 import { useUi } from "../store";
 import { useActions, useCommands } from "./hooks";
@@ -58,7 +58,7 @@ export function MenuBar() {
                       title={a === true ? undefined : a}
                       onClick={() => {
                         setOpen(null);
-                        c.run(actions);
+                        runCommand(c, actions);
                       }}
                     >
                       <span>{c.title}</span>

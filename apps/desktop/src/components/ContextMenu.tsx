@@ -1,20 +1,11 @@
 import { useEffect } from "react";
-import { availability } from "../commands";
+import { availability, runCommand } from "../commands";
 import { formatShortcut } from "../shortcuts";
 import { store, useUi } from "../store";
 import { useActions, useCommands } from "./hooks";
 
 /** Right-click menu for the canvas. Items come from the registry, so only real commands appear. */
-const ITEMS = [
-  "edit.rotate",
-  "edit.mirrorX",
-  "edit.mirrorY",
-  "edit.duplicate",
-  "edit.delete",
-  "-",
-  "edit.copy",
-  "edit.cut",
-  "edit.paste",
+const COMMON_TAIL = [
   "-",
   "edit.selectAll",
   "edit.cancel",
@@ -28,7 +19,52 @@ const ITEMS = [
   "-",
   "edit.undo",
   "edit.redo",
+  "edit.repeat",
 ];
+
+const SCHEMATIC_ITEMS = [
+  "edit.rotate",
+  "edit.mirrorX",
+  "edit.mirrorY",
+  "edit.duplicate",
+  "edit.delete",
+  "-",
+  "edit.copy",
+  "edit.cut",
+  "edit.paste",
+  ...COMMON_TAIL,
+];
+
+/** The PCB has Flip instead of mirroring, locking, alignment, and no clipboard yet. */
+const PCB_ITEMS = [
+  "edit.rotate",
+  "pcb.flip",
+  "pcb.lock",
+  "pcb.unlock",
+  "edit.duplicate",
+  "edit.delete",
+  "-",
+  "pcb.alignLeft",
+  "pcb.alignRight",
+  "pcb.alignTop",
+  "pcb.alignBottom",
+  "pcb.alignCenterH",
+  "pcb.alignCenterV",
+  "pcb.distributeH",
+  "pcb.distributeV",
+  "-",
+  "pcb.fillZones",
+  "pcb.layerNext",
+  ...COMMON_TAIL,
+];
+
+const EDITOR_ITEMS = ["edit.rotate", "edit.mirrorX", "edit.mirrorY", "edit.delete", ...COMMON_TAIL];
+
+function itemsFor(mode: string | undefined): string[] {
+  if (mode === "pcb") return PCB_ITEMS;
+  if (mode === "symbol_editor" || mode === "footprint_editor") return EDITOR_ITEMS;
+  return SCHEMATIC_ITEMS;
+}
 
 export function ContextMenu() {
   const menu = useUi((s) => s.contextMenu);
@@ -57,7 +93,7 @@ export function ContextMenu() {
       className="ctx"
       style={{
         left: Math.min(menu.x, window.innerWidth - 230),
-        top: Math.min(menu.y, window.innerHeight - 330),
+        top: Math.max(4, Math.min(menu.y, window.innerHeight - 560)),
       }}
       role="menu"
       onMouseDown={(e) => e.stopPropagation()}
@@ -67,7 +103,7 @@ export function ContextMenu() {
           {sel === 1 ? (state.snapshot?.selection[0]?.title ?? "") : `${sel} objects`}
         </div>
       )}
-      {ITEMS.map((id, i) => {
+      {itemsFor(state.snapshot?.mode).map((id, i) => {
         if (id === "-") return <div key={`s${i}`} className="ctx-sep" />;
         const c = commands.find((x) => x.id === id);
         if (!c) return null;
@@ -81,7 +117,7 @@ export function ContextMenu() {
             title={a === true ? undefined : a}
             onClick={() => {
               store.set({ contextMenu: null });
-              c.run(actions);
+              runCommand(c, actions);
             }}
           >
             <span>{c.title}</span>

@@ -6,6 +6,7 @@
  * reason, so nothing pretends to work.
  */
 import type { Mode } from "./bindings/Mode";
+import { commandHistory } from "./history";
 import type { UiState } from "./store";
 
 export type Category =
@@ -59,6 +60,13 @@ export interface Actions {
   footprintSaveToLibrary(): void;
   footprintCommand(name: string, arg?: string): void;
   startMove(): void;
+  /** Runs the most recent repeatable command again. */
+  repeatLast(): void;
+  /** Re-activates the tool used before the current one. */
+  previousTool(): void;
+  /** Makes the next / previous copper layer the active PCB layer. */
+  cycleLayer(direction: 1 | -1): void;
+  showShortcuts(): void;
 }
 
 export interface AppCommand {
@@ -749,6 +757,46 @@ export function buildCommands(): AppCommand[] {
       shortcut: "Ctrl+Shift+P",
       run: (a) => a.openPalette(),
     },
+    {
+      id: "edit.repeat",
+      title: "Repeat Last Command",
+      category: "Edit",
+      shortcut: "Ctrl+Enter",
+      available: (s) => (repeatTarget(allCommands(), s) ? true : "Nothing to repeat yet"),
+      run: (a) => a.repeatLast(),
+    },
+    {
+      id: "tool.previous",
+      title: "Switch to Previous Tool",
+      category: "Tools",
+      shortcut: "Q",
+      available: (s) =>
+        previousToolTarget(allCommands(), s) ? true : "No earlier tool to go back to",
+      run: (a) => a.previousTool(),
+    },
+    {
+      id: "pcb.layerNext",
+      title: "Next Copper Layer (PCB)",
+      category: "View",
+      shortcut: "PageDown",
+      available: inPcb,
+      run: (a) => a.cycleLayer(1),
+    },
+    {
+      id: "pcb.layerPrev",
+      title: "Previous Copper Layer (PCB)",
+      category: "View",
+      shortcut: "PageUp",
+      available: inPcb,
+      run: (a) => a.cycleLayer(-1),
+    },
+    {
+      id: "help.shortcuts",
+      title: "Keyboard Shortcuts",
+      category: "Help",
+      shortcut: "F1",
+      run: (a) => a.showShortcuts(),
+    },
     { id: "help.about", title: "About ButureCAD", category: "Help", run: (a) => a.showAbout() },
   ];
 }
@@ -776,10 +824,101 @@ export function fuzzyScore(query: string, text: string): number | null {
 }
 
 /** Commands matching `query`, best first; ties keep registry order. */
-export function filterCommands(commands: AppCommand[], query: string): AppCommand[] {
+export function filterCommands(
+  commands: AppCommand[],
+  query: string,
+  recent: readonly string[] = [],
+): AppCommand[] {
+  if (query.trim() === "" && recent.length > 0) {
+    // Nothing typed: what you used last comes first, the rest keeps registry order.
+    const used = recent.flatMap((id) => byId(commands, id) ?? []);
+    return [...used, ...commands.filter((c) => !used.includes(c))];
+  }
+  const rank = (id: string) => {
+    const k = recent.indexOf(id);
+    return k === -1 ? 0 : 0.5 / (1 + k); // a small tie-break, never beats a better match
+  };
   return commands
-    .map((c, i) => ({ c, i, s: fuzzyScore(query, `${c.category} ${c.title}`) }))
+    .map((c, i) => ({
+      c,
+      i,
+      s: addRank(fuzzyScore(query, `${c.category} ${c.title}`), rank(c.id)),
+    }))
     .filter((x): x is { c: AppCommand; i: number; s: number } => x.s !== null)
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .map((x) => x.c);
+}
+
+// -- history-aware helpers ---------------------------------------------------------------------
+
+let registry: AppCommand[] | null = null;
+/** The full registry (built once); used by commands that need to look at other commands. */
+function allCommands(): AppCommand[] {
+  registry ??= buildCommands();
+  return registry;
+}
+
+const TOOL_PREFIXES = ["tool.", "pcbtool.", "symtool.", "fptool."];
+/** Tool-activating commands (not `tool.previous`, which switches between them). */
+export const isTool = (c: AppCommand): boolean =>
+  c.id !== "tool.previous" && TOOL_PREFIXES.some((p) => c.id.startsWith(p));
+
+/** Contextual or meta commands that make no sense to repeat. */
+const NOT_REPEATABLE = new Set([
+  "edit.undo",
+  "edit.redo",
+  "edit.repeat",
+  "edit.cancel",
+  "edit.selectAll",
+  "tool.previous",
+  "tools.palette",
+  "pcb.finishRoute",
+  "pcb.routeVia",
+  "pcb.layerNext",
+  "pcb.layerPrev",
+]);
+
+/** Editing commands and tools can be repeated; file, view, mode and help commands cannot. */
+export const isRepeatable = (c: AppCommand): boolean =>
+  (c.category === "Edit" || c.category === "Tools") && !NOT_REPEATABLE.has(c.id);
+
+const byId = (commands: AppCommand[], id: string) => commands.find((c) => c.id === id);
+
+/** The command "Repeat" would run now: the most recent repeatable one that is available. */
+export function repeatTarget(
+  commands: AppCommand[],
+  state: UiState,
+  recent: readonly string[] = commandHistory.recent(),
+): AppCommand | null {
+  for (const id of recent) {
+    const c = byId(commands, id);
+    if (c && isRepeatable(c) && availability(c, state) === true) return c;
+  }
+  return null;
+}
+
+/**
+ * The tool to go back to: the most recently used tool other than the current one that can be
+ * activated in the current mode. Alternating `Q` flips between the last two tools.
+ */
+export function previousToolTarget(
+  commands: AppCommand[],
+  state: UiState,
+  recent: readonly string[] = commandHistory.recent(),
+): AppCommand | null {
+  const tools = recent.flatMap((id) => {
+    const c = byId(commands, id);
+    return c && isTool(c) && availability(c, state) === true ? [c] : [];
+  });
+  return tools[1] ?? null;
+}
+
+/** Runs a command and remembers it. Every entry point (shortcut, palette, menus) goes through here. */
+export function runCommand(c: AppCommand, actions: Actions): void {
+  if (isRepeatable(c) || isTool(c)) commandHistory.record(c.id);
+  c.run(actions);
+}
+
+function addRank(score: number | null, bonus: number): number | null {
+  return score === null ? null : score + bonus;
 }

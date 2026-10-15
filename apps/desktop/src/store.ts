@@ -26,6 +26,7 @@ export type Dialog =
   | { kind: "rename-project" }
   | { kind: "unsaved"; then: () => Promise<void>; title: string }
   | { kind: "recovery" }
+  | { kind: "shortcuts" }
   | { kind: "about" };
 
 export interface ContextMenuState {

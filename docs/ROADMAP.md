@@ -48,4 +48,5 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 43 | Importers | done (`docs/import.md`): modular importers, Import Report with enforced accounting; SPICE and KiCad netlist |
 | 44 | Heavy performance profiling | done (`benchmarks/README.md`): benchmarks at 100/500/2000/5000 parts; 2 scale bugs fixed, 2 proven bottlenecks optimised, 1 attempt reverted |
 | 45 | Robustness | done (`docs/robustness.md`): mutation fuzzing, property tests, crash-safe saving with fault injection |
-| 46–50 | UX, validation project, audits, release | planned |
+| 46 | Professional UX | done (`docs/ux.md`): repeat last command, previous tool, recent-first palette, layer keys, shortcut sheet, per-view context menus; gaps listed (schematic align, PCB copy/paste, arrow nudge/pan) |
+| 47–50 | Validation project, audits, release | planned |

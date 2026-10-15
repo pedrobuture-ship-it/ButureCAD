@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { availability, filterCommands } from "../commands";
+import { availability, filterCommands, runCommand } from "../commands";
+import { commandHistory } from "../history";
 import { formatShortcut } from "../shortcuts";
 import { store, useUi } from "../store";
 import { useActions, useCommands } from "./hooks";
@@ -21,7 +22,10 @@ export function CommandPalette() {
     }
   }, [open]);
 
-  const results = useMemo(() => filterCommands(commands, query), [commands, query]);
+  // Re-read the history each time the palette opens so the newest commands lead.
+  const recent = useMemo(() => (open ? [...commandHistory.recent()] : []), [open]);
+  const results = useMemo(() => filterCommands(commands, query, recent), [commands, query, recent]);
+  const showRecent = query.trim() === "";
   if (!open) return null;
 
   const close = () => store.set({ paletteOpen: false });
@@ -29,7 +33,7 @@ export function CommandPalette() {
     const c = results[i];
     if (!c || availability(c, state) !== true) return;
     close();
-    c.run(actions);
+    runCommand(c, actions);
   };
 
   return (
@@ -78,7 +82,9 @@ export function CommandPalette() {
                 onClick={() => run(i)}
                 title={a === true ? undefined : a}
               >
-                <span className="pal-cat">{c.category}</span>
+                <span className="pal-cat">
+                  {showRecent && recent.includes(c.id) ? "Recent" : c.category}
+                </span>
                 <span className="pal-title">{c.title}</span>
                 {a !== true && <span className="pal-why">{a}</span>}
                 {c.shortcut && <kbd>{formatShortcut(c.shortcut)}</kbd>}

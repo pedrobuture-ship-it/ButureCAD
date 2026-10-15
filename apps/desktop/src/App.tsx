@@ -2,7 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect } from "react";
 import { api } from "./api";
 import { call, closeWindowNow, refreshSnapshot, toast } from "./actions";
-import { availability } from "./commands";
+import { availability, runCommand } from "./commands";
 import { BottomPanel } from "./components/BottomPanel";
 import { CanvasView } from "./components/CanvasView";
 import { AgentPanel } from "./components/AgentPanel";
@@ -80,12 +80,15 @@ export function App() {
         if (s && matchesShortcut(e, s)) {
           if (
             isTyping(e.target) &&
-            (c.id === "edit.undo" || c.id === "edit.redo" || c.id === "edit.selectAll")
+            (c.id === "edit.undo" ||
+              c.id === "edit.redo" ||
+              c.id === "edit.selectAll" ||
+              c.id === "edit.repeat")
           )
             return; // text fields keep native editing
           if (availability(c, state) === true) {
             e.preventDefault();
-            c.run(actions);
+            runCommand(c, actions);
             return;
           }
         }
