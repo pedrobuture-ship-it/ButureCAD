@@ -13,6 +13,8 @@ buturecad drc <project-dir>
 buturecad export-gerber <project-dir> --out <dir | file.zip>
 buturecad export-bom <project-dir> [--out file.csv]
 buturecad inspect components|nets|board <project-dir>
+buturecad agent serve|proposals|show|apply|reject <project-dir> …   (docs/agent-api/protocol.md)
+buturecad import <file> --out <project-dir> [--format …] [--report …]   (docs/import.md)
 buturecad help | version                      options: --json  --quiet
 ```
 

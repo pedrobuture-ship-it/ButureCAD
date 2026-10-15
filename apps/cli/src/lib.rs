@@ -224,6 +224,7 @@ fn dispatch(
         "drc" => cmd_drc(pos(0, "the project folder")?, o),
         "export-gerber" => cmd_gerber(pos(0, "the project folder")?, a, o),
         "export-bom" => cmd_bom(pos(0, "the project folder")?, a, o),
+        "import" => cmd_import(pos(0, "the file to import")?, a, o),
         "agent" => {
             let sub = pos(0, "serve, proposals, show, apply or reject")?;
             let proj = pos(1, "the project folder")?;
@@ -582,4 +583,71 @@ fn cmd_inspect(what: &str, path: &str, o: &mut Out) -> Result<i32, String> {
         }
     }
     Ok(0)
+}
+
+fn cmd_import(path: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
+    use buturecad_eda_core::commands::AddSymbolsCommand;
+    use buturecad_eda_core::ir_apply::apply_design;
+    let dest = a.out.as_deref().ok_or("import needs --out <project-dir>")?;
+    let bytes = std::fs::read(path).map_err(|e| format!("cannot read “{path}”: {e}"))?;
+    let file_name = Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(path);
+    let registry = buturecad_io::import::Registry::builtin();
+    let (outcome, _id) = registry
+        .import(&bytes, file_name, a.format.as_deref())
+        .map_err(|e| e.to_string())?;
+    let mut report = outcome.report;
+    let mut created = false;
+    if let (Some(design), false) = (outcome.design, report.has_errors()) {
+        let project = Project::new(&design.name)
+            .map_err(|e| format!("the project name “{}” is not valid: {e}", design.name))?;
+        let mut engine = buturecad_eda_core::CommandEngine::new(project);
+        if !outcome.symbols.is_empty() {
+            engine
+                .execute(AddSymbolsCommand::new(outcome.symbols))
+                .map_err(|e| e.to_string())?;
+        }
+        match apply_design(&mut engine, &design, &|n| {
+            buturecad_scripting::resolve_footprint(n)
+        }) {
+            Ok(rep) => {
+                for w in rep.warnings {
+                    report.warn(format!("PCB update: {w}"));
+                }
+                let (session, _) = ProjectSession::create(dest, engine.project().name())
+                    .map_err(|e| format!("cannot create “{dest}”: {e}"))?;
+                session
+                    .save(engine.project())
+                    .map_err(|e| format!("cannot save the project: {e}"))?;
+                created = true;
+            }
+            Err(e) => report.error(format!("the imported design could not be built: {e}")),
+        }
+    }
+    let json = report.to_json();
+    if created {
+        let mut text = serde_json::to_string_pretty(&json).unwrap_or_default();
+        text.push('\n');
+        buturecad_io::atomic::atomic_write(
+            &Path::new(dest).join("import-report.json"),
+            text.as_bytes(),
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(rp) = &a.report {
+        let mut text = serde_json::to_string_pretty(&json).unwrap_or_default();
+        text.push('\n');
+        buturecad_io::atomic::atomic_write(Path::new(rp), text.as_bytes())
+            .map_err(|e| e.to_string())?;
+    }
+    o.line(report.text());
+    o.line(if created {
+        format!("project created in {dest} (the report is saved there as import-report.json)")
+    } else {
+        "no project was created".to_owned()
+    });
+    o.json(&json!({"created": created, "project": dest, "report": json}));
+    Ok(i32::from(!created))
 }

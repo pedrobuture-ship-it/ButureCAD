@@ -2,7 +2,7 @@
 
 *Checkpoint note (after stage 34): workspace compiles, `fmt`/`clippy -D warnings` clean, 637 Rust tests and 21 frontend tests pass, a search for TODO/FIXME/mock/placeholder/temporary/fake/stub found only documented items (`builtin.rs` bootstrap symbols, UI input placeholders). The e2e screenshot scenarios (`apps/desktop/e2e`) were not re-run for stages 28–34.*
 
-*Checkpoint after roadmap stages 01–26; stages 27–41 added after it. Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–26; stages 27–43 added after it. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -45,6 +45,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Layer stack** (roadmap 26): physical stack model (copper/dielectric thickness, material, core/prepreg, εr/tan δ, solder mask, flex flag), Layer Stack Manager with built-in templates (2/4/6/8 layers, HDI, rigid-flex) and local presets (`*.bstack.json`), inner-layer exchange, one undo step; PCB schema 8. See `docs/stackup.md`.
 
 - **3D viewer** (roadmap 27): decoupled `buturecad-viewer3d` (model → mesh → software rasteriser, orbit/pan/zoom, perspective/orthographic); substrate, solder mask, copper, pads, vias, zone fills, silkscreen and component boxes; follows every PCB edit/undo; layer toggles and preset views. Component 3D models are referenced but not parsed (stage 28). See `docs/viewer3d.md`.
+- **Agent protocol and importers** (roadmap 42–43): JSON-RPC 2.0 over stdio (`buturecad agent serve`, MCP-shaped tools; Rust/TypeScript/Python examples run in tests) with human-only apply; modular importers (SPICE netlist, KiCad netlist) with an Import Report whose accounting is enforced. See `docs/agent-api/protocol.md`, `docs/import.md`.
 - **Agent API and AI Workspace** (roadmap 40–41): agents read, analyse and propose; proposals are validated on a copy with a state diff and ERC/DRC comparison; only the user's Apply (one undo step) changes the project; everything is audited. No model ships. See `docs/agent-api/README.md`.
 - **CLI and headless core** (roadmap 38–39): `buturecad build/check/erc/drc/export-gerber/export-bom/inspect` with `--json` and exit codes; the whole script → Gerber flow runs with no GUI crate (tested, `scripts/headless-ci.sh`). See `docs/cli.md`.
 - **ButureScript** (roadmap 35–37): `.beda` language (lexer, parser, AST, unit-aware semantic analysis, diagnostics, modules/functions/loops/conditions/parameters) → EDA IR → core through the Command Engine; CODE/SPLIT/VISUAL editor with live read-only preview and project generation. See `docs/buturescript/`.
@@ -57,6 +58,7 @@ desktop app; limits are stated in the sections that follow.*
 
 # Partial
 
+- **Importers:** only netlist-level formats (no placement/board); the KiCad importer is untested against real KiCad exports; no GUI entry point. **Agent protocol:** stdio only, one client per process, not tested with a third-party MCP client.
 - **Agent API:** `connect`/`disconnect` use labels/power symbols only; no model provider, no JSON-RPC protocol yet (roadmap 42); proposals live in memory; the decoupling helper's placement is simple.
 - **ButureScript:** generation only (target project must be empty); no Visual → Code (designed in `docs/buturescript/code-visual.md`); no includes, no differential pairs/keepouts/text in the language; the schematic is auto-laid-out with global labels and no wires; no syntax highlighting.
 - **Simulation:** the built-in engine is linear only; nonlinear devices need ngspice (backend verified against ngspice 47 for OP/AC/transient and a diode); no cursors/measurements/CSV export.

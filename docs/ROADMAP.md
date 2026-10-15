@@ -45,4 +45,5 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 40 | Agent API | done (`docs/agent-api/README.md`) |
 | 41 | AI Workspace | done: panel, provider interface, rule-based decoupling helper and JSON provider; no model provider ships |
 | 42 | Plugin/Agent protocol | done (`docs/agent-api/protocol.md`): JSON-RPC 2.0 over stdio, MCP-shaped tools; Rust/TypeScript/Python examples run in tests |
-| 43–50 | Import, performance, robustness, UX, validation project, audits, release | planned |
+| 43 | Importers | done (`docs/import.md`): modular importers, Import Report with enforced accounting; SPICE and KiCad netlist |
+| 44–50 | Performance, robustness, UX, validation project, audits, release | planned |

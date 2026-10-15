@@ -15,10 +15,10 @@ workspace = true
 buturecad-eda-core = { path = "../eda-core" }
 buturecad-schematic = { path = "../schematic" }
 buturecad-pcb = { path = "../pcb" }
+buturecad-geometry = { path = "../geometry" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
 tempfile = "3"
-buturecad-geometry = { path = "../geometry" }
