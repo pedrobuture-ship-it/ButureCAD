@@ -2,7 +2,7 @@
 
 *Checkpoint note (after stage 34): workspace compiles, `fmt`/`clippy -D warnings` clean, 637 Rust tests and 21 frontend tests pass, a search for TODO/FIXME/mock/placeholder/temporary/fake/stub found only documented items (`builtin.rs` bootstrap symbols, UI input placeholders). The e2e screenshot scenarios (`apps/desktop/e2e`) were not re-run for stages 28–34.*
 
-*Checkpoint after roadmap stages 01–26; stages 27–37 added after it. Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–26; stages 27–39 added after it. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -45,6 +45,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Layer stack** (roadmap 26): physical stack model (copper/dielectric thickness, material, core/prepreg, εr/tan δ, solder mask, flex flag), Layer Stack Manager with built-in templates (2/4/6/8 layers, HDI, rigid-flex) and local presets (`*.bstack.json`), inner-layer exchange, one undo step; PCB schema 8. See `docs/stackup.md`.
 
 - **3D viewer** (roadmap 27): decoupled `buturecad-viewer3d` (model → mesh → software rasteriser, orbit/pan/zoom, perspective/orthographic); substrate, solder mask, copper, pads, vias, zone fills, silkscreen and component boxes; follows every PCB edit/undo; layer toggles and preset views. Component 3D models are referenced but not parsed (stage 28). See `docs/viewer3d.md`.
+- **CLI and headless core** (roadmap 38–39): `buturecad build/check/erc/drc/export-gerber/export-bom/inspect` with `--json` and exit codes; the whole script → Gerber flow runs with no GUI crate (tested, `scripts/headless-ci.sh`). See `docs/cli.md`.
 - **ButureScript** (roadmap 35–37): `.beda` language (lexer, parser, AST, unit-aware semantic analysis, diagnostics, modules/functions/loops/conditions/parameters) → EDA IR → core through the Command Engine; CODE/SPLIT/VISUAL editor with live read-only preview and project generation. See `docs/buturescript/`.
 - **Simulation** (roadmap 34): schematic connectivity → netlist; OP, DC sweep, AC, transient with the built-in linear engine (verified against analytic circuits); SPICE properties per component (Inspector); built-in V/I source symbols; plots in the UI. See `docs/simulation.md`.
 - **Plugins and Component Provider API** (roadmap 32–33): WASM sandbox (wasmi) with fuel/memory limits and no WASI; manifest; install/enable/disable/reload/remove; explicit grant/revoke of `filesystem`, `project-read`, `network`, `project-write` with audit of refusals; provider panel with search and import into user libraries. See `docs/plugin-sdk/README.md`.

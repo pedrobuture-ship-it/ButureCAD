@@ -9,6 +9,7 @@
 //! warnings and notes. A successful export is **not** a statement that the board is ready to be
 //! fabricated.
 
+pub mod board;
 pub mod excellon;
 pub mod excellon_read;
 pub mod gerber;
@@ -21,6 +22,7 @@ pub mod tables;
 pub mod verify;
 pub mod zip;
 
+pub use board::build_fab_input;
 pub use model::{
     Aperture, Capabilities, DrcSummary, FabInput, Feature, Hole, Layer, Mount, Part, Pt,
 };

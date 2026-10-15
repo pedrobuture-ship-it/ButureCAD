@@ -268,6 +268,22 @@ name = "buturecad-agent-api"
 version = "0.1.0"
 
 [[package]]
+name = "buturecad-cli"
+version = "0.1.0"
+dependencies = [
+ "buturecad-eda-core",
+ "buturecad-geometry",
+ "buturecad-io",
+ "buturecad-manufacturing",
+ "buturecad-pcb",
+ "buturecad-rules",
+ "buturecad-schematic",
+ "buturecad-scripting",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "buturecad-desktop"
 version = "0.1.0"
 dependencies = [
@@ -352,6 +368,10 @@ dependencies = [
 name = "buturecad-manufacturing"
 version = "0.1.0"
 dependencies = [
+ "buturecad-eda-core",
+ "buturecad-geometry",
+ "buturecad-pcb",
+ "buturecad-rules",
  "thiserror 2.0.21",
 ]
 

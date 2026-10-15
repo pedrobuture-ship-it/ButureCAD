@@ -1,0 +1,24 @@
+// Three 0603 resistors in a chain, routed on the top layer. DRC-clean: `buturecad drc` passes and
+// `buturecad export-gerber` produces production files.
+project "chain"
+
+board { outline = rect(0mm, 0mm, 30mm, 20mm)  layers = 2 }
+
+component R1 { value = "1k"  footprint = "0603" }
+component R2 { value = "2k2" footprint = "0603" }
+component R3 { value = "4k7" footprint = "0603" }
+
+net A { R1.2, R2.1 }
+net B { R2.2, R3.1 }
+connect R1.1 -> IN       // ends of the chain are named so ERC sees them as connected
+connect R3.2 -> OUT
+
+place R1 at (10mm, 10mm)
+place R2 at (14mm, 10mm)
+place R3 at (18mm, 10mm)
+
+// 0603 pads sit 0.825 mm either side of the centre.
+track A on F.Cu width 0.25mm path (10.825mm, 10mm) -> (13.175mm, 10mm)
+track B on F.Cu width 0.25mm path (14.825mm, 10mm) -> (17.175mm, 10mm)
+
+rule { clearance = 0.2mm  min_track_width = 0.15mm }

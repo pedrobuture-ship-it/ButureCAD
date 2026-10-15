@@ -18,6 +18,7 @@ members = [
     "crates/plugin-runtime",
     "crates/agent-api",
     "apps/desktop/src-tauri",
+    "apps/cli",
 ]
 
 [workspace.package]
