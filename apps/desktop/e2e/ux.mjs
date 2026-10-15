@@ -71,6 +71,23 @@ try {
   check("right click opens the context menu with Repeat Last Command", ctx.includes("Repeat Last Command") && ctx.includes("Rotate"), ctx.replace(/\s+/g, " ").slice(0, 80));
   await b.key("Escape"); await b.wait(200);
 
+  // Footprint suggestions (stage 53): place a resistor, select it, the inspector offers footprints.
+  const clickSym = (name) => b.eval(`[...document.querySelectorAll(".symbol-list li")].find((x) => x.querySelector("strong")?.textContent === ${JSON.stringify(name)})?.click()`);
+  await b.key("a"); await b.wait(400);
+  await clickSym("R"); await b.wait(300);
+  const [px, py, pw, ph] = await b.eval(`(() => { const r = document.querySelector("canvas").getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
+  await b.click(px + pw / 2, py + ph / 2); await b.wait(300);
+  await b.key("Escape"); await b.wait(200);
+  await b.key("v"); await b.wait(200);
+  await b.click(px + pw / 2, py + ph / 2); await b.wait(500);
+  const insp = await b.eval(`document.querySelector(".inspector")?.innerText ?? ""`);
+  check("the inspector shows the part and the footprint suggestion list", insp.includes("Footprint") && /Chip_0603/.test(insp), insp.replace(/\s+/g, " ").slice(0, 200));
+  await b.screenshot(join(out, "ux-footprint-suggestions.png"));
+  await b.eval(`[...document.querySelectorAll(".fp-item")].find((x) => x.textContent.includes("Chip_0603"))?.click()`);
+  await b.wait(500);
+  const fpValue = await b.eval(`document.querySelector('input[aria-label="footprint"]')?.value ?? ""`);
+  check("picking a suggestion assigns the footprint", fpValue === "Std:Chip_0603", fpValue);
+
   check("no console errors", b.consoleLog.filter((l) => l.startsWith("error") || l.startsWith("EXCEPTION")).length === 0, b.consoleLog.filter((l) => l.startsWith("error") || l.startsWith("EXCEPTION")).join(" | "));
 } finally {
   await b.close();

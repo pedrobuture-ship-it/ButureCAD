@@ -156,7 +156,7 @@ fn direction_for(rotation: u8) -> Direction {
 impl Workspace {
     // -- model access ----------------------------------------------------------------------------
 
-    fn sch(&self) -> Option<&SchematicModel> {
+    pub(crate) fn sch(&self) -> Option<&SchematicModel> {
         self.open.as_ref().map(|o| o.engine.project().schematic())
     }
 
@@ -175,7 +175,7 @@ impl Workspace {
         self.sch().map_or(Id(0), SchematicModel::root)
     }
 
-    fn symbol_by_id(&self, lib_id: &str) -> Option<Symbol> {
+    pub(crate) fn symbol_by_id(&self, lib_id: &str) -> Option<Symbol> {
         self.sch()
             .and_then(|s| s.symbol(lib_id).cloned())
             .or_else(|| {

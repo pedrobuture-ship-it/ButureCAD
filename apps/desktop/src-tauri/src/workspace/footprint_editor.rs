@@ -1542,9 +1542,10 @@ impl Workspace {
         out
     }
 
-    /// Footprints in the project and in the library folders. A project copy wins over a library
-    /// entry with the same id.
-    pub fn library_footprints(&self) -> Vec<FootprintInfo> {
+    /// Every footprint definition the app can offer, by `Library:Name`, with where it comes from:
+    /// the built-in `Std` library, the library folders, then the project (a project copy wins
+    /// over a library entry with the same id).
+    pub(crate) fn all_footprint_defs(&self) -> BTreeMap<String, (Footprint, String)> {
         let mut all: BTreeMap<String, (Footprint, String)> = BTreeMap::new();
         for f in buturecad_libraries::standard::footprints() {
             all.insert(f.name.clone(), (f, "builtin".into()));
@@ -1565,7 +1566,13 @@ impl Workspace {
                 all.insert(k.clone(), (v.clone(), "project".into()));
             }
         }
-        all.into_values()
+        all
+    }
+
+    /// Footprints in the project and in the library folders.
+    pub fn library_footprints(&self) -> Vec<FootprintInfo> {
+        self.all_footprint_defs()
+            .into_values()
             .map(|(f, source)| FootprintInfo {
                 lib_id: f.name.clone(),
                 name: f.name.rsplit(':').next().unwrap_or(&f.name).to_owned(),
@@ -1576,6 +1583,40 @@ impl Workspace {
                 tags: f.tags.clone(),
             })
             .collect()
+    }
+
+    /// Footprints that fit the schematic part `id` (its symbol's filters, and a pad for every
+    /// pin), best first: what the user would pick in KiCad's footprint chooser.
+    pub fn footprint_suggestions(&self, id: u64) -> Result<Vec<FootprintSuggestion>, String> {
+        let sch = self.sch().ok_or("no project is open")?;
+        let comp = match sch.object(Id(id)) {
+            Some((_, Object::Component(c))) => c.clone(),
+            _ => return Err("select a schematic part first".into()),
+        };
+        let sym = self
+            .symbol_by_id(&comp.lib_id)
+            .ok_or_else(|| format!("symbol {} was not found", comp.lib_id))?;
+        let defs = self.all_footprint_defs();
+        let fps: Vec<Footprint> = defs.values().map(|(f, _)| f.clone()).collect();
+        Ok(buturecad_libraries::suggest::suggest(&sym, &fps, 40)
+            .into_iter()
+            .filter_map(|s| {
+                let (f, _) = defs.get(&s.id)?;
+                Some(FootprintSuggestion {
+                    name: f.name.rsplit(':').next().unwrap_or(&f.name).to_owned(),
+                    library: f.name.split_once(':').map_or("", |(l, _)| l).to_owned(),
+                    description: f.description.clone(),
+                    pad_count: f.pads.len() as u32,
+                    reason: match s.reason {
+                        buturecad_libraries::suggest::Reason::Filter => "filter",
+                        buturecad_libraries::suggest::Reason::ExactPads => "pads",
+                    }
+                    .into(),
+                    reason_text: s.reason.label().into(),
+                    lib_id: s.id,
+                })
+            })
+            .collect())
     }
 
     fn fped_save_to_library(&mut self, arg: &str) -> Result<(), String> {

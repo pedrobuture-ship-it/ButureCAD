@@ -323,6 +323,21 @@ pub struct FootprintInfo {
     pub tags: String,
 }
 
+/// A footprint suggested for a placed part (stage 53).
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct FootprintSuggestion {
+    /// `Library:Name`: the value to put in the part's Footprint field.
+    pub lib_id: String,
+    pub name: String,
+    pub library: String,
+    pub description: String,
+    pub pad_count: u32,
+    /// Why it is suggested (`filter` or `pads`) and the sentence for the user.
+    pub reason: String,
+    pub reason_text: String,
+}
+
 /// One parameter of a footprint generator.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]

@@ -349,6 +349,15 @@ pub fn symbols() -> Vec<Symbol> {
         connector(4),
         ground(),
     ];
+    for s in &mut v {
+        s.meta.footprint_filters = match s.name.as_str() {
+            "Buture:R" | "Buture:C" | "Buture:L" | "Buture:LED" => vec!["Chip_*".into()],
+            "Buture:D" => vec!["SOD-*".into(), "SMA*".into(), "Chip_*".into()],
+            "Buture:Conn_01x02" => vec!["PinHeader_1x02_*".into()],
+            "Buture:Conn_01x04" => vec!["PinHeader_1x04_*".into()],
+            _ => Vec::new(),
+        };
+    }
     v.push(supply("+3V3", "+3V3"));
     v.push(supply("+5V", "+5V"));
     v.push(supply("VCC", "VCC"));

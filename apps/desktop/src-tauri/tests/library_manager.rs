@@ -274,3 +274,78 @@ fn the_standard_library_is_searchable_and_its_footprint_reaches_the_board() {
         "SOIC-8 from the Std library"
     );
 }
+
+/// Stage 53: placing a part offers footprints the way KiCad's chooser does, and a pick assigns it.
+#[test]
+fn a_placed_part_gets_footprint_suggestions_and_a_pick_assigns_one() {
+    use buturecad_desktop_lib::ui_types::{PointerEvent, PointerKind};
+    use buturecad_geometry::Point;
+    let (mut ws, _dir) = rig();
+    ws.set_mode(Mode::Schematic);
+    ws.set_canvas_size(800.0, 600.0);
+    ws.render(800, 600).unwrap();
+    let place = |ws: &mut Workspace, sym: &str, gx: i64| {
+        ws.editor_command(&format!("tool:place_component:{sym}"))
+            .unwrap();
+        let (x, y) = ws.views[&Mode::Schematic].world_to_screen(Point::new(gx * 1_270_000, 0));
+        for kind in [PointerKind::Move, PointerKind::Down, PointerKind::Up] {
+            ws.pointer(PointerEvent {
+                kind,
+                x,
+                y,
+                button: 0,
+                shift: false,
+                ctrl: false,
+                alt: false,
+                delta: 0.0,
+            });
+        }
+        ws.editor_command("tool:select").unwrap();
+    };
+    place(&mut ws, "Buture:R", 0);
+    place(&mut ws, "Std:OpAmp_Dual_8", 30);
+    let ids: Vec<(u64, String)> = ws
+        .open
+        .as_ref()
+        .unwrap()
+        .engine
+        .project()
+        .schematic()
+        .sheets()
+        .values()
+        .flat_map(|s| s.objects.iter())
+        .filter_map(|(id, o)| match o {
+            buturecad_schematic::Object::Component(c) => Some((id.0, c.lib_id.clone())),
+            _ => None,
+        })
+        .collect();
+    let r = ids.iter().find(|(_, l)| l == "Buture:R").unwrap().0;
+    let u = ids.iter().find(|(_, l)| l.contains("OpAmp")).unwrap().0;
+
+    // A resistor: chip sizes first (they match the symbol's filter), 0603 among them.
+    let s = ws.footprint_suggestions(r).unwrap();
+    assert!(
+        s.len() > 4 && s[0].reason == "filter" && s[0].name.starts_with("Chip_"),
+        "{:?}",
+        s.iter().map(|x| &x.lib_id).collect::<Vec<_>>()
+    );
+    assert!(s.iter().any(|x| x.lib_id == "Std:Chip_0603"));
+    // An op-amp: only 8-pin-capable packages, never a chip or SOT.
+    let s = ws.footprint_suggestions(u).unwrap();
+    assert!(
+        s.iter().any(|x| x.name.starts_with("SOIC-8"))
+            && s.iter().any(|x| x.name.starts_with("TSSOP-8"))
+    );
+    assert!(s
+        .iter()
+        .all(|x| x.pad_count >= 8 && !x.name.starts_with("Chip_") && !x.name.starts_with("SOT")));
+    // Picking assigns it through the property command; "Update PCB" then finds the footprint.
+    ws.set_property(r, "footprint", "Std:Chip_0603").unwrap();
+    let preview = ws.pcb_update_preview().unwrap();
+    assert!(preview.can_apply);
+    ws.pcb_update_apply().unwrap();
+    let doc = ws.open.as_ref().unwrap().engine.project().pcb();
+    assert!(doc.placed.values().any(|f| f.footprint == "Std:Chip_0603"));
+    // Not a part: a clear error.
+    assert!(ws.footprint_suggestions(999_999).is_err());
+}

@@ -409,6 +409,14 @@ pub fn library_command(
 
 /// The symbol id for placing a Library Manager item (the UI then arms the placement tool).
 #[tauri::command]
+pub fn footprint_suggestions(
+    state: State<'_, AppState>,
+    id: u64,
+) -> Result<Vec<crate::ui_types::FootprintSuggestion>, String> {
+    state.with(|ws| ws.footprint_suggestions(id))
+}
+
+#[tauri::command]
 pub fn library_place_symbol(state: State<'_, AppState>, key: String) -> Result<String, String> {
     state.with(|ws| ws.library_place_symbol(&key))
 }

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CoreInfo } from "./bindings/CoreInfo";
 import type { FootprintInfo } from "./bindings/FootprintInfo";
+import type { FootprintSuggestion } from "./bindings/FootprintSuggestion";
 import type { GeneratorInfo } from "./bindings/GeneratorInfo";
 import type { LibraryInfo } from "./bindings/LibraryInfo";
 import type { Mode } from "./bindings/Mode";
@@ -51,6 +52,8 @@ export const api = {
   viewZoom: (factor: number) => invoke<Snapshot>("view_zoom", { factor }),
   editorCommand: (name: string) => invoke<Snapshot>("editor_command", { name }),
   librarySymbols: () => invoke<SymbolInfo[]>("library_symbols"),
+  footprintSuggestions: (id: number) =>
+    invoke<FootprintSuggestion[]>("footprint_suggestions", { id }),
   propertySet: (id: number, key: string, value: string) =>
     invoke<Snapshot>("property_set", { id, key, value }),
   symbolEditorCommand: (name: string, arg?: string) =>

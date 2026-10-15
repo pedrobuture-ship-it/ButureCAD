@@ -1,12 +1,71 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { call } from "../actions";
+import type { FootprintSuggestion } from "../bindings/FootprintSuggestion";
 import type { LayerInfo } from "../bindings/LayerInfo";
 import type { Snapshot } from "../bindings/Snapshot";
 import { useUi } from "../store";
 import { MODE_TITLES } from "../tools";
 import { FootprintFields, FP_LAYER_IDS } from "./FootprintEditor";
 import { FieldEditor, SymbolFields } from "./SymbolEditor";
+
+/**
+ * Footprints that fit the selected schematic part, like KiCad's footprint chooser: those matching
+ * the symbol's filters first, then every footprint with a pad for each pin. Open by itself while
+ * the part has no footprint yet; a click assigns it (one undoable command).
+ */
+function FootprintSuggestions({ objectId, current }: { objectId: number; current: string }) {
+  const [open, setOpen] = useState(current === "");
+  const [items, setItems] = useState<FootprintSuggestion[] | null>(null);
+  const [error, setError] = useState("");
+  // A newly selected part opens the list if it still needs a footprint.
+  useEffect(() => setOpen(current === ""), [objectId, current === ""]);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setItems(null);
+    setError("");
+    api
+      .footprintSuggestions(objectId)
+      .then((r) => alive && setItems(r))
+      .catch((e) => alive && setError(String(e)));
+    return () => {
+      alive = false;
+    };
+  }, [open, objectId]);
+  return (
+    <div className="fp-suggest">
+      <button className="link" onClick={() => setOpen(!open)} aria-expanded={open}>
+        {open ? "Hide footprint suggestions" : "Suggest footprints…"}
+      </button>
+      {open && error && <p className="muted">{error}</p>}
+      {open && !error && items === null && <p className="muted">Looking…</p>}
+      {open && items && items.length === 0 && (
+        <p className="muted">
+          No footprint in the libraries has a pad for every pin of this symbol.
+        </p>
+      )}
+      {open && items && items.length > 0 && (
+        <ul className="fp-suggest-list" aria-label="Suggested footprints">
+          {items.map((f) => (
+            <li key={f.lib_id}>
+              <button
+                className={f.lib_id === current ? "fp-item current" : "fp-item"}
+                title={`${f.description}\n${f.reason_text}`}
+                onClick={() => void call(api.propertySet(objectId, "footprint", f.lib_id))}
+              >
+                <span className="fp-name">{f.name}</span>
+                <span className="muted">
+                  {f.library} · {f.pad_count} pads{f.reason === "filter" ? " · ★" : ""}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** An editable property: commits on Enter or blur, and only when the value changed. */
 function PropertyInput({
@@ -142,6 +201,12 @@ export function Inspector() {
                 </div>
               ))}
             </dl>
+            {snap.mode === "schematic" && sel[0].kind === "component" && (
+              <FootprintSuggestions
+                objectId={sel[0].id}
+                current={sel[0].properties.find((p) => p.key === "footprint")?.value ?? ""}
+              />
+            )}
           </>
         )}
         {sel.length > 1 && (

@@ -54,6 +54,22 @@ connect U1."V+" -> "+5V"
 
 Chip footprints are `Std:Chip_0603` etc.; headers `Std:PinHeader_1x04_P2.54mm`.
 
+## Footprint suggestions (stage 53)
+
+Select a placed part: the Inspector lists footprints that fit it, like KiCad's footprint chooser,
+and opens by itself while the part has no footprint. The list is computed in
+`crates/libraries/src/suggest.rs`:
+
+1. footprints matching one of the **symbol's footprint filters** (glob patterns such as `Chip_*`,
+   `SOIC-8*`; the built-in and `Std` symbols carry filters) and having a pad for **every pin** of the
+   symbol — marked with ★;
+2. then footprints whose pad numbers are **exactly** the symbol's pin numbers.
+
+A footprint that lacks a pad for any pin is never offered. A click sets the part's Footprint
+(one undoable command); *Update PCB from Schematic* then finds it. Footprints come from `Std`, the
+project and user library folders. Symbols of your own libraries get suggestions by pin count, and
+by their filters if you set `footprint_filters` in the Symbol Editor.
+
 ## Limits
 
 * No QFN/DFN/BGA entries (generate them in the Footprint Editor with the family generators and

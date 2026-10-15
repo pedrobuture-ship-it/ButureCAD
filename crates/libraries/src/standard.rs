@@ -240,7 +240,40 @@ fn connector(rows: usize, n: usize) -> Symbol {
     )
 }
 
+/// Footprint filters of a standard symbol (glob patterns on footprint names).
+fn filters_for(name: &str) -> Vec<String> {
+    let f: &[&str] = match name {
+        "C_Polarized" | "Ferrite_Bead" | "Fuse" => &["Chip_*"],
+        "D_Schottky" | "D_Zener" => &["SOD-*", "SMA*", "Chip_*"],
+        "Q_NPN_BEC" | "Q_PNP_BEC" | "Q_NMOS_GSD" | "Q_PMOS_GSD" => &["SOT-23-3"],
+        "OpAmp_5pin" | "Regulator_LDO_5" => &["SOT-23-5"],
+        "OpAmp_Dual_8" | "NE555" => &["SOIC-8*", "TSSOP-8*", "MSOP-8*", "DIP-8*"],
+        "Regulator_Linear_3" => &["SOT-223*"],
+        _ => &[],
+    };
+    let mut v: Vec<String> = f.iter().map(|s| (*s).to_owned()).collect();
+    if let Some(rest) = name.strip_prefix("Conn_") {
+        // `Conn_01x06` → `PinHeader_1x06_*`, `Conn_02x05` → `PinHeader_2x05_*`
+        if let Some((rows, n)) = rest.split_once('x') {
+            v.push(format!(
+                "PinHeader_{}x{}_*",
+                rows.trim_start_matches('0'),
+                n
+            ));
+        }
+    }
+    v
+}
+
 fn symbols_list() -> Vec<Symbol> {
+    let mut v = symbols_raw();
+    for s in &mut v {
+        s.meta.footprint_filters = filters_for(&s.name);
+    }
+    v
+}
+
+fn symbols_raw() -> Vec<Symbol> {
     let mut v = Vec::new();
     // -- passives ------------------------------------------------------------------------------
     let mut cp = vec![line((-1.905, 0.635), (1.905, 0.635)), text((1.4, 1.9), "+")];

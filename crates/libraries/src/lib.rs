@@ -17,6 +17,7 @@ pub mod prefs;
 pub mod stackup_lib;
 pub mod standard;
 pub mod store;
+pub mod suggest;
 pub mod symbol_lib;
 
 pub use component_lib::{Component, ComponentLibrary, COMPONENT_LIB_EXT};

@@ -70,6 +70,7 @@ pub fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         commands::agent_command,
         commands::script_source,
         commands::library_place_symbol,
+        commands::footprint_suggestions,
         commands::drc_run,
         commands::drc_focus,
         commands::erc_run,
