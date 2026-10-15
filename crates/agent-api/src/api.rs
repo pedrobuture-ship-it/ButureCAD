@@ -188,6 +188,12 @@ impl AgentApi {
         }
     }
 
+    /// Starts proposal numbering at `n` (`P<n>`), so ids stay unique across sessions.
+    pub fn with_next_id(mut self, n: u64) -> Self {
+        self.next = n.max(1);
+        self
+    }
+
     /// All proposals, oldest first.
     pub fn proposals(&self) -> Vec<&Proposal> {
         self.order

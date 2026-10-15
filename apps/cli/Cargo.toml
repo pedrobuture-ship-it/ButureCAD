@@ -28,6 +28,8 @@ buturecad-pcb = { path = "../../crates/pcb" }
 buturecad-rules = { path = "../../crates/rules" }
 buturecad-manufacturing = { path = "../../crates/manufacturing" }
 buturecad-scripting = { path = "../../crates/scripting" }
+buturecad-agent-api = { path = "../../crates/agent-api" }
+buturecad-libraries = { path = "../../crates/libraries" }
 serde_json = "1"
 
 [dev-dependencies]

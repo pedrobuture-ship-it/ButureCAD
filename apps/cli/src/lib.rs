@@ -5,6 +5,8 @@
 //! report or `--json`. Exit codes: `0` success, `1` the design has errors (build/check/ERC/DRC
 //! findings, blocked export), `2` usage or I/O problem.
 
+mod agent;
+
 use buturecad_eda_core::Project;
 use buturecad_io::ProjectSession;
 use buturecad_manufacturing::board::build_fab_input;
@@ -31,6 +33,12 @@ COMMANDS
         DRC + preflight, then Gerber/Excellon/BOM/pick-and-place (production.zip when --out ends in .zip)
   export-bom <project-dir> [--out <file.csv>]
   inspect components|nets|board <project-dir>
+  agent serve <project-dir> [--libs <dir>]
+        agent protocol (JSON-RPC 2.0) on stdin/stdout; agents inspect and PROPOSE, never apply
+  agent proposals|show|apply|reject <project-dir> [<id>] [--yes] [--reason text]
+        the human's side: list, review (diff + ERC/DRC), apply (needs --yes) or reject proposals
+  import <file> --out <project-dir> [--format auto|spice|kicad-netlist] [--report file.json]
+        convert another tool's file into a project, with an import report
   version | help
 
 OPTIONS
@@ -74,6 +82,11 @@ struct Args {
     params: Vec<(String, String)>,
     json: bool,
     quiet: bool,
+    libs: Option<String>,
+    yes: bool,
+    reason: Option<String>,
+    format: Option<String>,
+    report: Option<String>,
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
@@ -84,12 +97,22 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         params: Vec::new(),
         json: false,
         quiet: false,
+        libs: None,
+        yes: false,
+        reason: None,
+        format: None,
+        report: None,
     };
     let mut it = args.iter();
     while let Some(x) = it.next() {
         match x.as_str() {
             "--json" => a.json = true,
             "--quiet" | "-q" => a.quiet = true,
+            "--yes" => a.yes = true,
+            "--libs" => a.libs = Some(it.next().ok_or("--libs needs a folder")?.clone()),
+            "--reason" => a.reason = Some(it.next().ok_or("--reason needs text")?.clone()),
+            "--format" => a.format = Some(it.next().ok_or("--format needs a name")?.clone()),
+            "--report" => a.report = Some(it.next().ok_or("--report needs a path")?.clone()),
             "--out" | "-o" => a.out = Some(it.next().ok_or("--out needs a path")?.clone()),
             "--name" => a.name = Some(it.next().ok_or("--name needs a value")?.clone()),
             "--param" => {
@@ -130,6 +153,17 @@ fn mm(nm: i64) -> f64 {
 
 /// Runs the CLI; returns the process exit code.
 pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+    let stdin = std::io::stdin();
+    run_with_input(args, &mut stdin.lock(), out, err)
+}
+
+/// Like [`run`], with the standard input given explicitly (the agent protocol reads it).
+pub fn run_with_input(
+    args: &[String],
+    input: &mut dyn std::io::BufRead,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> i32 {
     let Some((cmd, rest)) = args.split_first() else {
         let _ = write!(err, "{HELP}");
         return 2;
@@ -147,7 +181,7 @@ pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
         json: a.json,
         quiet: a.quiet,
     };
-    match dispatch(cmd, &a, &mut o) {
+    match dispatch(cmd, &a, &mut o, input) {
         Ok(code) => code,
         Err(msg) => {
             o.error(msg);
@@ -156,7 +190,12 @@ pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
     }
 }
 
-fn dispatch(cmd: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
+fn dispatch(
+    cmd: &str,
+    a: &Args,
+    o: &mut Out,
+    input: &mut dyn std::io::BufRead,
+) -> Result<i32, String> {
     let pos = |n: usize, what: &str| -> Result<&String, String> {
         a.positional
             .get(n)
@@ -185,6 +224,25 @@ fn dispatch(cmd: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
         "drc" => cmd_drc(pos(0, "the project folder")?, o),
         "export-gerber" => cmd_gerber(pos(0, "the project folder")?, a, o),
         "export-bom" => cmd_bom(pos(0, "the project folder")?, a, o),
+        "agent" => {
+            let sub = pos(0, "serve, proposals, show, apply or reject")?;
+            let proj = pos(1, "the project folder")?;
+            match sub.as_str() {
+                "serve" => agent::cmd_serve(proj, a.libs.as_deref(), input, o.out),
+                "proposals" => agent::cmd_list(proj, o.json, o.quiet, o.out),
+                "show" => agent::cmd_show(proj, pos(2, "the proposal id")?, o.json, o.quiet, o.out),
+                "apply" => agent::cmd_apply(proj, pos(2, "the proposal id")?, a.yes, o.out),
+                "reject" => agent::cmd_reject(
+                    proj,
+                    pos(2, "the proposal id")?,
+                    a.reason
+                        .as_deref()
+                        .unwrap_or("rejected from the command line"),
+                    o.out,
+                ),
+                other => Err(format!("unknown agent command “{other}”")),
+            }
+        }
         "inspect" => cmd_inspect(
             pos(0, "components, nets or board")?,
             pos(1, "the project folder")?,

@@ -17,9 +17,8 @@ buturecad-schematic = { path = "../schematic" }
 buturecad-pcb = { path = "../pcb" }
 buturecad-geometry = { path = "../geometry" }
 buturecad-rules = { path = "../rules" }
+buturecad-libraries = { path = "../libraries" }
+buturecad-scripting = { path = "../scripting" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-
-[dev-dependencies]
-buturecad-scripting = { path = "../scripting" }

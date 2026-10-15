@@ -159,3 +159,22 @@ pub fn get_rules(p: &Project) -> Value {
         "note_mm": mm(r.min_track_width),
     })
 }
+
+/// A stable fingerprint of the design content (FNV-1a 64 over the canonical JSON views). Two
+/// projects with equal content have equal fingerprints; used to detect that a stored proposal no
+/// longer matches the project.
+pub fn fingerprint(p: &Project) -> String {
+    let text = format!(
+        "{}|{}|{}|{}",
+        get_schematic(p),
+        get_board(p),
+        get_rules(p),
+        get_components(p)
+    );
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in text.bytes() {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("{h:016x}")
+}

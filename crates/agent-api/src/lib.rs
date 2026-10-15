@@ -29,6 +29,7 @@ pub mod api;
 pub mod apply;
 pub mod audit;
 pub mod diff;
+pub mod protocol;
 pub mod provider;
 pub mod read;
 
@@ -36,9 +37,11 @@ pub use action::{Action, PinSpec};
 pub use api::{AgentApi, AgentSurface, ApiError, Proposal, ProposalStatus, Reviewer, Validation};
 pub use audit::{AuditEntry, AuditLog};
 pub use diff::{Diff, DiffEntry};
+pub use protocol::{serve, tools, Server, PROTOCOL};
 pub use provider::{
     builtin_providers, AgentProvider, DecouplingHelper, JsonProvider, ProposalDraft, ProviderKind,
 };
+pub use read::fingerprint;
 
 /// Resolves a footprint name (`0402`, `soic8`, a library id) to a definition, or `None`.
 pub type FootprintResolver = Box<dyn Fn(&str) -> Option<buturecad_pcb::Footprint> + Send + Sync>;

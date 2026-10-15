@@ -22,7 +22,7 @@ Crate: `buturecad-agent-api` (depends on the Core, never the other way round).
   unrouted connections), `measure_track {id}`.
 * **PROPOSE** — a list of **actions**:
   `create_component remove_component connect disconnect place move route create_via create_zone
-  change_rule`. Each is a small JSON object with `"action": "<name>"` (schema: `crates/agent-api/src/action.rs`; the wire protocol document comes with stage 42). Components and nets are named the way engineers
+  change_rule`. Each is a small JSON object with `"action": "<name>"` (schema: `crates/agent-api/src/action.rs`; wire protocol: `docs/agent-api/protocol.md`). Components and nets are named the way engineers
   name them (references, net names), never by file paths.
 
 There is **no method** on `AgentSurface` that changes a project. `apply` and `reject` belong to the
@@ -73,7 +73,7 @@ Core (or speaking the stage-42 protocol) — no Core change. Shipped providers a
 ## Limits
 
 * No language-model provider ships with the Core (by design). A model must be added as a provider
-  or used through the protocol.
+  or used through the protocol (`docs/agent-api/protocol.md`, with Rust/TypeScript/Python examples).
 * `connect`/`disconnect` work with net labels and power symbols; parts joined by wires must be
   edited in the visual editor. `remove_component` also removes labels on its pins.
 * Placement by the decoupling helper is geometric and simple: check the DRC comparison for
