@@ -54,7 +54,7 @@ desktop app; limits are stated in the sections that follow.*
 
 # Partial
 
-- **Simulation:** the built-in engine is linear only; nonlinear devices need ngspice, whose backend has never been run against a real ngspice here (only its raw-file parser is tested); no cursors/measurements/CSV export.
+- **Simulation:** the built-in engine is linear only; nonlinear devices need ngspice (backend verified against ngspice 47 for OP/AC/transient and a diode); no cursors/measurements/CSV export.
 - **Plugins:** `network` can be granted/revoked but there is no network client (requests fail explicitly); `project-write` never edits the project (no proposal flow yet); only `ComponentProvider` has a defined method set; no plugin SDK crate/examples beyond test fixtures; no signature/trust verification of plugin files.
 - **Manufacturing:** silkscreen text is not exported, no per-fabricator rules, no inner-plane negatives, no BOM supplier/MPN data; the Gerber viewer verifies positions/counts/drills but is not a third-party CAM check.
 - **STEP/MCAD:** abstraction, neutral `.bmech` and Part 21 inspection work; STEP geometry import/export is not implemented (no kernel chosen, licence review pending); mechanical constraints are stored but not evaluated; no UI button for `mcad_export`; no import back into the board.

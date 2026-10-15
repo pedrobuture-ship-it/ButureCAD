@@ -5,9 +5,8 @@
 //! licence separate from ours and works fully offline. If `ngspice` is not on `PATH` this backend
 //! reports itself unavailable.
 //!
-//! **Not verified against a real ngspice in the development environment** (none was installed
-//! there): the raw-file parser is covered by fixtures written from the documented format, the
-//! process invocation is not covered by automated tests.
+//! Verified against ngspice 47 by `tests/ngspice_vs_builtin.rs` (skipped when ngspice is absent);
+//! the raw-file parser is also covered by fixtures.
 
 use crate::circuit::{Analysis, Circuit};
 use crate::result::{Series, SimResult};
