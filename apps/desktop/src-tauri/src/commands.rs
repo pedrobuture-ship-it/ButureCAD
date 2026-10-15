@@ -421,6 +421,22 @@ pub fn simulation_command(
     state.act(|ws| ws.simulation_command(&name, arg.as_deref()))
 }
 
+/// ButureScript editor actions (update/save the source, views, preview, generate a project).
+#[tauri::command]
+pub fn script_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.script_command(&name, arg.as_deref()))
+}
+
+/// The text of `design.beda` (or the starter template).
+#[tauri::command]
+pub fn script_source(state: State<'_, AppState>) -> Result<String, String> {
+    state.with(|ws| ws.script_source())
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

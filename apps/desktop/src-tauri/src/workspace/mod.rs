@@ -29,6 +29,7 @@ mod pcb_tune;
 mod pcb_zone;
 mod plugins;
 mod rules;
+mod script;
 mod simulation;
 mod stackup;
 mod symbol_editor;
@@ -101,6 +102,7 @@ pub struct Workspace {
     libm: library_manager::LibraryManager,
     plugins: plugins::Plugins,
     sim: simulation::SimState,
+    script: script::ScriptState,
     pub(crate) plugin_dir: Option<PathBuf>,
     pub(crate) view3d: viewer3d::Viewer3d,
     /// Per-user library folder (symbols and footprints shared between projects).
@@ -159,6 +161,7 @@ impl Workspace {
             libm: library_manager::LibraryManager::default(),
             plugins: plugins::Plugins::default(),
             sim: simulation::SimState::default(),
+            script: script::ScriptState::default(),
             plugin_dir: None,
             view3d: Default::default(),
             user_libs: None,
@@ -630,6 +633,9 @@ impl Workspace {
     // -- pointer input ---------------------------------------------------------------------------
 
     pub fn pointer(&mut self, ev: PointerEvent) -> PointerResult {
+        if self.mode == Mode::Code {
+            return self.pointer_code(ev);
+        }
         if matches!(self.mode, Mode::Viewer3d | Mode::GerberViewer) {
             let mut out = Outcome::default();
             if self.mode == Mode::Viewer3d {
@@ -1121,6 +1127,7 @@ impl Workspace {
             library_manager: (self.mode == Mode::LibraryManager).then(|| self.library_info()),
             plugins: (self.mode == Mode::Plugins).then(|| self.plugins_info()),
             simulation: (self.mode == Mode::Simulation).then(|| self.simulation_info()),
+            code: (self.mode == Mode::Code).then(|| self.code_info()),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }
@@ -1137,6 +1144,9 @@ impl Workspace {
         }
         if self.mode == Mode::GerberViewer {
             return self.render_gerber(width, height);
+        }
+        if self.mode == Mode::Code {
+            return self.render_code(width, height);
         }
         self.ensure_scene();
         if self.scene().is_some() && !self.fitted.contains(&self.mode) {

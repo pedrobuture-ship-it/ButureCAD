@@ -19,6 +19,7 @@ pub enum Mode {
     LibraryManager,
     Plugins,
     Simulation,
+    Code,
 }
 
 impl Mode {
@@ -188,6 +189,8 @@ pub struct Snapshot {
     pub plugins: Option<PluginManagerInfo>,
     /// Simulation state (only in the Simulation mode).
     pub simulation: Option<SimulationInfo>,
+    /// ButureScript editor state (only in the Code mode).
+    pub code: Option<CodeInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -922,4 +925,35 @@ pub struct SimulationInfo {
     pub problems: Vec<String>,
     pub error: String,
     pub result: Option<SimulationResultInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct CodeDiagnostic {
+    /// `error` or `warning`.
+    pub severity: String,
+    pub code: String,
+    pub message: String,
+    pub line: u32,
+    pub col: u32,
+    pub len: u32,
+}
+
+/// The ButureScript editor: the source text lives in the UI, everything derived from it here.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct CodeInfo {
+    /// `code`, `split` or `visual`.
+    pub view: String,
+    /// `schematic`, `pcb` or `3d`.
+    pub preview: String,
+    pub has_preview: bool,
+    /// The text differs from the saved `design.beda`.
+    pub dirty: bool,
+    pub saved_file: bool,
+    pub diagnostics: Vec<CodeDiagnostic>,
+    pub summary: String,
+    /// Increments each time a new preview was built.
+    pub generation: u32,
+    pub has_project: bool,
 }

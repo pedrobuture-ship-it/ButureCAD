@@ -40,6 +40,6 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 31–34 | Libraries, plugins, provider API, SPICE | planned |
 | 35 | ButureScript (lexer, parser, AST, semantic analysis, diagnostics, compiler → EDA IR → core) | done (`docs/buturescript/README.md`) |
 | 36 | Parametric ButureScript (variables, functions, modules, loops, conditions, units) | done |
-| 37 | Code ↔ Visual | planned |
+| 37 | Code ↔ Visual | partial (`docs/buturescript/code-visual.md`): Code → Visual (CODE/SPLIT/VISUAL, live preview, diagnostics) done; Visual → Code designed, not implemented |
 | 38–42 | CLI, headless, Agent API, AI workspace, protocol | planned |
 | 43–50 | Import, performance, robustness, UX, validation project, audits, release | planned |

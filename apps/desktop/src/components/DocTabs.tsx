@@ -13,6 +13,7 @@ const ORDER: Mode[] = [
   "library_manager",
   "plugins",
   "simulation",
+  "code",
 ];
 
 export function DocTabs() {

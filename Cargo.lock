@@ -283,6 +283,7 @@ dependencies = [
  "buturecad-router",
  "buturecad-rules",
  "buturecad-schematic",
+ "buturecad-scripting",
  "buturecad-simulation",
  "buturecad-viewer3d",
  "serde",

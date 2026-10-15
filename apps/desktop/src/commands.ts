@@ -739,6 +739,7 @@ export function buildCommands(): AppCommand[] {
     modeCommand("library_manager", "Libraries", "Ctrl+7"),
     modeCommand("plugins", "Plugins", "Ctrl+8"),
     modeCommand("simulation", "Simulation", "Ctrl+9"),
+    modeCommand("code", "Code (ButureScript)", "Ctrl+0"),
 
     {
       id: "tools.palette",

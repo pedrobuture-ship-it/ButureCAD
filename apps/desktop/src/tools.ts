@@ -92,6 +92,7 @@ export const MODE_TITLES: Record<Mode, string> = {
   library_manager: "Libraries",
   plugins: "Plugins",
   simulation: "Simulation",
+  code: "Code",
 };
 
 /** Roadmap stage that will implement a mode that has no canvas yet. */

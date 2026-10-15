@@ -47,6 +47,7 @@ function snapshot(over: Partial<Snapshot> = {}): Snapshot {
     library_manager: null,
     plugins: null,
     simulation: null,
+    code: null,
     viewer3d: null,
     footprint_editor: null,
     pcb: null,
