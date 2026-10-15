@@ -104,11 +104,13 @@ fn board() -> FabInput {
             mount: Mount::Smd,
             in_bom: true,
             in_position_file: true,
+            fields: Default::default(),
         }],
         drc: DrcSummary::default(),
         capabilities: Capabilities::default(),
         min_track_width: Some(250_000),
         extra_issues: Vec::new(),
+        rotation_offsets: Vec::new(),
     }
 }
 

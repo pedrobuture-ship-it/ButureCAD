@@ -208,9 +208,76 @@ fn production_files_are_complete_and_read_back_consistently() {
     assert_eq!(drill.hits.len(), doc.vias.len() + through_pads);
     // BOM: 24 parts on 16 lines, FLG1 (no footprint) is not in it; the position file has the 23 SMD parts.
     let bom = std::fs::read_to_string(name("bom.csv")).unwrap();
+    let pos = std::fs::read_to_string(name("pos.csv")).unwrap();
     assert_eq!(bom.lines().count(), 1 + 16);
     assert!(!bom.contains("FLG1"));
-    let pos = std::fs::read_to_string(name("pos.csv")).unwrap();
+    assert!(bom.starts_with("Reference,Quantity,Value,Footprint,Manufacturer,MPN,Supplier,SPN\n"));
+    // The MPN written in the script (`mpn = "STM32F103C8U6"`) reaches the BOM.
+    assert!(
+        bom.lines()
+            .any(|l| l.starts_with("U1,1,STM32F103C8U6,") && l.contains(",STM32F103C8U6,")),
+        "{bom}"
+    );
+    // Silkscreen text: references are drawn (stroke font), so the silk layer is far busier than the
+    // few footprint outlines alone; values are not drawn unless asked.
+    let silk = std::fs::read_to_string(name("F_Silkscreen.gto")).unwrap();
+    let strokes = buturecad_manufacturing::gerber_read::parse(&silk)
+        .unwrap()
+        .count()
+        .1;
+    assert!(
+        strokes > 400,
+        "references of 24 parts are on the silkscreen ({strokes} strokes)"
+    );
+    let with_values = d.path().join("fab-values");
+    let off = d.path().join("offsets.csv");
+    std::fs::write(&off, "# assembly house corrections\nSOT-23*,180\n").unwrap();
+    let (c, out, err) = run(&[
+        "export-gerber",
+        &p,
+        "--out",
+        with_values.to_str().unwrap(),
+        "--silk-values",
+        "--rotation-offsets",
+        off.to_str().unwrap(),
+    ]);
+    assert_eq!(c, 0, "{out}{err}");
+    let silk2 =
+        std::fs::read_to_string(with_values.join("reference-mcu-board-F_Silkscreen.gto")).unwrap();
+    let strokes2 = buturecad_manufacturing::gerber_read::parse(&silk2)
+        .unwrap()
+        .count()
+        .1;
+    assert!(
+        strokes2 > strokes,
+        "--silk-values adds the values ({strokes} -> {strokes2})"
+    );
+    let pos2 = std::fs::read_to_string(with_values.join("reference-mcu-board-pos.csv")).unwrap();
+    let u2_plain = pos
+        .lines()
+        .find(|l| l.starts_with("U2,"))
+        .unwrap()
+        .to_owned();
+    let u2_off = pos2
+        .lines()
+        .find(|l| l.starts_with("U2,"))
+        .unwrap()
+        .to_owned();
+    assert!(
+        u2_plain.ends_with(",0,top") && u2_off.ends_with(",180,top"),
+        "{u2_plain} / {u2_off}"
+    );
+    // A bad offset file is a usage error, not a silent default.
+    std::fs::write(&off, "SOT-23*,abc\n").unwrap();
+    let (c, _, err) = run(&[
+        "export-gerber",
+        &p,
+        "--out",
+        d.path().join("x").to_str().unwrap(),
+        "--rotation-offsets",
+        off.to_str().unwrap(),
+    ]);
+    assert_eq!(c, 2, "{err}");
     assert_eq!(pos.lines().count(), 1 + 23);
     assert!(
         pos.contains("U1,") && !pos.contains("J2,"),

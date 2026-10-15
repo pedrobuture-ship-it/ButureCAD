@@ -6,7 +6,6 @@
 
 use super::*;
 use buturecad_manufacturing as fab;
-use buturecad_manufacturing::board::build_fab_input;
 use buturecad_manufacturing::Severity;
 
 /// Last manufacturing preview.
@@ -20,7 +19,11 @@ impl Workspace {
     pub fn fab_preview(&mut self) -> Result<(), String> {
         let open = self.open.as_ref().ok_or("no project is open")?;
         let revision = open.engine.revision();
-        let input = build_fab_input(open.engine.project().pcb(), open.engine.project().name());
+        let input = buturecad_manufacturing::board::build_fab_input_for_project(
+            open.engine.project(),
+            open.engine.project().name(),
+            &Default::default(),
+        );
         let generated = fab::generate(&input).map_err(|e| e.to_string())?;
         let (e, w) = (
             generated.report.count(Severity::Error),

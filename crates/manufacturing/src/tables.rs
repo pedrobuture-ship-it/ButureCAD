@@ -27,16 +27,29 @@ fn natural(a: &str, b: &str) -> Ordering {
     split(a).cmp(&split(b))
 }
 
-/// One row per distinct (value, footprint); references sorted naturally.
+/// BOM columns, in order.
+pub const BOM_HEADER: &str = "Reference,Quantity,Value,Footprint,Manufacturer,MPN,Supplier,SPN";
+
+type BomKey = (String, String, String, String, String, String);
+
+/// One row per distinct (value, footprint, manufacturer, MPN, supplier, SPN); references sorted
+/// naturally. Parts that differ only in purchasing data are separate lines.
 pub fn bom_csv(parts: &[Part]) -> String {
-    let mut groups: BTreeMap<(String, String), Vec<&str>> = BTreeMap::new();
+    let mut groups: BTreeMap<BomKey, Vec<&str>> = BTreeMap::new();
     for p in parts.iter().filter(|p| p.in_bom) {
         groups
-            .entry((p.value.clone(), p.footprint.clone()))
+            .entry((
+                p.value.clone(),
+                p.footprint.clone(),
+                p.fields.manufacturer.clone(),
+                p.fields.mpn.clone(),
+                p.fields.supplier.clone(),
+                p.fields.supplier_pn.clone(),
+            ))
             .or_default()
             .push(&p.reference);
     }
-    let mut rows: Vec<(Vec<&str>, &(String, String))> = groups
+    let mut rows: Vec<(Vec<&str>, &BomKey)> = groups
         .iter()
         .map(|(k, refs)| {
             let mut r = refs.clone();
@@ -45,23 +58,94 @@ pub fn bom_csv(parts: &[Part]) -> String {
         })
         .collect();
     rows.sort_by(|a, b| natural(a.0[0], b.0[0]));
-    let mut o = String::from("Reference,Quantity,Value,Footprint\n");
-    for (refs, (value, footprint)) in rows {
+    let mut o = format!("{BOM_HEADER}\n");
+    for (refs, (value, footprint, mfr, mpn, sup, spn)) in rows {
         let _ = writeln!(
             o,
-            "{},{},{},{}",
+            "{},{},{},{},{},{},{},{}",
             csv(&refs.join(" ")),
             refs.len(),
             csv(value),
-            csv(footprint)
+            csv(footprint),
+            csv(mfr),
+            csv(mpn),
+            csv(sup),
+            csv(spn)
         );
     }
     o
 }
 
+/// Does `name` match `pattern`, where `*` stands for any run of characters (case-insensitive)?
+pub fn glob_match(pattern: &str, name: &str) -> bool {
+    let (p, n): (Vec<char>, Vec<char>) = (
+        pattern.to_lowercase().chars().collect(),
+        name.to_lowercase().chars().collect(),
+    );
+    // Iterative wildcard matching with backtracking to the last `*`.
+    let (mut pi, mut ni, mut star, mut mark) = (0, 0, None, 0);
+    while ni < n.len() {
+        if pi < p.len() && p[pi] == '*' {
+            star = Some(pi);
+            mark = ni;
+            pi += 1;
+        } else if pi < p.len() && p[pi] == n[ni] {
+            pi += 1;
+            ni += 1;
+        } else if let Some(s) = star {
+            pi = s + 1;
+            mark += 1;
+            ni = mark;
+        } else {
+            return false;
+        }
+    }
+    while pi < p.len() && p[pi] == '*' {
+        pi += 1;
+    }
+    pi == p.len()
+}
+
+/// The pick-and-place rotation: the placement angle plus the first matching offset, modulo 360.
+pub fn placed_rotation(part: &Part, offsets: &[(String, i32)]) -> u16 {
+    let off = offsets
+        .iter()
+        .find(|(pat, _)| glob_match(pat, &part.footprint))
+        .map_or(0, |(_, d)| *d);
+    (i32::from(part.rotation_deg) + off).rem_euclid(360) as u16
+}
+
+/// Parses a rotation-offset file: one `footprint_pattern,degrees` per line; `#` starts a comment.
+pub fn parse_rotation_offsets(text: &str) -> Result<Vec<(String, i32)>, String> {
+    let mut out = Vec::new();
+    for (i, raw) in text.lines().enumerate() {
+        let line = raw.split('#').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        let (pat, deg) = line
+            .rsplit_once(',')
+            .ok_or_else(|| format!("line {}: expected `footprint_pattern,degrees`", i + 1))?;
+        let deg: i32 = deg.trim().parse().map_err(|_| {
+            format!(
+                "line {}: “{}” is not a whole number of degrees",
+                i + 1,
+                deg.trim()
+            )
+        })?;
+        let pat = pat.trim().trim_matches('"');
+        if pat.is_empty() {
+            return Err(format!("line {}: the footprint pattern is empty", i + 1));
+        }
+        out.push((pat.to_owned(), deg));
+    }
+    Ok(out)
+}
+
 /// Surface-mount parts (and unspecified ones, which the preflight flags). Positions are the
 /// placement origin in the design coordinate system (the same origin as the Gerber files).
-pub fn pick_and_place_csv(parts: &[Part]) -> String {
+/// `offsets` are the per-footprint rotation corrections an assembly house expects.
+pub fn pick_and_place_csv(parts: &[Part], offsets: &[(String, i32)]) -> String {
     let mut ps: Vec<&Part> = parts
         .iter()
         .filter(|p| p.in_position_file && p.mount != Mount::Through)
@@ -77,7 +161,7 @@ pub fn pick_and_place_csv(parts: &[Part]) -> String {
             csv(&p.footprint),
             fmt_mm(p.position.x),
             fmt_mm(p.position.y),
-            p.rotation_deg,
+            placed_rotation(p, offsets),
             if p.bottom { "bottom" } else { "top" }
         );
     }
@@ -132,8 +216,17 @@ pub fn assembly_info(input: &FabInput, files: &[String], report: &Report) -> Str
         o,
         "\nCoordinates: millimetres, design origin, +Y up — the same origin in Gerber, drill and\n\
          pick-and-place. Rotation is the counter-clockwise placement angle in board coordinates;\n\
-         bottom-side parts are mirrored. Per-footprint rotation offsets that some assembly houses\n\
-         expect are NOT applied."
+         bottom-side parts are mirrored. {}",
+        if input.rotation_offsets.is_empty() {
+            "No per-footprint rotation offsets are applied (some assembly houses expect them:\n\
+             pass a rotation-offset file when exporting)."
+                .to_owned()
+        } else {
+            format!(
+                "Per-footprint rotation offsets were applied to the pick-and-place file ({} rule(s)).",
+                input.rotation_offsets.len()
+            )
+        }
     );
     let _ = writeln!(o, "\nFiles:");
     for f in files {
@@ -169,6 +262,7 @@ mod tests {
             mount,
             in_bom: true,
             in_position_file: true,
+            fields: Default::default(),
         }
     }
 
@@ -183,7 +277,7 @@ mod tests {
         let b = bom_csv(&ps);
         assert_eq!(
             b,
-            "Reference,Quantity,Value,Footprint\nC1,1,\"100n, X7R\",C_0603\nR2 R10,2,10k,R_0603\nU1,1,NE555,SOIC-8\n"
+            "Reference,Quantity,Value,Footprint,Manufacturer,MPN,Supplier,SPN\nC1,1,\"100n, X7R\",C_0603,,,,\nR2 R10,2,10k,R_0603,,,,\nU1,1,NE555,SOIC-8,,,,\n"
         );
         let mut ex = ps.clone();
         ex[0].in_bom = false;
@@ -202,7 +296,7 @@ mod tests {
             p.in_position_file = false;
             p
         });
-        let c = pick_and_place_csv(&ps);
+        let c = pick_and_place_csv(&ps, &[]);
         assert_eq!(
             c,
             "Ref,Val,Package,PosX_mm,PosY_mm,Rot_deg,Side\nR1,x,r,1.500000,-2.000000,90,top\nU1,x,p,1.500000,-2.000000,90,bottom\n"

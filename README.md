@@ -30,7 +30,7 @@
 | **PCB** | Outline, footprints (DIP/SOIC/QFN/BGA/header generators + libraries), tracks, vias, copper zones with exact polygon fill, 2–32 layer stack-up, net classes, ratsnest |
 | **Routing** | Walk-around and Push & Shove, differential pairs, length tuning, all validated with the DRC rules before they are committed |
 | **DRC** | Clearance, shorts, widths, vias, annular ring, copper-to-edge, courtyards, unrouted nets, pair skew, length targets |
-| **Manufacturing** | Gerber, Excellon, BOM, pick-and-place, preflight that blocks export on errors, an independent Gerber viewer |
+| **Manufacturing** | Gerber (with silkscreen text), Excellon, BOM with MPN/manufacturer, pick-and-place with rotation offsets, preflight that blocks export on errors, an independent Gerber viewer |
 | **3D** | Board viewer with substrate, mask, copper, silkscreen and component bodies; mechanical exchange layer |
 | **Libraries** | Symbol / footprint / 3D / component libraries, fast local search, favourites; a built-in `Std` library (~60 symbols, ~75 footprints, components with MPN; land patterns computed, not datasheet-verified) |
 | **Simulation** | Netlist extraction and OP / DC / AC / transient analysis |

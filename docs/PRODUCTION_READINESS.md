@@ -39,7 +39,7 @@ Scale: 10 = comparable to a mature professional tool; 5 = usable for simple work
 | **DRC** | **6** | Reproducible, incremental engine proven equal to the full run, exact integer geometry, zones as copper. Missing: keepout, hole-to-hole, silkscreen, mask sliver, drill-to-copper rules, per-layer/area/custom rules, fabricator presets. A passing DRC is *not* a manufacturability check. |
 | **Libraries** | **3.5** | Local, fast, modular infrastructure (symbol/footprint/3D/component, search, scripts can use them). Content is essentially absent; placing a component copies only its symbol; no import of other libraries; no verified land patterns. |
 | **3D** | **3.5** | Deterministic software viewer: substrate, mask, copper, silk graphics, zones. Components are courtyard boxes; no STEP/models, no inner layers, no picking. Useful as a sanity view only. |
-| **Manufacturing** | **5.5** | Correct, deterministic Gerber/Excellon/BOM/pick-and-place; inner layers; preflight blocks on errors; outputs re-read by independent parsers. Missing: silkscreen text, BOM MPN/supplier, rotation offsets, ODB++/IPC-2581, fiducials, panels. Never checked by a fabricator's CAM. |
+| **Manufacturing** | **6** | Correct, deterministic Gerber/Excellon/BOM/pick-and-place; inner layers; silkscreen text, BOM purchasing data and rotation offsets (stage 52); preflight blocks on errors; outputs re-read by independent parsers. Missing: silk checks against pads/edges, assembly drawings, ODB++/IPC-2581, fiducials, panels. Never checked by a fabricator's CAM. |
 | **Simulation** | **5** | OP/DC/AC/transient from the real netlist; verified against analytic circuits and a real ngspice. Built-in engine is linear only (nonlinear needs the user's ngspice); no measurements/cursors/export; no model library management. |
 | **Plugins** | **5** | Real WASM sandbox (fuel, memory, no WASI), explicit permissions with audit, provider panel, fuzzed. Only component providers are wired; no SDK templates, signing or registry; ecosystem is zero. |
 | **ButureScript** | **6.5** | A real language with dimensional analysis, modules, loops, functions, libraries, depth/step limits, fuzzed, shared model with the GUI. Gaps: no sheets, no no-connect, no pairs/length/keepouts/text, no merge with hand edits, a few syntax limits (`D+`). |
@@ -137,8 +137,10 @@ Priorities reflect "what blocks a real board first". Nothing here is started.
    asserted against published JEDEC values, and component placement now brings footprint and MPN.
    **Still open:** nobody has compared the land patterns with vendor datasheets or a fabricator; QFN/
    BGA/USB-C/crystal entries and a much larger parts catalogue are missing (`docs/standard-library.md`).
-2. Manufacturing completeness: **silkscreen text** (references/values), **BOM MPN/supplier columns**,
-   pick-and-place rotation offsets, assembly info.
+2. ~~Manufacturing completeness~~ **Done in stage 52:** silkscreen text (stroke font, mirrored on the
+   bottom), BOM with MPN/Manufacturer/Supplier/SPN, pick-and-place rotation offsets from a file.
+   **Still open here:** text is not checked against pads/edges/other text, no per-house offset tables,
+   no assembly drawings or ODB++/IPC-2581.
 3. DRC rules: **hole-to-hole, drill-to-copper, silkscreen-over-pad, mask sliver, keepout**, fabricator
    rule presets and custom rules; DRC fixtures built from published fab capabilities.
 4. **Independent output verification:** compare Gerbers/drill in at least two third-party viewers and

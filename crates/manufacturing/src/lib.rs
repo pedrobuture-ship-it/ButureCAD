@@ -12,6 +12,7 @@
 pub mod board;
 pub mod excellon;
 pub mod excellon_read;
+pub mod font;
 pub mod gerber;
 pub mod gerber_read;
 pub mod model;
@@ -22,9 +23,9 @@ pub mod tables;
 pub mod verify;
 pub mod zip;
 
-pub use board::build_fab_input;
+pub use board::{build_fab_input, build_fab_input_for_project, build_fab_input_with, BuildOptions};
 pub use model::{
-    Aperture, Capabilities, DrcSummary, FabInput, Feature, Hole, Layer, Mount, Part, Pt,
+    Aperture, Capabilities, DrcSummary, FabInput, Feature, Hole, Layer, Mount, Part, PartFields, Pt,
 };
 pub use package::{generate, FilePreview, Generated, ProductionFile};
 pub use preflight::{Issue, Report, Severity};

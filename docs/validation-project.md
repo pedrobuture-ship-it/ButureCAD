@@ -5,6 +5,7 @@ flow to find what breaks; BLOCKER and CRITICAL findings were fixed, the rest is 
 
 ![PCB view of the reference board](images/reference-board-pcb.png)
 ![3D preview of the reference board](images/reference-board-3d.png)
+![Top copper, silkscreen and outline read back from the generated Gerber files](images/reference-board-gerber-top.png)
 
 *Both images are real renders of the committed project (the PCB view of the desktop renderer and
 the software 3D preview). The long diagonal tracks are real: see MAJOR-2.*
@@ -92,8 +93,8 @@ buturecad export-gerber project --out fab
 |---|---|---|
 | M1 | **No "no-connect" for pins in ButureScript** (nor ERC waivers from the CLI), so every unused MCU pin is an ERC error. | The schematic editor has no-connect markers; the language/IR do not. |
 | M2 | **No headless/automatic routing and the router leaves free-angle diagonals** (no 45° clean-up, documented in `crates/router`); the result is DRC-clean but ugly (see image). The harness run took ~3 min for 66 connections on this small board; failed searches are the slow part (not profiled). | Interactive routing in the app is the intended flow. |
-| M3 | **Silkscreen text is not exported** (references/values), so a board comes out without designators. | Stated in the preflight notes. |
-| M4 | **BOM has no MPN/manufacturer columns** although components can carry them; the Footprint column of U1 shows the generator call text. | |
+| M3 | ~~Silkscreen text is not exported~~ | **Fixed in stage 52** (stroke font; see `docs/manufacturing.md`). Overlapping texts remain possible (e.g. C1/C2 on the reference board). |
+| M4 | ~~BOM has no MPN/manufacturer columns~~ | **Fixed in stage 52** (MPN, Manufacturer, Supplier, SPN columns). The Footprint column of U1 still shows the generator call text when a script gives one. |
 | M5 | ~~Pin names such as `D+`, `D-` cannot be written in a pin reference~~ | **Fixed in stage 51:** write them quoted, `J1."D+"`. |
 | M6 | **The schematic has no drawn wires** (parts + net markers), so it is a netlist, not a readable drawing. | Documented limit of generated schematics. |
 

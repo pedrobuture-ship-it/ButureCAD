@@ -9,7 +9,7 @@ mod agent;
 
 use buturecad_eda_core::Project;
 use buturecad_io::ProjectSession;
-use buturecad_manufacturing::board::build_fab_input;
+use buturecad_manufacturing::board::{build_fab_input_for_project, BuildOptions};
 use buturecad_manufacturing::tables;
 use buturecad_scripting::{build, compile, CompileOptions, Diagnostic, Severity};
 use serde_json::{json, Value};
@@ -30,7 +30,7 @@ COMMANDS
   erc <project-dir>             electrical rules check on the connectivity graph
   fill <project-dir>            refill every copper zone around the current copper and save
   drc <project-dir>             design rules check on the board geometry
-  export-gerber <project-dir> --out <dir | file.zip>
+  export-gerber <project-dir> --out <dir | file.zip> [--silk-values] [--rotation-offsets <file.csv>]
         DRC + preflight, then Gerber/Excellon/BOM/pick-and-place (production.zip when --out ends in .zip)
   export-bom <project-dir> [--out <file.csv>]
   inspect components|nets|board <project-dir>
@@ -91,6 +91,8 @@ struct Args {
     reason: Option<String>,
     format: Option<String>,
     report: Option<String>,
+    silk_values: bool,
+    rotation_offsets: Option<String>,
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
@@ -106,6 +108,8 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         reason: None,
         format: None,
         report: None,
+        silk_values: false,
+        rotation_offsets: None,
     };
     let mut it = args.iter();
     while let Some(x) = it.next() {
@@ -113,6 +117,11 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             "--json" => a.json = true,
             "--quiet" | "-q" => a.quiet = true,
             "--yes" => a.yes = true,
+            "--silk-values" => a.silk_values = true,
+            "--rotation-offsets" => {
+                a.rotation_offsets =
+                    Some(it.next().ok_or("--rotation-offsets needs a file")?.clone());
+            }
             "--libs" => a.libs = Some(it.next().ok_or("--libs needs a folder")?.clone()),
             "--reason" => a.reason = Some(it.next().ok_or("--reason needs text")?.clone()),
             "--format" => a.format = Some(it.next().ok_or("--format needs a name")?.clone()),
@@ -455,13 +464,29 @@ fn cmd_drc(path: &str, o: &mut Out) -> Result<i32, String> {
     Ok(i32::from(report.errors() > 0))
 }
 
+/// Presentation options of the manufacturing export: silkscreen values and rotation offsets.
+fn build_options(a: &Args) -> Result<BuildOptions, String> {
+    let rotation_offsets = match &a.rotation_offsets {
+        Some(f) => {
+            let text = std::fs::read_to_string(f)
+                .map_err(|e| format!("cannot read the rotation-offset file “{f}”: {e}"))?;
+            tables::parse_rotation_offsets(&text).map_err(|e| format!("{f}: {e}"))?
+        }
+        None => Vec::new(),
+    };
+    Ok(BuildOptions {
+        silk_values: a.silk_values,
+        rotation_offsets,
+    })
+}
+
 fn cmd_gerber(path: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
     let dest = a
         .out
         .as_deref()
         .ok_or("export-gerber needs --out <dir | file.zip>")?;
     let (_s, p) = load_project(path)?;
-    let input = build_fab_input(p.pcb(), p.name());
+    let input = build_fab_input_for_project(&p, p.name(), &build_options(a)?);
     let g = buturecad_manufacturing::generate(&input).map_err(|e| e.to_string())?;
     let issues: Vec<Value> = g
         .report
@@ -504,7 +529,8 @@ fn cmd_gerber(path: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
 
 fn cmd_bom(path: &str, a: &Args, o: &mut Out) -> Result<i32, String> {
     let (_s, p) = load_project(path)?;
-    let csv = tables::bom_csv(&build_fab_input(p.pcb(), p.name()).parts);
+    let input = build_fab_input_for_project(&p, p.name(), &build_options(a)?);
+    let csv = tables::bom_csv(&input.parts);
     match a.out.as_deref() {
         Some(dest) => {
             buturecad_io::atomic::atomic_write(Path::new(dest), csv.as_bytes())

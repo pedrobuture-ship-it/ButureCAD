@@ -390,6 +390,7 @@ dependencies = [
  "buturecad-geometry",
  "buturecad-pcb",
  "buturecad-rules",
+ "buturecad-schematic",
  "buturecad-testkit",
  "proptest",
  "thiserror 2.0.21",

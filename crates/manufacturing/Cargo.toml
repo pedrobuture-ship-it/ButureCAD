@@ -17,6 +17,7 @@ buturecad-eda-core = { path = "../eda-core" }
 buturecad-pcb = { path = "../pcb" }
 buturecad-geometry = { path = "../geometry" }
 buturecad-rules = { path = "../rules" }
+buturecad-schematic = { path = "../schematic" }
 
 [dev-dependencies]
 proptest = "1"

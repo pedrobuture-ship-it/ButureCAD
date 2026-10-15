@@ -11,7 +11,7 @@ buturecad check <script.beda | project-dir>
 buturecad erc <project-dir>
 buturecad fill <project-dir>
 buturecad drc <project-dir>
-buturecad export-gerber <project-dir> --out <dir | file.zip>
+buturecad export-gerber <project-dir> --out <dir | file.zip> [--silk-values] [--rotation-offsets <file.csv>]
 buturecad export-bom <project-dir> [--out file.csv]
 buturecad inspect components|nets|board <project-dir>
 buturecad agent serve|proposals|show|apply|reject <project-dir> …   (docs/agent-api/protocol.md)
@@ -21,6 +21,7 @@ buturecad help | version                      options: --json  --quiet
 
 * `build` compiles the script and generates a saved project through the Command Engine (and copies
   the script to `design.beda`). Diagnostics are printed as `file:line:col: error[CODE]: message`.
+* `export-gerber` / `export-bom` read purchasing data (`MPN`, `Manufacturer`, `Supplier`, `SPN`) from the schematic; `--silk-values` also prints values; `--rotation-offsets` applies pick-and-place rotation corrections (`docs/manufacturing.md`).
 * `fill` refills every copper zone around the current copper (through the Command Engine) and saves; edits made outside the app do not refill zones, and DRC reports a stale fill.
 * `build` and `check` read symbols/footprints from `--libs <folder>` or the `libraries/` folder next to the script.
 * `erc` / `drc` use the real connectivity graph / board geometry; `export-gerber` runs a fresh DRC

@@ -95,7 +95,7 @@ pub fn generate(input: &FabInput) -> Result<Generated, FabError> {
         summary: format!("BOM — {} line(s)", bom.lines().count().saturating_sub(1)),
         bytes: bom.into_bytes(),
     });
-    let pos = tables::pick_and_place_csv(&input.parts);
+    let pos = tables::pick_and_place_csv(&input.parts, &input.rotation_offsets);
     files.push(ProductionFile {
         name: format!("{}-pos.csv", input.name),
         summary: format!(
@@ -193,11 +193,13 @@ pub(crate) mod tests {
                 mount: Mount::Smd,
                 in_bom: true,
                 in_position_file: true,
+                fields: Default::default(),
             }],
             drc: DrcSummary::default(),
             capabilities: Capabilities::default(),
             min_track_width: Some(250_000),
             extra_issues: Vec::new(),
+            rotation_offsets: Vec::new(),
         }
     }
 

@@ -44,13 +44,33 @@ commands `fab_preview`/`fab_export`). The CLI will call the same crate (roadmap)
 
 ## Limits (honest list)
 
-* Silkscreen **text** is not exported; filled silk shapes are outlines; no solder-paste on THT.
+* Silkscreen text uses ButureCAD's own single-stroke font (stage 52): references and user/board texts are exported, values only with `--silk-values`; texts are not checked against pads, the board edge or each other (overlaps happen: see the reference board). Filled silk shapes are outlines; no solder-paste on THT.
 * Mask expansion for custom pads is zero; no mask bridges/sliver checks; no per-fabricator rules.
 * Outline arcs are exported as polylines; no slot/route (milling) layer beyond Edge_Cuts.
 * Zone regions nested inside another same-layer zone's hole could be erased by that zone's clear
   polarity if drawn first (not seen in practice; zones are ordered before all other copper).
-* No inner-layer plane negatives, no ODB++/IPC-2581, no fiducials/panelisation, no centroid
-  rotation offsets per footprint, no MPN/supplier data in the BOM (the library model has none yet).
+* No inner-layer plane negatives, no ODB++/IPC-2581, no fiducials/panelisation, no per-fabricator rule sets.
 * The generated Gerbers are read back by the independent Gerber/Excellon readers of the Gerber
   Viewer (stage 30) in tests (`apps/cli/tests/reference_board.rs`); that is still not a fabricator's
   CAM check.
+
+## Stage 52: silkscreen text, BOM data, rotation offsets
+
+* **Silkscreen text.** `crates/manufacturing/src/font.rs` is a single-stroke font (own glyphs: digits,
+  upper and lower case, `- + . , _ / : ( ) = * %`, `° µ Ω`; anything else is drawn as a visible box and
+  reported as `silk_text_glyph`). Stroke width is `max(0.15 mm, height / 8)`. Texts below 0.8 mm
+  height are reported (`silk_text_small`). Footprint texts follow their part: moved, rotated and
+  flipped with it; text of a part on the bottom goes to `B_Silkscreen` and is **mirrored** (a test
+  proves the bottom text is the exact mirror of the top text). Board texts on `F.Silkscreen` /
+  `B.Silkscreen` are exported too. Values live on the fabrication layer by default and are printed
+  on the silkscreen only with `--silk-values`. The desktop preview draws text with a bitmap font, so
+  its look differs from the Gerber (size and position agree).
+* **BOM** columns: `Reference,Quantity,Value,Footprint,Manufacturer,MPN,Supplier,SPN`. The data comes
+  from the schematic component's properties (`MPN`, `Manufacturer`, `Supplier`, `SPN`, matched without
+  regard to case; a library component fills `MPN`/`Manufacturer`/`Datasheet` when placed). Parts that
+  differ only in purchasing data are separate lines.
+* **Pick-and-place rotation offsets.** Assembly houses expect per-footprint corrections. Pass a file
+  with `footprint_pattern,degrees` lines (`*` wildcard, `#` comments; the first matching line wins):
+  `buturecad export-gerber project --out fab --rotation-offsets offsets.csv`. The offset is added to
+  the placement angle modulo 360 and `assembly-info.txt` says it was applied. ButureCAD ships **no**
+  table of offsets (they are specific to each house), and does not mirror angles for bottom parts.

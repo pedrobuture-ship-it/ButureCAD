@@ -5,13 +5,17 @@
 //! DRC itself uses (`buturecad_eda_core::copper`), and turns pads, tracks, vias, zone fills,
 //! silkscreen, outline, drills and parts into plain nanometre geometry.
 
-use crate::{Aperture, Feature, Issue, Layer, Severity};
+use crate::font;
+use crate::{Aperture, Feature, Issue, Layer, PartFields, Severity};
 use buturecad_eda_core::copper::{self, CShape, ItemKind};
-use buturecad_eda_core::model::{PcbDoc, ViaKind};
+use buturecad_eda_core::model::{Id, PcbDoc, ViaKind};
 use buturecad_eda_core::outline::{arc_points, outline_loops};
+use buturecad_eda_core::Project;
 use buturecad_geometry::Point;
-use buturecad_pcb::{layer, FpShape, LayerId, MountType, PadKind, PadShape};
+use buturecad_pcb::{layer, FpShape, LayerId, MountType, PadKind, PadShape, Placement, TextKind};
 use buturecad_rules::run_drc;
+use buturecad_schematic::Object;
+use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
 /// Default solder-mask opening margin around a pad (nm) when the pad does not set one.
@@ -157,8 +161,118 @@ fn silk_features(shape: &FpShape, out: &mut Vec<Feature>) {
     }
 }
 
-/// Builds the manufacturing input from the board. Runs DRC first (fresh, not the cached report).
+/// Options of the export that are about presentation, not about the board.
+#[derive(Debug, Clone, Default)]
+pub struct BuildOptions {
+    /// Also print each part's value on the silkscreen (references are always printed).
+    pub silk_values: bool,
+    /// Rotation corrections for the pick-and-place file: `(footprint pattern, degrees)`.
+    pub rotation_offsets: Vec<(String, i32)>,
+}
+
+/// Minimum silkscreen stroke for text (nm) and the smallest legible text height (nm).
+const TEXT_STROKE_MIN: i64 = 150_000;
+const TEXT_HEIGHT_MIN: i64 = 800_000;
+
+fn quarter(p: Point, n: u8) -> Point {
+    p.rotate_quarter_turns(Point::ORIGIN, n % 4)
+}
+
+/// Stroked text as silkscreen features. `rotation` is in quarter turns; `place` is the footprint
+/// placement the text belongs to (it flips and rotates the glyphs with the part), or `None` for
+/// board text, which is mirrored when `mirror` is set (text on the bottom side).
+#[allow(clippy::too_many_arguments)]
+fn text_features(
+    out: &mut Vec<Feature>,
+    text: &str,
+    centre: Point,
+    height: i64,
+    rotation: u8,
+    place: Option<&Placement>,
+    mirror: bool,
+    unknown: &mut usize,
+) {
+    if text.is_empty() || height <= 0 {
+        return;
+    }
+    let s = font::strokes(text, height);
+    *unknown += s.unknown;
+    let width = (height / 8).max(TEXT_STROKE_MIN);
+    let map = |q: crate::Pt| {
+        let mut p = quarter(Point::new(q.x, q.y), rotation);
+        match place {
+            Some(pl) => {
+                if pl.flipped {
+                    p = Point::new(-p.x, p.y);
+                }
+                p = quarter(p, pl.rotation);
+            }
+            None if mirror => p = Point::new(-p.x, p.y),
+            None => {}
+        }
+        pt(Point::new(centre.x + p.x, centre.y + p.y))
+    };
+    for line in &s.polylines {
+        for w in line.windows(2) {
+            let (a, b) = (map(w[0]), map(w[1]));
+            if a != b {
+                out.push(Feature::Draw { a, b, width });
+            }
+        }
+    }
+}
+
+/// The purchasing fields of every schematic component, by component id. Property names are
+/// matched without regard to case (`MPN`, `mpn`, `Mpn`).
+pub fn part_fields(project: &Project) -> BTreeMap<Id, PartFields> {
+    let mut out = BTreeMap::new();
+    for sheet in project.schematic().sheets().values() {
+        for (id, o) in &sheet.objects {
+            let Object::Component(c) = o else { continue };
+            let get = |key: &str| {
+                c.properties
+                    .iter()
+                    .find(|(k, _)| k.eq_ignore_ascii_case(key))
+                    .map(|(_, v)| v.trim().to_owned())
+                    .unwrap_or_default()
+            };
+            out.insert(
+                *id,
+                PartFields {
+                    manufacturer: get("manufacturer"),
+                    mpn: get("mpn"),
+                    supplier: get("supplier"),
+                    supplier_pn: get("spn"),
+                },
+            );
+        }
+    }
+    out
+}
+
+/// Builds the manufacturing input of a whole project: the board plus the purchasing data of its
+/// parts (read from the schematic components the footprints were created from).
+pub fn build_fab_input_for_project(
+    project: &Project,
+    name: &str,
+    opts: &BuildOptions,
+) -> crate::FabInput {
+    build_fab_input_with(project.pcb(), name, &part_fields(project), opts)
+}
+
+/// Builds the manufacturing input from the board alone (no purchasing data, references only on
+/// the silkscreen). Runs DRC first (fresh, not the cached report).
 pub fn build_fab_input(doc: &PcbDoc, name: &str) -> crate::FabInput {
+    build_fab_input_with(doc, name, &BTreeMap::new(), &BuildOptions::default())
+}
+
+/// The general form of [`build_fab_input`].
+pub fn build_fab_input_with(
+    doc: &PcbDoc,
+    name: &str,
+    fields: &BTreeMap<Id, PartFields>,
+    opts: &BuildOptions,
+) -> crate::FabInput {
     let drc = run_drc(doc);
     let mut extra: Vec<Issue> = Vec::new();
     let copper_ids = doc.stackup.copper();
@@ -266,11 +380,97 @@ pub fn build_fab_input(doc: &PcbDoc, name: &str) -> crate::FabInput {
             }
         }
     }
+    // Silkscreen text: references and user texts (values only on request), board texts.
+    let (mut unknown, mut small) = (0usize, 0usize);
+    for f in doc.placed.values() {
+        let Some(def) = doc.footprints.get(&f.footprint) else {
+            continue;
+        };
+        for t in &def.texts {
+            let text = match t.kind {
+                TextKind::Reference => f.reference.as_str(),
+                TextKind::Value if opts.silk_values => f.value.as_str(),
+                TextKind::Value => continue,
+                TextKind::User => t.text.as_str(),
+            };
+            // A value is normally on the fabrication layer; when it is requested it goes on the
+            // silkscreen of the part's side.
+            let target = if t.kind == TextKind::Value {
+                f.placement.board_layer(layer::F_SILK)
+            } else {
+                f.placement
+                    .board_layer(buturecad_pcb::fp_layer_front(t.layer))
+            };
+            let out = if target == layer::F_SILK {
+                &mut silk_f
+            } else if target == layer::B_SILK {
+                &mut silk_b
+            } else {
+                continue;
+            };
+            if !text.is_empty() && t.height < TEXT_HEIGHT_MIN {
+                small += 1;
+            }
+            text_features(
+                out,
+                text,
+                f.placement.apply(t.position),
+                t.height,
+                t.rotation,
+                Some(&f.placement),
+                false,
+                &mut unknown,
+            );
+        }
+    }
+    for t in doc.texts.values() {
+        let out = if t.layer == layer::F_SILK {
+            &mut silk_f
+        } else if t.layer == layer::B_SILK {
+            &mut silk_b
+        } else {
+            continue;
+        };
+        if !t.text.is_empty() && t.height < TEXT_HEIGHT_MIN {
+            small += 1;
+        }
+        text_features(
+            out,
+            &t.text,
+            t.position,
+            t.height,
+            t.rotation,
+            None,
+            t.layer == layer::B_SILK,
+            &mut unknown,
+        );
+    }
     extra.push(Issue::new(
         Severity::Info,
         "silk_text",
-        "Silkscreen shows graphics only: text (references, values) is not exported, and filled shapes are drawn as outlines.",
+        format!(
+            "Silkscreen text is drawn with ButureCAD's stroke font ({} stroke minimum): references and user texts are exported{}; text is not checked against pads or the board edge, and filled shapes are drawn as outlines.",
+            crate::fmt_mm(TEXT_STROKE_MIN),
+            if opts.silk_values { ", and values" } else { ", values are not" }
+        ),
     ));
+    if small > 0 {
+        extra.push(Issue::new(
+            Severity::Warning,
+            "silk_text_small",
+            format!(
+                "{small} silkscreen text(s) are lower than {} mm and may be illegible when printed.",
+                crate::fmt_mm(TEXT_HEIGHT_MIN)
+            ),
+        ));
+    }
+    if unknown > 0 {
+        extra.push(Issue::new(
+            Severity::Warning,
+            "silk_text_glyph",
+            format!("{unknown} silkscreen character(s) have no glyph in the stroke font and are drawn as boxes."),
+        ));
+    }
     extra.push(Issue::new(
         Severity::Info,
         "mask_default",
@@ -396,6 +596,11 @@ pub fn build_fab_input(doc: &PcbDoc, name: &str) -> crate::FabInput {
             },
             in_bom: !def.attributes.exclude_from_bom,
             in_position_file: !def.attributes.exclude_from_position_files,
+            fields: f
+                .link
+                .and_then(|id| fields.get(&id))
+                .cloned()
+                .unwrap_or_default(),
         });
     }
     for (id, z) in &doc.zones {
@@ -427,6 +632,7 @@ pub fn build_fab_input(doc: &PcbDoc, name: &str) -> crate::FabInput {
         capabilities: crate::Capabilities::default(),
         min_track_width: doc.tracks.values().map(|t| t.width).min(),
         extra_issues: extra,
+        rotation_offsets: opts.rotation_offsets.clone(),
     }
 }
 

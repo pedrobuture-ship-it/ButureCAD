@@ -245,9 +245,10 @@ impl Workspace {
     /// Parses the *files currently shown* against the board: positions, counts, profile, drills.
     fn gerber_verify(&mut self) -> Result<(), String> {
         let open = self.open.as_ref().ok_or("no project is open")?;
-        let input = buturecad_manufacturing::board::build_fab_input(
-            open.engine.project().pcb(),
+        let input = buturecad_manufacturing::board::build_fab_input_for_project(
+            open.engine.project(),
             open.engine.project().name(),
+            &Default::default(),
         );
         let Some((_, g)) = self.fab.generated.as_ref() else {
             return Err(

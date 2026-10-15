@@ -51,6 +51,17 @@ pub enum Mount {
     Unspecified,
 }
 
+/// Purchasing data of a part, read from the schematic component's properties (`MPN`,
+/// `Manufacturer`, `Supplier`, `SPN`; the names are matched without regard to case).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PartFields {
+    pub manufacturer: String,
+    pub mpn: String,
+    pub supplier: String,
+    /// Supplier part number.
+    pub supplier_pn: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Part {
     pub reference: String,
@@ -63,6 +74,7 @@ pub struct Part {
     pub mount: Mount,
     pub in_bom: bool,
     pub in_position_file: bool,
+    pub fields: PartFields,
 }
 
 /// A drilled hole or slot (`slot_to` is the other end centre; `at` is one end).
@@ -114,6 +126,9 @@ pub struct FabInput {
     pub min_track_width: Option<i64>,
     /// Issues only the bridge can know (it reads the real board).
     pub extra_issues: Vec<crate::Issue>,
+    /// Rotation offsets for the pick-and-place file: `(footprint name pattern, degrees)`. The
+    /// pattern may contain `*`. The first matching entry is added to the placement rotation.
+    pub rotation_offsets: Vec<(String, i32)>,
 }
 
 impl FabInput {
