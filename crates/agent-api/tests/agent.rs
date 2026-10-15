@@ -428,3 +428,169 @@ fn actions_round_trip_through_json_for_the_protocol() {
             .is_err()
     );
 }
+
+// -- providers ---------------------------------------------------------------------------------
+
+fn ic_project() -> CommandEngine {
+    use buturecad_eda_core::commands::AddSymbolsCommand;
+    use buturecad_eda_core::ir_apply::apply_design;
+    use buturecad_geometry::Point;
+    use buturecad_schematic::{Direction, Pin, PinType, Symbol};
+    let pin = |n: &str, name: &str, kind, x: i64, y: i64, o| Pin {
+        number: n.into(),
+        name: name.into(),
+        kind,
+        position: Point::new(x * 1_270_000, y * 1_270_000),
+        orientation: o,
+        length: 2_540_000,
+        unit: 0,
+        representation: 0,
+    };
+    let mut ic = Symbol::new("Test:MCU", "U");
+    ic.pins = vec![
+        pin("1", "VDD", PinType::PowerInput, -5, 2, Direction::Right),
+        pin("2", "VDDA", PinType::PowerInput, -5, 0, Direction::Right),
+        pin("3", "VSS", PinType::PowerInput, -5, -2, Direction::Right),
+        pin("4", "PA0", PinType::Bidirectional, 5, 0, Direction::Left),
+    ];
+    let src = r#"
+board { outline = rect(0mm, 0mm, 40mm, 30mm) }
+component U1 { symbol = "Test:MCU" value = "MCU" footprint = "soic(pins=8)" }
+component C1 { value = "1uF" footprint = "0603" }
+connect U1.VDD -> "+3V3"
+connect U1.VDDA -> VDDA
+connect U1.VSS -> GND
+connect C1.1 -> "+3V3"
+connect C1.2 -> GND
+place U1 at (20mm, 15mm)
+place C1 at (5mm, 5mm)
+"#;
+    let out = buturecad_scripting::compile(src, &Default::default());
+    assert!(!out.has_errors(), "{:?}", out.diagnostics);
+    let mut e = CommandEngine::new(buturecad_eda_core::Project::new("mcu").unwrap());
+    e.execute(AddSymbolsCommand::new(vec![ic])).unwrap();
+    apply_design(&mut e, &out.design.unwrap(), &|n| {
+        buturecad_scripting::resolve_footprint(n)
+    })
+    .unwrap();
+    e
+}
+
+#[test]
+fn the_decoupling_helper_reads_the_real_power_pins_and_proposes_valid_changes() {
+    let mut e = ic_project();
+    let mut a = api();
+    let drafts = DecouplingHelper
+        .draft("Add decoupling to U1", e.project())
+        .unwrap();
+    assert_eq!(drafts.len(), 1);
+    let d = &drafts[0];
+    // Two supply pins (VDD on +3V3, VDDA) → 2 small caps; 2 supply nets → 2 bulk caps. VSS is ground.
+    let created: Vec<_> = d
+        .actions
+        .iter()
+        .filter_map(|x| match x {
+            Action::CreateComponent {
+                reference, value, ..
+            } => Some((reference.clone().unwrap(), value.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        created,
+        [
+            ("C2".into(), "100nF".into()),
+            ("C3".into(), "100nF".into()),
+            ("C4".into(), "4.7uF".into()),
+            ("C5".into(), "4.7uF".into())
+        ],
+        "references continue after C1"
+    );
+    assert!(
+        d.actions.iter().any(|x| matches!(x, Action::Place { .. })),
+        "placed next to the pads"
+    );
+    assert!(d.rationale.iter().any(|r| r.contains("U1.1 (VDD)")));
+    let p = a.propose(
+        e.project(),
+        e.revision(),
+        &d.title,
+        d.actions.clone(),
+        "decoupling",
+    );
+    assert_eq!(p.status, ProposalStatus::Pending, "{:?}", p.validation);
+    assert!(
+        p.validation.diff.count("added") >= 12,
+        "{}",
+        p.validation.diff.lines().join("\n")
+    );
+    a.apply(&mut e, &p.id, "user").unwrap();
+    let pcb = e.project().pcb();
+    for r in ["C2", "C3", "C4", "C5"] {
+        assert!(
+            pcb.placed.values().any(|f| f.reference == r),
+            "{r} is on the board"
+        );
+    }
+    // Errors and refusals are explicit.
+    assert!(DecouplingHelper
+        .draft("make it pretty", e.project())
+        .is_err());
+    assert!(
+        DecouplingHelper
+            .draft("decoupling for X9", e.project())
+            .is_ok(),
+        "single IC is inferred"
+    );
+    let e0 = engine();
+    assert!(DecouplingHelper
+        .draft("decoupling", e0.project())
+        .unwrap_err()
+        .contains("name the component"));
+}
+
+#[test]
+fn the_json_provider_is_strict_and_feeds_the_same_pipeline() {
+    let e = engine();
+    let ok = JsonProvider
+        .draft(
+            &serde_json::to_string(
+                &json!({"title": "T", "rationale": ["why"], "actions": add_cap()}),
+            )
+            .unwrap(),
+            e.project(),
+        )
+        .unwrap();
+    assert_eq!(
+        (
+            ok[0].title.as_str(),
+            ok[0].rationale.len(),
+            ok[0].actions.len()
+        ),
+        ("T", 1, 4)
+    );
+    assert_eq!(
+        JsonProvider
+            .draft(&serde_json::to_string(&add_cap()).unwrap(), e.project())
+            .unwrap()[0]
+            .actions
+            .len(),
+        4
+    );
+    for bad in [
+        "not json",
+        "{\"actions\": []}",
+        "[]",
+        "[{\"action\": \"rm_rf\"}]",
+        "{\"title\": \"x\"}",
+    ] {
+        assert!(JsonProvider.draft(bad, e.project()).is_err(), "{bad}");
+    }
+    assert_eq!(
+        builtin_providers()
+            .iter()
+            .map(|p| p.kind())
+            .collect::<Vec<_>>(),
+        [ProviderKind::RuleBased, ProviderKind::External]
+    );
+}

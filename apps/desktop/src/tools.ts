@@ -93,6 +93,7 @@ export const MODE_TITLES: Record<Mode, string> = {
   plugins: "Plugins",
   simulation: "Simulation",
   code: "Code",
+  agent: "AI Workspace",
 };
 
 /** Roadmap stage that will implement a mode that has no canvas yet. */

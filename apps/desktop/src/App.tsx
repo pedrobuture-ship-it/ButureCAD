@@ -5,6 +5,7 @@ import { call, closeWindowNow, refreshSnapshot, toast } from "./actions";
 import { availability } from "./commands";
 import { BottomPanel } from "./components/BottomPanel";
 import { CanvasView } from "./components/CanvasView";
+import { AgentPanel } from "./components/AgentPanel";
 import { CodePanel } from "./components/CodePanel";
 import { SimulationPanel } from "./components/SimulationPanel";
 import { PluginsPanel } from "./components/PluginsPanel";
@@ -144,6 +145,8 @@ export function App() {
               <SymbolEditorHome />
             ) : mode === "footprint_editor" && !snap.footprint_editor ? (
               <FootprintEditorHome />
+            ) : mode === "agent" ? (
+              <AgentPanel />
             ) : mode === "code" ? (
               <CodePanel />
             ) : mode === "simulation" ? (

@@ -27,6 +27,7 @@ buturecad-mcad = { path = "../../../crates/mcad" }
 buturecad-plugin-runtime = { path = "../../../crates/plugin-runtime" }
 buturecad-simulation = { path = "../../../crates/simulation" }
 buturecad-scripting = { path = "../../../crates/scripting" }
+buturecad-agent-api = { path = "../../../crates/agent-api" }
 buturecad-manufacturing = { path = "../../../crates/manufacturing" }
 buturecad-router = { path = "../../../crates/router" }
 buturecad-rules = { path = "../../../crates/rules" }

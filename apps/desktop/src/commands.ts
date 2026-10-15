@@ -740,6 +740,7 @@ export function buildCommands(): AppCommand[] {
     modeCommand("plugins", "Plugins", "Ctrl+8"),
     modeCommand("simulation", "Simulation", "Ctrl+9"),
     modeCommand("code", "Code (ButureScript)", "Ctrl+0"),
+    modeCommand("agent", "AI Workspace", "Ctrl+Shift+A"),
 
     {
       id: "tools.palette",

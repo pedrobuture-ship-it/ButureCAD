@@ -298,6 +298,7 @@ dependencies = [
 name = "buturecad-desktop"
 version = "0.1.0"
 dependencies = [
+ "buturecad-agent-api",
  "buturecad-eda-core",
  "buturecad-geometry",
  "buturecad-io",

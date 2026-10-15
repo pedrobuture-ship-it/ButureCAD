@@ -95,6 +95,7 @@ export const api = {
     invoke<Snapshot>("simulation_command", { name, arg }),
   scriptCommand: (name: string, arg?: string) => invoke<Snapshot>("script_command", { name, arg }),
   scriptSource: () => invoke<string>("script_source"),
+  agentCommand: (name: string, arg?: string) => invoke<Snapshot>("agent_command", { name, arg }),
   fabPreview: () => invoke<Snapshot>("fab_preview"),
   fabExport: (path: string) => invoke<Snapshot>("fab_export", { path }),
   drcFocus: (index: number) => invoke<Snapshot>("drc_focus", { index }),

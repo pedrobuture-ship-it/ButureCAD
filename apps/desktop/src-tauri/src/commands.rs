@@ -437,6 +437,17 @@ pub fn script_source(state: State<'_, AppState>) -> Result<String, String> {
     state.with(|ws| ws.script_source())
 }
 
+/// AI Workspace actions (provider, request, select, apply, reject). Apply and Reject are the only
+/// ways a proposal reaches the project, and only from here.
+#[tauri::command]
+pub fn agent_command(
+    state: State<'_, AppState>,
+    name: String,
+    arg: Option<String>,
+) -> Result<Snapshot, String> {
+    state.act(|ws| ws.agent_command(&name, arg.as_deref()))
+}
+
 #[tauri::command]
 pub fn drc_run(state: State<'_, AppState>) -> Result<Snapshot, String> {
     state.act(|ws| ws.drc_run())

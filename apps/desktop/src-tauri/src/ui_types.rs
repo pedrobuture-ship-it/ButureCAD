@@ -20,6 +20,7 @@ pub enum Mode {
     Plugins,
     Simulation,
     Code,
+    Agent,
 }
 
 impl Mode {
@@ -191,6 +192,8 @@ pub struct Snapshot {
     pub simulation: Option<SimulationInfo>,
     /// ButureScript editor state (only in the Code mode).
     pub code: Option<CodeInfo>,
+    /// AI Workspace state (only in the Agent mode).
+    pub agent: Option<AgentInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -956,4 +959,69 @@ pub struct CodeInfo {
     /// Increments each time a new preview was built.
     pub generation: u32,
     pub has_project: bool,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct AgentProviderInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    /// `rule-based`, `external input` or `model`.
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct AgentDiffInfo {
+    /// `added`, `removed` or `modified`.
+    pub change: String,
+    pub domain: String,
+    pub kind: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct AgentDeltaInfo {
+    pub errors_before: u32,
+    pub errors_after: u32,
+    pub warnings_before: u32,
+    pub warnings_after: u32,
+    pub resolved: u32,
+    /// Findings that exist only after the change.
+    pub new: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct AgentProposalInfo {
+    pub id: String,
+    pub title: String,
+    pub origin: String,
+    /// `pending`, `invalid`, `applied` or `rejected`.
+    pub status: String,
+    /// The project changed since validation: it cannot be applied any more.
+    pub stale: bool,
+    pub actions: Vec<String>,
+    pub rationale: Vec<String>,
+    pub warnings: Vec<String>,
+    pub notes: Vec<String>,
+    pub failed_action: Option<String>,
+    pub diff: Vec<AgentDiffInfo>,
+    pub erc: Option<AgentDeltaInfo>,
+    pub drc: Option<AgentDeltaInfo>,
+    /// The raw structured proposal (only for the selected one).
+    pub json: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct AgentInfo {
+    pub providers: Vec<AgentProviderInfo>,
+    pub provider: String,
+    pub proposals: Vec<AgentProposalInfo>,
+    pub selected: Option<String>,
+    pub error: String,
+    pub audit: Vec<String>,
 }

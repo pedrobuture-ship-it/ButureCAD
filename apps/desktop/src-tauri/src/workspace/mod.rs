@@ -14,6 +14,7 @@ use buturecad_renderer::{
 use buturecad_schematic::{Connectivity, ConnectivityEngine, Id, Object};
 use std::cell::RefCell;
 
+mod agent;
 mod drc;
 mod editor;
 mod erc;
@@ -103,6 +104,7 @@ pub struct Workspace {
     plugins: plugins::Plugins,
     sim: simulation::SimState,
     script: script::ScriptState,
+    agent: agent::AgentState,
     pub(crate) plugin_dir: Option<PathBuf>,
     pub(crate) view3d: viewer3d::Viewer3d,
     /// Per-user library folder (symbols and footprints shared between projects).
@@ -162,6 +164,7 @@ impl Workspace {
             plugins: plugins::Plugins::default(),
             sim: simulation::SimState::default(),
             script: script::ScriptState::default(),
+            agent: agent::AgentState::default(),
             plugin_dir: None,
             view3d: Default::default(),
             user_libs: None,
@@ -384,6 +387,7 @@ impl Workspace {
         self.erc = erc::ErcState::default();
         self.drc = drc::DrcState::default();
         self.fab = fab::FabState::default();
+        self.agent = agent::AgentState::default();
         self.recovery = None;
         self.built_for = None;
         self.selection.clear();
@@ -1128,6 +1132,7 @@ impl Workspace {
             plugins: (self.mode == Mode::Plugins).then(|| self.plugins_info()),
             simulation: (self.mode == Mode::Simulation).then(|| self.simulation_info()),
             code: (self.mode == Mode::Code).then(|| self.code_info()),
+            agent: (self.mode == Mode::Agent).then(|| self.agent_info()),
             pcb: self.pcb_info(),
             footprint_editor: self.footprint_editor_info(),
         }

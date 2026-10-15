@@ -27,7 +27,7 @@ Desktop GUI (Tauri + React)   buturecad-cli (planned)
 | `plugin-runtime` | WASM (wasmi) sandbox, manifest, permissions, manager, ComponentProvider API | done (32–33) |
 | `simulation` | Backend trait, circuit/netlist, built-in linear MNA engine, ngspice external-process backend | partial (34) |
 | `scripting` | ButureScript: lexer, parser, AST, unit-aware elaboration, diagnostics, footprint-name resolver | done (35–36) |
-| `agent-api` | reserved slot | not implemented |
+| `agent-api` | read/analysis views, actions, proposals validated on a copy, diff, audit, host-only apply, provider interface | done (40–41) |
 | `apps/cli` | `buturecad` command line on the same core, no GUI crates | done (38–39) |
 | `apps/desktop` | Tauri 2 shell + React UI; the Rust `Workspace` owns all state and tools | done through stage 26 |
 

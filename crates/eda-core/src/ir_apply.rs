@@ -187,7 +187,9 @@ pub fn apply_design(
         } else {
             c.symbol.clone()
         };
-        if !all.iter().any(|s| s.name == sym) {
+        let known = all.iter().any(|s| s.name == sym)
+            || engine.project().schematic().symbol(&sym).is_some();
+        if !known {
             return bad(format!("component {}: unknown symbol “{sym}”", c.reference));
         }
         needed.push(sym);
@@ -201,7 +203,9 @@ pub fn apply_design(
     needed.dedup();
     let add: Vec<_> = all
         .into_iter()
-        .filter(|s| needed.contains(&s.name))
+        .filter(|s| {
+            needed.contains(&s.name) && engine.project().schematic().symbol(&s.name).is_none()
+        })
         .collect();
     if !add.is_empty() {
         engine.execute(AddSymbolsCommand::new(add))?;

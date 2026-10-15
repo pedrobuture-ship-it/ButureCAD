@@ -1029,3 +1029,20 @@ textarea {
   max-height: 140px;
   overflow: auto;
 }
+
+.agent-diff {
+  list-style: none;
+  padding-left: 0;
+  font-size: 12px;
+}
+.agent-diff .diff-added code {
+  color: #2fa77a;
+}
+.agent-diff .diff-removed code {
+  color: #d9534f;
+}
+.agent-json {
+  max-height: 260px;
+  overflow: auto;
+  font-size: 11px;
+}

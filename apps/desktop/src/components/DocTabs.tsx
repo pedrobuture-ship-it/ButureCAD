@@ -14,6 +14,7 @@ const ORDER: Mode[] = [
   "plugins",
   "simulation",
   "code",
+  "agent",
 ];
 
 export function DocTabs() {

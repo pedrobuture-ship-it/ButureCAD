@@ -42,5 +42,7 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 37 | Code ↔ Visual | partial (`docs/buturescript/code-visual.md`): Code → Visual (CODE/SPLIT/VISUAL, live preview, diagnostics) done; Visual → Code designed, not implemented |
 | 38 | CLI (`buturecad`) | done (`docs/cli.md`) |
 | 39 | Headless core | done (`docs/cli.md`): script → gerber with no GUI crate, checked by test and `scripts/headless-ci.sh` |
-| 40–42 | Agent API, AI workspace, protocol | planned |
+| 40 | Agent API | done (`docs/agent-api/README.md`) |
+| 41 | AI Workspace | done: panel, provider interface, rule-based decoupling helper and JSON provider; no model provider ships |
+| 42 | Plugin/Agent protocol | planned |
 | 43–50 | Import, performance, robustness, UX, validation project, audits, release | planned |
