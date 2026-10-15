@@ -10,4 +10,4 @@ pub mod import;
 pub mod session;
 
 pub use error::{IoError, Result};
-pub use session::{Opened, ProjectSession, Recovery};
+pub use session::{read_project, InterruptedSave, Opened, ProjectSession, Recovery};

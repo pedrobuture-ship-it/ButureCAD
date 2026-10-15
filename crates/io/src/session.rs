@@ -27,6 +27,9 @@ pub const PCB_FILE: &str = "pcb/main.bpcb.json";
 pub const STATE_DIR: &str = ".buture";
 const AUTOSAVE_DIR: &str = "autosave";
 const LOCK_FILE: &str = "session.lock";
+/// Present while `save` is writing the project files; if it is found on open, the last save was
+/// interrupted and the files may be a mix of old and new documents.
+const SAVING_MARKER: &str = "saving";
 const BACKUP_DIR: &str = "backups";
 /// Number of backup snapshots kept.
 pub const MAX_BACKUPS: usize = 5;
@@ -49,6 +52,18 @@ pub struct Recovery {
     pub project: std::result::Result<Project, String>,
 }
 
+/// The previous save did not finish (power loss, crash, kill). The project folder may hold a mix
+/// of old and new documents, so the project was loaded from the last complete backup instead.
+#[derive(Debug)]
+pub struct InterruptedSave {
+    /// The backup snapshot the project was loaded from (`None`: there was no backup, the files on
+    /// disk were used).
+    pub restored_from: Option<PathBuf>,
+    /// Why the files on disk were not used (a parse error), or `None` if they were readable but
+    /// possibly inconsistent.
+    pub disk_state_error: Option<String>,
+}
+
 /// Result of [`ProjectSession::open`].
 #[derive(Debug)]
 pub struct Opened {
@@ -56,6 +71,8 @@ pub struct Opened {
     pub project: Project,
     /// Present only when the previous session crashed and left an autosave.
     pub recovery: Option<Recovery>,
+    /// Set when the previous save was interrupted (see [`InterruptedSave`]).
+    pub interrupted_save: Option<InterruptedSave>,
 }
 
 /// An open project folder. Holds the session lock until dropped.
@@ -92,8 +109,12 @@ impl ProjectSession {
     /// crashed; if an autosave exists it is offered through [`Opened::recovery`].
     pub fn open(root: impl Into<PathBuf>) -> Result<Opened> {
         let root = root.into();
-        let project = read_project(&root)?;
         let state = root.join(STATE_DIR);
+        let (project, interrupted_save) = if state.join(SAVING_MARKER).exists() {
+            Self::open_after_interrupted_save(&root)?
+        } else {
+            (read_project(&root)?, None)
+        };
         let autosave = state.join(AUTOSAVE_DIR);
         let crashed = state.join(LOCK_FILE).exists();
         let recovery = (crashed && autosave.join(MANIFEST_NAME).is_file()).then(|| Recovery {
@@ -105,7 +126,35 @@ impl ProjectSession {
             session,
             project,
             recovery,
+            interrupted_save,
         })
+    }
+
+    /// The marker says a save was cut short: prefer the newest complete backup over the files on
+    /// disk, which may mix documents of two versions.
+    fn open_after_interrupted_save(root: &Path) -> Result<(Project, Option<InterruptedSave>)> {
+        let disk = read_project(root);
+        let backups = Self::list_backups(root)?;
+        for b in backups.iter().rev() {
+            if let Ok(p) = read_project(b) {
+                return Ok((
+                    p,
+                    Some(InterruptedSave {
+                        restored_from: Some(b.clone()),
+                        disk_state_error: disk.err().map(|e| e.to_string()),
+                    }),
+                ));
+            }
+        }
+        // No usable backup (the very first save was interrupted): the files are all there is.
+        let p = disk?;
+        Ok((
+            p,
+            Some(InterruptedSave {
+                restored_from: None,
+                disk_state_error: None,
+            }),
+        ))
     }
 
     /// Writes the project, keeping a rotating backup snapshot of the previous valid state.
@@ -114,8 +163,20 @@ impl ProjectSession {
     /// is **not** a single atomic unit: a crash mid-save can leave new documents next to an old
     /// manifest. The backup snapshot taken beforehand is the recovery path for that case.
     pub fn save(&self, project: &Project) -> Result<()> {
-        self.backup_current()?;
+        let marker = self.root.join(STATE_DIR).join(SAVING_MARKER);
+        // If an earlier save was interrupted the files may be mixed: do not snapshot them.
+        if !marker.exists() {
+            self.backup_current()?;
+        }
+        ensure_parent(&marker)?;
+        atomic_write(&marker, b"saving\n")?;
         write_project(&self.root, project)?;
+        // Only after every file is in place is the save complete.
+        match fs::remove_file(&marker) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(IoError::fs("cannot finish the save", &marker, e)),
+        }
         self.discard_autosave()
     }
 
@@ -152,7 +213,11 @@ impl ProjectSession {
 
     /// Backup snapshot directories, oldest first.
     pub fn backups(&self) -> Result<Vec<PathBuf>> {
-        let dir = self.root.join(STATE_DIR).join(BACKUP_DIR);
+        Self::list_backups(&self.root)
+    }
+
+    fn list_backups(root: &Path) -> Result<Vec<PathBuf>> {
+        let dir = root.join(STATE_DIR).join(BACKUP_DIR);
         let mut snapshots: Vec<PathBuf> = match fs::read_dir(&dir) {
             Ok(rd) => rd
                 .filter_map(|e| e.ok().map(|e| e.path()))

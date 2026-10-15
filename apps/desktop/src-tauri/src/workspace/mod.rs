@@ -297,6 +297,15 @@ impl Workspace {
     pub fn open_project(&mut self, root: &Path) -> Result<(), String> {
         self.close_project()?;
         let opened = ProjectSession::open(root).map_err(|e| e.to_string())?;
+        if let Some(i) = &opened.interrupted_save {
+            self.log(
+                MessageLevel::Warn,
+                match &i.restored_from {
+                    Some(b) => format!("The last save of this project was interrupted; opened the last complete backup ({}). Save again to repair the project files.", b.display()),
+                    None => "The last save of this project was interrupted and there is no backup; the files on disk were opened. Check them and save again.".to_owned(),
+                },
+            );
+        }
         let name = opened.project.name().to_owned();
         if let Some(rec) = opened.recovery {
             match rec.project {
@@ -467,6 +476,11 @@ impl Workspace {
         self.mode = mode;
         self.gesture = Gesture::None;
         self.hover = None;
+    }
+
+    /// Statistics of the last GPU frame (for benchmarks and diagnostics).
+    pub fn render_stats(&self) -> Option<buturecad_renderer::RenderStats> {
+        self.gpu.as_ref().map(|g| g.stats())
     }
 
     pub fn set_theme(&mut self, theme: ThemeName) {

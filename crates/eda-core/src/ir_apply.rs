@@ -30,6 +30,25 @@ fn bad<T>(m: impl Into<String>) -> Result<T, ApplyError> {
     Err(ApplyError::Invalid(m.into()))
 }
 
+/// Opt-in phase timing: set `BUTURECAD_TRACE=1` to print how long each step of applying a design
+/// takes (used by the benchmarks to find bottlenecks).
+struct Lap(Option<std::time::Instant>);
+
+impl Lap {
+    fn new() -> Self {
+        Lap(std::env::var_os("BUTURECAD_TRACE").map(|_| std::time::Instant::now()))
+    }
+    fn mark(&mut self, what: &str) {
+        if let Some(t) = self.0.as_mut() {
+            eprintln!(
+                "  [apply] {what}: {:.1} ms",
+                t.elapsed().as_secs_f64() * 1e3
+            );
+            *t = std::time::Instant::now();
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ApplyReport {
     pub components: usize,
@@ -155,6 +174,67 @@ pub fn layer_by_name(stack: &buturecad_pcb::Stackup, name: &str) -> Option<Layer
         .find(|l| layer::name(*l).eq_ignore_ascii_case(name))
 }
 
+/// Every coordinate and length of an IR must fit the core's range, whoever produced it.
+fn check_ranges(d: &Design) -> Result<(), ApplyError> {
+    const MAX: i64 = 1 << 30;
+    let ok = |v: i64, what: &str| -> Result<(), ApplyError> {
+        if v.unsigned_abs() > MAX as u64 {
+            bad(format!(
+                "{what}: {v} nm is outside the supported range of ±1073 mm"
+            ))
+        } else {
+            Ok(())
+        }
+    };
+    let pt = |p: &Pt, what: &str| -> Result<(), ApplyError> {
+        ok(p.x, what)?;
+        ok(p.y, what)
+    };
+    if let Some(b) = &d.board {
+        b.outline.iter().try_for_each(|p| pt(p, "board outline"))?;
+    }
+    d.placements
+        .iter()
+        .try_for_each(|p| pt(&p.at, "placement"))?;
+    for t in &d.tracks {
+        t.points.iter().try_for_each(|p| pt(p, "track"))?;
+        ok(t.width, "track width")?;
+    }
+    for v in &d.vias {
+        pt(&v.at, "via")?;
+        ok(v.diameter, "via diameter")?;
+        ok(v.drill, "via drill")?;
+    }
+    for z in &d.zones {
+        z.outline.iter().try_for_each(|p| pt(p, "zone"))?;
+        for v in [z.clearance, z.min_width].into_iter().flatten() {
+            ok(v, "zone clearance/width")?;
+        }
+    }
+    for v in [
+        d.rules.min_track_width,
+        d.rules.min_via_diameter,
+        d.rules.min_via_drill,
+        d.rules.min_annular_ring,
+        d.rules.copper_to_edge,
+        d.rules.clearance,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        ok(v, "rule")?;
+    }
+    for c in &d.rules.classes {
+        for v in [c.track_width, c.clearance, c.via_diameter, c.via_drill]
+            .into_iter()
+            .flatten()
+        {
+            ok(v, "net class")?;
+        }
+    }
+    Ok(())
+}
+
 /// Applies `design` to the (empty) project of `engine`. `resolve_footprint` finds footprint
 /// definitions by name (libraries, generators).
 pub fn apply_design(
@@ -162,7 +242,9 @@ pub fn apply_design(
     design: &Design,
     resolve_footprint: &dyn Fn(&str) -> Option<Footprint>,
 ) -> Result<ApplyReport, ApplyError> {
+    check_ranges(design)?;
     let mut report = ApplyReport::default();
+    let mut lap = Lap::new();
     {
         let p = engine.project();
         if p.schematic().object_count() != 0 || !p.pcb().placed.is_empty() {
@@ -211,11 +293,26 @@ pub fn apply_design(
         engine.execute(AddSymbolsCommand::new(add))?;
     }
 
+    lap.mark("symbols");
     // -- schematic: components on a grid ---------------------------------------------------------
     const G: i64 = 1_270_000;
     let mut comps: BTreeMap<String, Component> = BTreeMap::new();
     let mut changes: Vec<Change> = Vec::new();
-    let cols = 6usize;
+    // Row-major grid: 6 columns for small designs, roughly square for big ones, with the spacing
+    // shrinking so the sheet stays inside the coordinate range (±1.07 m).
+    let n_comp = design.components.len();
+    let cols = if n_comp <= 36 {
+        6
+    } else {
+        (n_comp as f64).sqrt().ceil() as usize
+    };
+    let rows = n_comp.div_ceil(cols).max(1);
+    let spacing = (16i64).min(700_000_000 / (cols.max(rows) as i64 * G));
+    if spacing < 4 {
+        return bad(format!(
+            "{n_comp} components do not fit one schematic sheet with automatic layout (limit about 20 000)"
+        ));
+    }
     for (i, c) in design.components.iter().enumerate() {
         let sym = if c.symbol.is_empty() {
             default_symbol(&c.reference).unwrap_or_default().to_owned()
@@ -231,8 +328,8 @@ pub fn apply_design(
             unit: 1,
             representation: 1,
             placement: Placement::at(Point::new(
-                ((i % cols) as i64 * 16 + 10) * G,
-                ((i / cols) as i64 * 16 + 10) * G,
+                ((i % cols) as i64 * spacing + 10) * G,
+                ((i / cols) as i64 * spacing + 10) * G,
             )),
         };
         let id = engine.new_id();
@@ -243,6 +340,7 @@ pub fn apply_design(
         ));
         comps.insert(c.reference.clone(), comp);
     }
+    lap.mark("schematic components");
     // -- schematic: nets as labels / power symbols at the pins -----------------------------------
     {
         let sch = engine.project().schematic();
@@ -296,6 +394,7 @@ pub fn apply_design(
             changes.push(Change::create(ROOT_SHEET, id, obj));
         }
     }
+    lap.mark("schematic net markers");
     if !changes.is_empty() {
         engine.execute(SchematicEditCommand::new(
             "ButureScript: schematic",
@@ -305,12 +404,15 @@ pub fn apply_design(
     report.components = design.components.len();
     report.nets = design.nets.len();
 
+    lap.mark("schematic command");
     // -- board: footprints and nets from the schematic -------------------------------------------
     let plan = crate::sync::plan_update(engine.project(), resolve_footprint);
     for w in plan.warnings() {
         report.warnings.push(w.text.clone());
     }
+    lap.mark("PCB sync: plan");
     plan.apply(engine)?;
+    lap.mark("PCB sync: apply");
 
     // -- board: layers, outline ------------------------------------------------------------------
     if let Some(layers) = design.board.as_ref().and_then(|b| b.layers) {
@@ -465,9 +567,11 @@ pub fn apply_design(
         pcb.push(PcbChange::create(id, PcbObject::Zone(zone)));
         report.zones += 1;
     }
+    lap.mark("board changes built");
     if !pcb.is_empty() {
         engine.execute(PcbEditCommand::new("ButureScript: board", pcb))?;
     }
+    lap.mark("board command");
     if !design.zones.is_empty() {
         let fill = crate::zonefill::fill_changes(engine.project().pcb(), None, true);
         if !fill.is_empty() {

@@ -1,0 +1,60 @@
+{"cpu_ms":0.0,"fps":145053.7,"frames":1,"ms":0.01,"p95_ms":0.01,"peak_mb":4.88,"phase":"startup (Workspace::new)","rss_mb":4.88,"size":100}
+{"cpu_ms":200.0,"fps":4.7,"frames":1,"ms":210.64,"p95_ms":210.64,"peak_mb":199.38,"phase":"schematic: first frame (scene build + GPU init)","rss_mb":195.62,"size":100}
+{"cpu_ms":0.67,"fps":769.0,"frames":30,"ms":1.28,"p95_ms":1.49,"peak_mb":199.38,"phase":"schematic: steady frame (cached scene)","rss_mb":199.35,"size":100}
+{"cpu_ms":1.0,"fps":476.2,"frames":40,"ms":2.06,"p95_ms":2.38,"peak_mb":199.54,"phase":"schematic: zoom (wheel ± + frame)","rss_mb":199.54,"size":100}
+{"avg_tessellate_ms":0.77,"frames":40,"ms":0.0,"objects":1384,"phase":"schematic: zoom frames that re-tessellated the scene","rebuilt":40,"size":100,"triangles":22740,"vertices":45480}
+{"cpu_ms":0.33,"fps":760.3,"frames":30,"ms":1.3,"p95_ms":1.44,"peak_mb":199.54,"phase":"schematic: pan (drag + frame)","rss_mb":199.54,"size":100}
+{"cpu_ms":0.0,"fps":798307.6,"frames":40,"ms":0.0,"p95_ms":0.0,"peak_mb":199.54,"phase":"schematic: click selection (pick)","rss_mb":199.54,"size":100}
+{"cpu_ms":2.0,"fps":3068.9,"frames":5,"ms":0.31,"p95_ms":0.38,"peak_mb":199.54,"phase":"schematic: box selection of the whole view","rss_mb":199.54,"size":100}
+{"cpu_ms":0.0,"fps":416.2,"frames":1,"ms":2.4,"p95_ms":2.4,"peak_mb":199.74,"phase":"PCB: first frame (scene build)","rss_mb":199.74,"size":100}
+{"cpu_ms":0.33,"fps":780.2,"frames":30,"ms":1.27,"p95_ms":1.4,"peak_mb":199.74,"phase":"PCB: steady frame (cached scene)","rss_mb":199.74,"size":100}
+{"cpu_ms":0.75,"fps":723.4,"frames":40,"ms":1.37,"p95_ms":1.67,"peak_mb":199.74,"phase":"PCB: zoom (wheel ± + frame)","rss_mb":199.74,"size":100}
+{"avg_tessellate_ms":0.0,"frames":40,"ms":0.0,"objects":1905,"phase":"PCB: zoom frames that re-tessellated the scene","rebuilt":0,"size":100,"triangles":17602,"vertices":33874}
+{"cpu_ms":1.0,"fps":560.6,"frames":30,"ms":1.69,"p95_ms":2.8,"peak_mb":199.74,"phase":"PCB: pan (drag + frame)","rss_mb":199.74,"size":100}
+{"cpu_ms":0.0,"fps":531342.6,"frames":40,"ms":0.0,"p95_ms":0.01,"peak_mb":199.74,"phase":"PCB: click selection (pick)","rss_mb":199.74,"size":100}
+{"cpu_ms":0.0,"fps":2210.8,"frames":5,"ms":0.43,"p95_ms":0.52,"peak_mb":199.74,"phase":"PCB: box selection of the whole view","rss_mb":199.74,"size":100}
+{"cpu_ms":0.0,"fps":126214.8,"frames":1,"ms":0.01,"p95_ms":0.01,"peak_mb":6.61,"phase":"startup (Workspace::new)","rss_mb":6.61,"size":500}
+{"cpu_ms":180.0,"fps":5.7,"frames":1,"ms":175.51,"p95_ms":175.51,"peak_mb":207.98,"phase":"schematic: first frame (scene build + GPU init)","rss_mb":204.66,"size":500}
+{"cpu_ms":0.67,"fps":671.2,"frames":30,"ms":1.47,"p95_ms":1.87,"peak_mb":208.68,"phase":"schematic: steady frame (cached scene)","rss_mb":208.68,"size":500}
+{"cpu_ms":0.5,"fps":704.1,"frames":40,"ms":1.42,"p95_ms":1.77,"peak_mb":208.93,"phase":"schematic: zoom (wheel ± + frame)","rss_mb":208.93,"size":500}
+{"avg_tessellate_ms":0.0,"frames":40,"ms":0.0,"objects":6920,"phase":"schematic: zoom frames that re-tessellated the scene","rebuilt":0,"size":500,"triangles":15800,"vertices":31600}
+{"cpu_ms":0.67,"fps":724.7,"frames":30,"ms":1.34,"p95_ms":1.62,"peak_mb":208.95,"phase":"schematic: pan (drag + frame)","rss_mb":208.95,"size":500}
+{"cpu_ms":0.0,"fps":264597.5,"frames":40,"ms":0.0,"p95_ms":0.01,"peak_mb":208.95,"phase":"schematic: click selection (pick)","rss_mb":208.95,"size":500}
+{"cpu_ms":2.0,"fps":492.7,"frames":5,"ms":2.1,"p95_ms":2.2,"peak_mb":208.95,"phase":"schematic: box selection of the whole view","rss_mb":208.95,"size":500}
+{"cpu_ms":10.0,"fps":148.9,"frames":1,"ms":6.72,"p95_ms":6.72,"peak_mb":213.4,"phase":"PCB: first frame (scene build)","rss_mb":213.4,"size":500}
+{"cpu_ms":0.33,"fps":689.7,"frames":30,"ms":1.48,"p95_ms":1.77,"peak_mb":213.4,"phase":"PCB: steady frame (cached scene)","rss_mb":213.4,"size":500}
+{"cpu_ms":0.5,"fps":722.4,"frames":40,"ms":1.34,"p95_ms":1.59,"peak_mb":213.4,"phase":"PCB: zoom (wheel ± + frame)","rss_mb":213.4,"size":500}
+{"avg_tessellate_ms":0.0,"frames":40,"ms":0.0,"objects":9497,"phase":"PCB: zoom frames that re-tessellated the scene","rebuilt":0,"size":500,"triangles":95818,"vertices":184978}
+{"cpu_ms":0.67,"fps":723.2,"frames":30,"ms":1.35,"p95_ms":1.57,"peak_mb":213.4,"phase":"PCB: pan (drag + frame)","rss_mb":213.4,"size":500}
+{"cpu_ms":0.0,"fps":126739.9,"frames":40,"ms":0.01,"p95_ms":0.02,"peak_mb":213.4,"phase":"PCB: click selection (pick)","rss_mb":213.4,"size":500}
+{"cpu_ms":2.0,"fps":387.7,"frames":5,"ms":2.57,"p95_ms":2.95,"peak_mb":213.4,"phase":"PCB: box selection of the whole view","rss_mb":213.4,"size":500}
+{"cpu_ms":0.0,"fps":126422.3,"frames":1,"ms":0.01,"p95_ms":0.01,"peak_mb":12.7,"phase":"startup (Workspace::new)","rss_mb":12.5,"size":2000}
+{"cpu_ms":230.0,"fps":4.4,"frames":1,"ms":228.7,"p95_ms":228.7,"peak_mb":243.29,"phase":"schematic: first frame (scene build + GPU init)","rss_mb":240.0,"size":2000}
+{"cpu_ms":0.67,"fps":730.1,"frames":30,"ms":1.29,"p95_ms":1.7,"peak_mb":243.29,"phase":"schematic: steady frame (cached scene)","rss_mb":241.82,"size":2000}
+{"cpu_ms":7.25,"fps":154.1,"frames":40,"ms":6.44,"p95_ms":7.06,"peak_mb":251.5,"phase":"schematic: zoom (wheel ± + frame)","rss_mb":251.5,"size":2000}
+{"avg_tessellate_ms":4.98,"frames":40,"ms":0.0,"objects":27680,"phase":"schematic: zoom frames that re-tessellated the scene","rebuilt":40,"size":2000,"triangles":63200,"vertices":126400}
+{"cpu_ms":0.33,"fps":746.9,"frames":30,"ms":1.29,"p95_ms":1.54,"peak_mb":251.5,"phase":"schematic: pan (drag + frame)","rss_mb":251.5,"size":2000}
+{"cpu_ms":0.0,"fps":68602.0,"frames":40,"ms":0.02,"p95_ms":0.03,"peak_mb":251.5,"phase":"schematic: click selection (pick)","rss_mb":251.5,"size":2000}
+{"cpu_ms":10.0,"fps":108.8,"frames":5,"ms":9.14,"p95_ms":9.37,"peak_mb":251.5,"phase":"schematic: box selection of the whole view","rss_mb":251.5,"size":2000}
+{"cpu_ms":30.0,"fps":54.9,"frames":1,"ms":18.2,"p95_ms":18.2,"peak_mb":256.1,"phase":"PCB: first frame (scene build)","rss_mb":256.1,"size":2000}
+{"cpu_ms":0.33,"fps":763.6,"frames":30,"ms":1.27,"p95_ms":1.49,"peak_mb":256.1,"phase":"PCB: steady frame (cached scene)","rss_mb":256.1,"size":2000}
+{"cpu_ms":21.25,"fps":65.6,"frames":40,"ms":16.39,"p95_ms":24.41,"peak_mb":322.46,"phase":"PCB: zoom (wheel ± + frame)","rss_mb":322.46,"size":2000}
+{"avg_tessellate_ms":13.31,"frames":40,"ms":0.0,"objects":37967,"phase":"PCB: zoom frames that re-tessellated the scene","rebuilt":40,"size":2000,"triangles":150498,"vertices":274358}
+{"cpu_ms":0.33,"fps":759.5,"frames":30,"ms":1.31,"p95_ms":1.42,"peak_mb":322.46,"phase":"PCB: pan (drag + frame)","rss_mb":322.46,"size":2000}
+{"cpu_ms":0.0,"fps":46130.8,"frames":40,"ms":0.03,"p95_ms":0.05,"peak_mb":322.46,"phase":"PCB: click selection (pick)","rss_mb":322.46,"size":2000}
+{"cpu_ms":12.0,"fps":81.8,"frames":5,"ms":11.96,"p95_ms":12.72,"peak_mb":322.46,"phase":"PCB: box selection of the whole view","rss_mb":322.46,"size":2000}
+{"cpu_ms":0.0,"fps":129735.3,"frames":1,"ms":0.01,"p95_ms":0.01,"peak_mb":26.43,"phase":"startup (Workspace::new)","rss_mb":24.48,"size":5000}
+{"cpu_ms":420.0,"fps":2.4,"frames":1,"ms":412.15,"p95_ms":412.15,"peak_mb":312.31,"phase":"schematic: first frame (scene build + GPU init)","rss_mb":312.31,"size":5000}
+{"cpu_ms":0.67,"fps":544.0,"frames":30,"ms":1.74,"p95_ms":3.68,"peak_mb":312.34,"phase":"schematic: steady frame (cached scene)","rss_mb":312.34,"size":5000}
+{"cpu_ms":19.5,"fps":63.7,"frames":40,"ms":15.47,"p95_ms":18.52,"peak_mb":333.94,"phase":"schematic: zoom (wheel ± + frame)","rss_mb":333.94,"size":5000}
+{"avg_tessellate_ms":13.86,"frames":40,"ms":0.0,"objects":69200,"phase":"schematic: zoom frames that re-tessellated the scene","rebuilt":40,"size":5000,"triangles":158000,"vertices":316000}
+{"cpu_ms":0.67,"fps":592.5,"frames":30,"ms":1.64,"p95_ms":2.04,"peak_mb":333.94,"phase":"schematic: pan (drag + frame)","rss_mb":333.94,"size":5000}
+{"cpu_ms":0.0,"fps":25986.5,"frames":40,"ms":0.05,"p95_ms":0.07,"peak_mb":333.94,"phase":"schematic: click selection (pick)","rss_mb":333.94,"size":5000}
+{"cpu_ms":24.0,"fps":40.1,"frames":5,"ms":24.59,"p95_ms":26.32,"peak_mb":333.94,"phase":"schematic: box selection of the whole view","rss_mb":333.94,"size":5000}
+{"cpu_ms":60.0,"fps":23.1,"frames":1,"ms":43.27,"p95_ms":43.27,"peak_mb":344.92,"phase":"PCB: first frame (scene build)","rss_mb":337.84,"size":5000}
+{"cpu_ms":0.33,"fps":677.7,"frames":30,"ms":1.44,"p95_ms":1.68,"peak_mb":344.92,"phase":"PCB: steady frame (cached scene)","rss_mb":337.84,"size":5000}
+{"cpu_ms":40.75,"fps":35.6,"frames":40,"ms":27.31,"p95_ms":33.73,"peak_mb":362.8,"phase":"PCB: zoom (wheel ± + frame)","rss_mb":362.8,"size":5000}
+{"avg_tessellate_ms":25.76,"frames":40,"ms":0.0,"objects":94907,"phase":"PCB: zoom frames that re-tessellated the scene","rebuilt":40,"size":5000,"triangles":376218,"vertices":685838}
+{"cpu_ms":0.67,"fps":555.6,"frames":30,"ms":1.77,"p95_ms":2.02,"peak_mb":362.8,"phase":"PCB: pan (drag + frame)","rss_mb":362.8,"size":5000}
+{"cpu_ms":0.0,"fps":32382.5,"frames":40,"ms":0.0,"p95_ms":0.16,"peak_mb":362.8,"phase":"PCB: click selection (pick)","rss_mb":362.8,"size":5000}
+{"cpu_ms":32.0,"fps":31.7,"frames":5,"ms":31.55,"p95_ms":31.61,"peak_mb":362.8,"phase":"PCB: box selection of the whole view","rss_mb":362.8,"size":5000}

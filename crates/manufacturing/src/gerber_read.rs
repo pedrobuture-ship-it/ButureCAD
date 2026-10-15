@@ -12,6 +12,9 @@ use std::f64::consts::PI;
 /// A point in nm.
 pub type P = [i64; 2];
 
+/// Coordinates and sizes beyond ±1000 m are not a circuit board: refused instead of overflowing.
+pub const MAX_NM: i64 = 1_000_000_000_000;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ApShape {
     Circle {
@@ -104,14 +107,14 @@ impl Image {
             match p {
                 Prim::Flash { ap, at, .. } => {
                     let (hw, hh) = half_extent(ap);
-                    add(at[0] - hw, at[1] - hh);
-                    add(at[0] + hw, at[1] + hh);
+                    add(at[0].saturating_sub(hw), at[1].saturating_sub(hh));
+                    add(at[0].saturating_add(hw), at[1].saturating_add(hh));
                 }
                 Prim::Stroke { a, b, ap, .. } => {
                     let (hw, hh) = half_extent(ap);
                     for q in [a, b] {
-                        add(q[0] - hw, q[1] - hh);
-                        add(q[0] + hw, q[1] + hh);
+                        add(q[0].saturating_sub(hw), q[1].saturating_sub(hh));
+                        add(q[0].saturating_add(hw), q[1].saturating_add(hh));
                     }
                 }
                 Prim::Region { contours, .. } => {
@@ -144,14 +147,17 @@ impl Fmt {
         let num = i128::from(v) * if self.mm { 1_000_000 } else { 25_400_000 };
         let den = 10i128.pow(self.dec);
         let q = (num.abs() + den / 2) / den;
-        (if num < 0 { -q } else { q }) as i64
+        let v = if num < 0 { -q } else { q };
+        // Out-of-range values are caught by the caller (`MAX_NM`), never wrapped.
+        i64::try_from(v).unwrap_or(if v < 0 { i64::MIN / 4 } else { i64::MAX / 4 })
     }
 }
 
 /// mm/inch decimal number text → nm.
 fn dim(s: &str, mm: bool) -> Option<i64> {
     let v: f64 = s.trim().parse().ok()?;
-    Some((v * if mm { 1e6 } else { 25.4e6 }).round() as i64)
+    let nm = (v * if mm { 1e6 } else { 25.4e6 }).round();
+    (nm.abs() <= MAX_NM as f64).then_some(nm as i64)
 }
 
 fn parse_ap(def: &str, mm: bool) -> ApShape {
@@ -468,6 +474,14 @@ pub fn parse(text: &str) -> Result<Image, GerberError> {
             nx.map_or(pos[0], |v| f.nm(v)),
             ny.map_or(pos[1], |v| f.nm(v)),
         ];
+        if target.iter().any(|v| v.abs() > MAX_NM)
+            || f.nm(ci).abs() > MAX_NM
+            || f.nm(cj).abs() > MAX_NM
+        {
+            return Err(err(
+                "coordinate out of range (more than 1000 m from the origin)",
+            ));
+        }
         let d = explicit_d.unwrap_or(last_d);
         last_d = d;
         match d {
@@ -622,6 +636,21 @@ mod tests {
         };
         let r = ((mid[0] as f64).hypot(mid[1] as f64) - 25_400_000.0).abs();
         assert!(r < 2_000.0, "{r}");
+    }
+
+    #[test]
+    fn absurd_coordinates_are_errors_not_overflows() {
+        // Found by fuzzing: coordinates near i64::MAX overflowed the bounds arithmetic.
+        let head = "%FSLAX46Y46*%\n%MOMM*%\n%ADD10C,1.0*%\nD10*\n";
+        assert!(parse(&format!("{head}X99999999999999999Y0D03*\nM02*")).is_err());
+        assert!(parse(&format!(
+            "{head}X0Y0D02*\nG75*\nG03*\nX1Y1I99999999999999999J0D01*\nM02*"
+        ))
+        .is_err());
+        assert!(parse(
+            "%FSLAX46Y46*%\n%MOMM*%\n%ADD10C,99999999999999999999*%\nD10*\nX0Y0D03*\nM02*"
+        )
+        .is_ok());
     }
 
     #[test]

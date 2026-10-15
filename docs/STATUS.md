@@ -2,7 +2,7 @@
 
 *Checkpoint note (after stage 34): workspace compiles, `fmt`/`clippy -D warnings` clean, 637 Rust tests and 21 frontend tests pass, a search for TODO/FIXME/mock/placeholder/temporary/fake/stub found only documented items (`builtin.rs` bootstrap symbols, UI input placeholders). The e2e screenshot scenarios (`apps/desktop/e2e`) were not re-run for stages 28–34.*
 
-*Checkpoint after roadmap stages 01–26; stages 27–43 added after it. Everything below is implemented, tested and used by the
+*Checkpoint after roadmap stages 01–26; stages 27–45 added after it. Everything below is implemented, tested and used by the
 desktop app; limits are stated in the sections that follow.*
 
 - **Foundation:** Cargo workspace, Tauri 2 + React + TypeScript shell, CI (fmt, clippy `-D warnings`, tests, generated TS bindings, frontend check/build), proprietary licence (all rights reserved).
@@ -45,6 +45,7 @@ desktop app; limits are stated in the sections that follow.*
 - **Layer stack** (roadmap 26): physical stack model (copper/dielectric thickness, material, core/prepreg, εr/tan δ, solder mask, flex flag), Layer Stack Manager with built-in templates (2/4/6/8 layers, HDI, rigid-flex) and local presets (`*.bstack.json`), inner-layer exchange, one undo step; PCB schema 8. See `docs/stackup.md`.
 
 - **3D viewer** (roadmap 27): decoupled `buturecad-viewer3d` (model → mesh → software rasteriser, orbit/pan/zoom, perspective/orthographic); substrate, solder mask, copper, pads, vias, zone fills, silkscreen and component boxes; follows every PCB edit/undo; layer toggles and preset views. Component 3D models are referenced but not parsed (stage 28). See `docs/viewer3d.md`.
+- **Performance and robustness** (roadmap 44–45): benchmark suite and measured fixes (build of a 5000-part design 1.7 s → 0.16 s, PCB zoom at 5000 parts 84 → 27 ms; see `benchmarks/README.md`); fuzzing of every parser, property tests for DRC/ERC, crash-safe project saving with an interrupted-save marker and fault injection (`docs/robustness.md`).
 - **Agent protocol and importers** (roadmap 42–43): JSON-RPC 2.0 over stdio (`buturecad agent serve`, MCP-shaped tools; Rust/TypeScript/Python examples run in tests) with human-only apply; modular importers (SPICE netlist, KiCad netlist) with an Import Report whose accounting is enforced. See `docs/agent-api/protocol.md`, `docs/import.md`.
 - **Agent API and AI Workspace** (roadmap 40–41): agents read, analyse and propose; proposals are validated on a copy with a state diff and ERC/DRC comparison; only the user's Apply (one undo step) changes the project; everything is audited. No model ships. See `docs/agent-api/README.md`.
 - **CLI and headless core** (roadmap 38–39): `buturecad build/check/erc/drc/export-gerber/export-bom/inspect` with `--json` and exit codes; the whole script → Gerber flow runs with no GUI crate (tested, `scripts/headless-ci.sh`). See `docs/cli.md`.

@@ -365,18 +365,100 @@ pub fn triangulate(v: &[Point]) -> Vec<[usize; 3]> {
     out
 }
 
-/// Meshes for every visible object, in layer order (higher layer ids last = on top).
-pub fn tessellate_scene(scene: &Scene, scale: f64, origin: (f64, f64)) -> Mesh {
+/// Below this many shapes the thread start-up costs more than it saves.
+const PARALLEL_MIN: usize = 4000;
+const MAX_THREADS: usize = 8;
+
+impl Mesh {
+    /// Appends `other` (same origin), re-basing its indices.
+    fn append(&mut self, other: Mesh) {
+        let base = self.vertices.len() as u32;
+        self.vertices.extend(other.vertices);
+        self.indices
+            .extend(other.indices.into_iter().map(|i| i + base));
+    }
+}
+
+fn tessellate_chunk(shapes: &[(&Shape, Rgba)], scale: f64, origin: (f64, f64)) -> Mesh {
     let mut b = MeshBuilder::new(origin, scale);
+    for (shape, color) in shapes {
+        b.shape(shape, *color);
+    }
+    b.finish()
+}
+
+/// Tessellates `shapes` in order. With `threads > 1` the list is cut into consecutive chunks that
+/// are meshed in parallel and appended in the same order, so the result is **identical** to the
+/// single-threaded one (same vertices, same indices, same draw order).
+fn tessellate_ordered(
+    shapes: &[(&Shape, Rgba)],
+    scale: f64,
+    origin: (f64, f64),
+    threads: usize,
+) -> Mesh {
+    if threads <= 1 || shapes.len() < PARALLEL_MIN {
+        return tessellate_chunk(shapes, scale, origin);
+    }
+    let per = shapes.len().div_ceil(threads);
+    let parts: Vec<Mesh> = std::thread::scope(|sc| {
+        let handles: Vec<_> = shapes
+            .chunks(per)
+            .map(|c| sc.spawn(move || tessellate_chunk(c, scale, origin)))
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join().unwrap_or_else(|_| Mesh {
+                    origin,
+                    ..Mesh::default()
+                })
+            })
+            .collect()
+    });
+    let mut out = Mesh {
+        origin,
+        ..Mesh::default()
+    };
+    out.vertices
+        .reserve(parts.iter().map(|p| p.vertices.len()).sum());
+    out.indices
+        .reserve(parts.iter().map(|p| p.indices.len()).sum());
+    for p in parts {
+        out.append(p);
+    }
+    out
+}
+
+fn ordered_shapes(scene: &Scene) -> Vec<(&Shape, Rgba)> {
+    // One pass over the items (the old code scanned every item once per layer).
+    let mut by_layer: std::collections::BTreeMap<crate::scene::LayerId, Vec<&crate::scene::Item>> =
+        std::collections::BTreeMap::new();
+    for (_, item) in scene.items() {
+        by_layer.entry(item.layer).or_default().push(item);
+    }
+    let mut out = Vec::new();
     for (layer_id, layer) in scene.layers() {
         if !layer.visible || layer.hit_only {
             continue;
         }
-        for (_, item) in scene.items().filter(|(_, i)| i.layer == layer_id) {
-            b.shape(&item.shape, scene.color_of(item));
+        for item in by_layer.get(&layer_id).into_iter().flatten() {
+            out.push((&item.shape, scene.color_of(item)));
         }
     }
-    b.finish()
+    out
+}
+
+/// Meshes for every visible object, in layer order (higher layer ids last = on top).
+pub fn tessellate_scene(scene: &Scene, scale: f64, origin: (f64, f64)) -> Mesh {
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |n| n.get())
+        .min(MAX_THREADS);
+    tessellate_ordered(&ordered_shapes(scene), scale, origin, threads)
+}
+
+/// Single-threaded reference, kept for tests and benchmarks.
+pub fn tessellate_scene_serial(scene: &Scene, scale: f64, origin: (f64, f64)) -> Mesh {
+    tessellate_ordered(&ordered_shapes(scene), scale, origin, 1)
 }
 
 #[cfg(test)]
@@ -526,6 +608,55 @@ mod tests {
         assert_eq!(reds.first(), Some(&10), "lower layer first");
         assert_eq!(reds.last(), Some(&20));
         assert!(!reds.contains(&30));
+    }
+
+    #[test]
+    fn parallel_tessellation_is_identical_to_serial() {
+        let mut scene = Scene::new();
+        scene.set_layer(LayerId(1), Layer::new("a", Rgba::rgb(200, 0, 0)));
+        scene.set_layer(LayerId(2), Layer::new("b", Rgba::rgb(0, 200, 0)));
+        for i in 0..9000i64 {
+            let p = |k: i64| Point::new((i % 100) * 1_000_000 + k, (i / 100) * 1_000_000 + k);
+            let shape = match i % 4 {
+                0 => Shape::Line {
+                    segment: Segment::new(p(0), p(500_000)),
+                    width: 100_000,
+                },
+                1 => Shape::Circle {
+                    circle: Circle {
+                        center: p(0),
+                        radius: 200_000,
+                    },
+                    filled: true,
+                    stroke: 0,
+                },
+                2 => Shape::Polygon {
+                    polygon: Polygon::new(vec![p(0), p(400_000), Point::new(p(0).x, p(400_000).y)])
+                        .unwrap(),
+                    filled: true,
+                    stroke: 0,
+                },
+                _ => Shape::Text {
+                    origin: p(0),
+                    height: 300_000,
+                    text: "R1".into(),
+                },
+            };
+            scene.insert(
+                ObjectId(i as u64),
+                Item {
+                    layer: LayerId(1 + (i % 2) as u16),
+                    shape,
+                    color: None,
+                },
+            );
+        }
+        let (par, ser) = (
+            tessellate_scene(&scene, 1e-5, (0.0, 0.0)),
+            tessellate_scene_serial(&scene, 1e-5, (0.0, 0.0)),
+        );
+        assert!(ser.vertices.len() > 10_000, "{}", ser.vertices.len());
+        assert_eq!((par.vertices, par.indices), (ser.vertices, ser.indices));
     }
 
     #[test]

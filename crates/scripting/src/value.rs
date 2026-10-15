@@ -116,8 +116,8 @@ pub fn to_nm(q: Qty) -> Result<i64, String> {
             q.v
         ));
     }
-    if r.abs() > 1e12 {
-        return Err("length is out of range (±1 m)".into());
+    if r.abs() > 1_073_741_824.0 {
+        return Err("length is out of range (the core's coordinates stop at ±1073 mm)".into());
     }
     Ok(r as i64)
 }

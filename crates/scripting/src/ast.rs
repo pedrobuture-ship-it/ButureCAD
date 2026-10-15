@@ -25,6 +25,23 @@ pub enum Op {
 pub struct Expr {
     pub kind: ExprKind,
     pub span: Span,
+    /// Height of the expression tree (a leaf is 1). The parser refuses deep trees, so evaluation
+    /// and dropping never recurse far.
+    pub depth: u32,
+}
+
+impl Expr {
+    pub fn new(kind: ExprKind, span: Span) -> Self {
+        let depth = 1 + match &kind {
+            ExprKind::Unary(_, x) => x.depth,
+            ExprKind::Binary(_, a, b) => a.depth.max(b.depth),
+            ExprKind::Call(_, v) | ExprKind::Tuple(v) | ExprKind::List(v) => {
+                v.iter().map(|e| e.depth).max().unwrap_or(0)
+            }
+            _ => 0,
+        };
+        Self { kind, span, depth }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

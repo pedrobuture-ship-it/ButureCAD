@@ -115,7 +115,9 @@ impl Importer for SpiceNetlist {
                     ".subckt" => in_subckt = Some((toks.get(1).cloned().unwrap_or_else(|| "?".into()), 1)),
                     ".model" => match toks.get(1) {
                         Some(name) => {
-                            models.insert(name.to_ascii_lowercase(), (line.to_owned(), false));
+                            if models.insert(name.to_ascii_lowercase(), (line.to_owned(), false)).is_some() {
+                                r.ignored("model", name, "defined earlier too; the later definition is used", 1);
+                            }
                         }
                         None => {
                             r.error(format!("line {ln}: .model without a name"));
@@ -357,6 +359,25 @@ mod tests {
             r.warnings.iter().any(|w| w.contains("spice_extra"))
                 && r.warnings.iter().any(|w| w.contains("footprints"))
         );
+    }
+
+    #[test]
+    fn a_model_defined_twice_is_not_silently_dropped() {
+        // Found by fuzzing: the first definition used to vanish without a trace.
+        let o = SpiceNetlist.import(
+            "t\nD1 a 0 M\n.model M D(IS=1e-9)\n.model M D(IS=2e-9)\n.end\n",
+            "d.cir",
+        );
+        assert!(
+            o.report
+                .ignored
+                .iter()
+                .any(|i| i.kind == "model" && i.detail.contains("defined earlier")),
+            "{}",
+            o.report.text()
+        );
+        assert_eq!(o.report.accounted(), o.report.records_seen);
+        assert!(o.design.unwrap().components[0].properties["Spice_Model"].contains("2e-9"));
     }
 
     #[test]

@@ -1,0 +1,52 @@
+{"cpu_ms":0.0,"ms":1.24,"peak_mb":4.43,"phase":"script compile (lex+parse+elaborate)","reps":3,"rss_mb":4.43,"size":100}
+{"cpu_ms":0.0,"ms":2.09,"peak_mb":6.42,"phase":"build project (apply IR + PCB sync + zone fill)","reps":1,"rss_mb":6.42,"size":100}
+{"cpu_ms":3.33,"ms":2.69,"peak_mb":8.21,"phase":"save project (atomic, with backup)","reps":3,"rss_mb":8.21,"size":100}
+{"cpu_ms":0.0,"ms":1.16,"peak_mb":8.39,"phase":"load project (parse + validate)","reps":3,"rss_mb":8.39,"size":100}
+{"cpu_ms":0.0,"ms":0.23,"peak_mb":8.4,"phase":"schematic connectivity","reps":3,"rss_mb":8.4,"size":100}
+{"cpu_ms":0.0,"ms":0.17,"peak_mb":8.59,"phase":"ERC","reps":3,"rss_mb":8.59,"size":100}
+{"cpu_ms":0.0,"ms":0.8,"peak_mb":8.59,"phase":"DRC","reps":1,"rss_mb":8.59,"size":100}
+{"cpu_ms":0.0,"ms":0.08,"peak_mb":8.59,"phase":"ratsnest (full)","reps":3,"rss_mb":8.59,"size":100}
+{"cpu_ms":0.0,"ms":0.01,"peak_mb":8.59,"phase":"ratsnest (move one footprint, incremental)","reps":5,"rss_mb":8.59,"size":100}
+{"cpu_ms":0.0,"ms":0.97,"peak_mb":8.59,"phase":"zone refill (all zones)","reps":1,"rss_mb":8.59,"size":100}
+{"cpu_ms":3.33,"ms":0.87,"peak_mb":8.59,"phase":"router obstacle collection","reps":3,"rss_mb":8.59,"size":100}
+{"cpu_ms":520.0,"ms":520.24,"peak_mb":8.59,"phase":"router walk-around (20 routes)","reps":1,"rss_mb":8.59,"size":100}
+{"cpu_ms":0.0,"ms":1.42,"peak_mb":8.77,"phase":"manufacturing (preflight + Gerber + drill + BOM + zip)","reps":1,"rss_mb":8.77,"size":100}
+{"cpu_ms":3.33,"ms":5.82,"peak_mb":6.79,"phase":"script compile (lex+parse+elaborate)","reps":3,"rss_mb":6.79,"size":500}
+{"cpu_ms":10.0,"ms":9.78,"peak_mb":10.56,"phase":"build project (apply IR + PCB sync + zone fill)","reps":1,"rss_mb":10.56,"size":500}
+{"cpu_ms":10.0,"ms":11.9,"peak_mb":16.28,"phase":"save project (atomic, with backup)","reps":3,"rss_mb":16.28,"size":500}
+{"cpu_ms":3.33,"ms":5.2,"peak_mb":16.9,"phase":"load project (parse + validate)","reps":3,"rss_mb":16.9,"size":500}
+{"cpu_ms":0.0,"ms":1.12,"peak_mb":16.9,"phase":"schematic connectivity","reps":3,"rss_mb":16.9,"size":500}
+{"cpu_ms":3.33,"ms":0.95,"peak_mb":17.15,"phase":"ERC","reps":3,"rss_mb":17.15,"size":500}
+{"cpu_ms":0.0,"ms":5.18,"peak_mb":17.15,"phase":"DRC","reps":1,"rss_mb":17.15,"size":500}
+{"cpu_ms":0.0,"ms":0.42,"peak_mb":17.15,"phase":"ratsnest (full)","reps":3,"rss_mb":17.15,"size":500}
+{"cpu_ms":0.0,"ms":0.04,"peak_mb":17.15,"phase":"ratsnest (move one footprint, incremental)","reps":5,"rss_mb":17.15,"size":500}
+{"cpu_ms":10.0,"ms":3.76,"peak_mb":17.15,"phase":"zone refill (all zones)","reps":1,"rss_mb":17.15,"size":500}
+{"cpu_ms":3.33,"ms":4.18,"peak_mb":17.15,"phase":"router obstacle collection","reps":3,"rss_mb":17.15,"size":500}
+{"cpu_ms":90.0,"ms":91.67,"peak_mb":17.15,"phase":"router walk-around (20 routes)","reps":1,"rss_mb":17.15,"size":500}
+{"cpu_ms":10.0,"ms":8.04,"peak_mb":17.63,"phase":"manufacturing (preflight + Gerber + drill + BOM + zip)","reps":1,"rss_mb":17.63,"size":500}
+{"cpu_ms":20.0,"ms":25.61,"peak_mb":12.11,"phase":"script compile (lex+parse+elaborate)","reps":1,"rss_mb":11.67,"size":2000}
+{"cpu_ms":40.0,"ms":43.8,"peak_mb":26.39,"phase":"build project (apply IR + PCB sync + zone fill)","reps":1,"rss_mb":26.39,"size":2000}
+{"cpu_ms":10.0,"ms":6.39,"peak_mb":29.86,"phase":"save project (atomic, with backup)","reps":1,"rss_mb":29.86,"size":2000}
+{"cpu_ms":20.0,"ms":26.98,"peak_mb":42.57,"phase":"load project (parse + validate)","reps":1,"rss_mb":42.57,"size":2000}
+{"cpu_ms":10.0,"ms":5.83,"peak_mb":42.57,"phase":"schematic connectivity","reps":1,"rss_mb":42.57,"size":2000}
+{"cpu_ms":0.0,"ms":4.64,"peak_mb":42.82,"phase":"ERC","reps":1,"rss_mb":42.82,"size":2000}
+{"cpu_ms":40.0,"ms":37.03,"peak_mb":42.89,"phase":"DRC","reps":1,"rss_mb":42.89,"size":2000}
+{"cpu_ms":0.0,"ms":2.07,"peak_mb":42.89,"phase":"ratsnest (full)","reps":1,"rss_mb":42.89,"size":2000}
+{"cpu_ms":0.0,"ms":0.16,"peak_mb":42.89,"phase":"ratsnest (move one footprint, incremental)","reps":5,"rss_mb":42.89,"size":2000}
+{"cpu_ms":20.0,"ms":19.73,"peak_mb":42.89,"phase":"zone refill (all zones)","reps":1,"rss_mb":42.89,"size":2000}
+{"cpu_ms":20.0,"ms":17.48,"peak_mb":42.89,"phase":"router obstacle collection","reps":1,"rss_mb":42.89,"size":2000}
+{"cpu_ms":90.0,"ms":91.31,"peak_mb":42.89,"phase":"router walk-around (20 routes)","reps":1,"rss_mb":42.89,"size":2000}
+{"cpu_ms":50.0,"ms":49.39,"peak_mb":45.24,"phase":"manufacturing (preflight + Gerber + drill + BOM + zip)","reps":1,"rss_mb":45.24,"size":2000}
+{"cpu_ms":60.0,"ms":65.47,"peak_mb":25.94,"phase":"script compile (lex+parse+elaborate)","reps":1,"rss_mb":23.67,"size":5000}
+{"cpu_ms":150.0,"ms":161.78,"peak_mb":59.09,"phase":"build project (apply IR + PCB sync + zone fill)","reps":1,"rss_mb":59.09,"size":5000}
+{"cpu_ms":20.0,"ms":16.9,"peak_mb":70.21,"phase":"save project (atomic, with backup)","reps":1,"rss_mb":64.21,"size":5000}
+{"cpu_ms":60.0,"ms":72.65,"peak_mb":99.2,"phase":"load project (parse + validate)","reps":1,"rss_mb":99.2,"size":5000}
+{"cpu_ms":20.0,"ms":20.16,"peak_mb":99.2,"phase":"schematic connectivity","reps":1,"rss_mb":99.2,"size":5000}
+{"cpu_ms":20.0,"ms":18.83,"peak_mb":99.38,"phase":"ERC","reps":1,"rss_mb":99.38,"size":5000}
+{"cpu_ms":160.0,"ms":166.25,"peak_mb":99.38,"phase":"DRC","reps":1,"rss_mb":99.38,"size":5000}
+{"cpu_ms":10.0,"ms":5.89,"peak_mb":99.38,"phase":"ratsnest (full)","reps":1,"rss_mb":99.38,"size":5000}
+{"cpu_ms":0.0,"ms":0.39,"peak_mb":99.38,"phase":"ratsnest (move one footprint, incremental)","reps":5,"rss_mb":99.38,"size":5000}
+{"cpu_ms":90.0,"ms":90.58,"peak_mb":99.38,"phase":"zone refill (all zones)","reps":1,"rss_mb":99.38,"size":5000}
+{"cpu_ms":40.0,"ms":45.24,"peak_mb":99.38,"phase":"router obstacle collection","reps":1,"rss_mb":99.38,"size":5000}
+{"cpu_ms":110.0,"ms":103.38,"peak_mb":99.38,"phase":"router walk-around (20 routes)","reps":1,"rss_mb":99.38,"size":5000}
+{"cpu_ms":200.0,"ms":202.25,"peak_mb":108.06,"phase":"manufacturing (preflight + Gerber + drill + BOM + zip)","reps":1,"rss_mb":108.06,"size":5000}

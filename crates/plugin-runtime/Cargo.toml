@@ -19,5 +19,6 @@ buturecad-io = { path = "../io" }
 wasmi = { version = "2.0.0", default-features = false, features = ["stable", "std", "validate", "portable-dispatch"] }
 
 [dev-dependencies]
+buturecad-testkit = { path = "../testkit" }
 tempfile = "3"
 wat = "1.262.0"

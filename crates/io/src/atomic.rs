@@ -1,9 +1,69 @@
 //! Crash-safe file replacement.
 
 use crate::error::{IoError, Result};
+use std::cell::Cell;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::Path;
+
+/// Crash simulation for tests. A real crash stops the process at an arbitrary point and cleans
+/// nothing up; this hook reproduces that: when it fires, [`atomic_write`] returns an error at the
+/// chosen point and leaves its temporary file behind exactly as a dead process would.
+///
+/// It is thread-local, costs one `Cell` read per write when unused, and is not meant for
+/// application code.
+pub mod fault {
+    use super::Cell;
+
+    /// Where in `atomic_write` the simulated crash happens.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Stage {
+        /// Before the temporary file exists.
+        BeforeWrite,
+        /// Half of the content is in the temporary file.
+        PartialWrite,
+        /// The temporary file is complete and synced, but not renamed over the target.
+        AfterWrite,
+        /// Renamed over the target, directory not yet synced (the write is already visible).
+        AfterRename,
+    }
+
+    thread_local! {
+        static PLAN: Cell<Option<(Stage, usize)>> = const { Cell::new(None) };
+        static CRASHED: Cell<bool> = const { Cell::new(false) };
+    }
+
+    /// The `(skip + 1)`-th write that reaches `stage` on this thread "crashes".
+    pub fn inject(stage: Stage, skip: usize) {
+        PLAN.with(|p| p.set(Some((stage, skip))));
+        CRASHED.with(|c| c.set(false));
+    }
+
+    pub fn clear() {
+        PLAN.with(|p| p.set(None));
+        CRASHED.with(|c| c.set(false));
+    }
+
+    /// Has a simulated crash fired since the last `inject`?
+    pub fn fired() -> bool {
+        CRASHED.with(Cell::get)
+    }
+
+    pub(super) fn hit(stage: Stage) -> std::io::Result<()> {
+        PLAN.with(|p| match p.get() {
+            Some((s, 0)) if s == stage => {
+                p.set(None);
+                CRASHED.with(|c| c.set(true));
+                Err(std::io::Error::other("simulated crash"))
+            }
+            Some((s, n)) if s == stage => {
+                p.set(Some((s, n - 1)));
+                Ok(())
+            }
+            _ => Ok(()),
+        })
+    }
+}
 
 /// Writes `bytes` to `path` so that readers (and a crash at any point) see either the
 /// complete old content or the complete new content, never a mix.
@@ -21,18 +81,29 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let tmp = dir.join(format!(".{file_name}.{}.tmp", std::process::id()));
 
     let write = || -> std::io::Result<()> {
+        fault::hit(fault::Stage::BeforeWrite)?;
         let mut f = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .open(&tmp)?;
+        if fault::hit(fault::Stage::PartialWrite).is_err() {
+            f.write_all(&bytes[..bytes.len() / 2])?;
+            f.sync_all()?;
+            return Err(std::io::Error::other("simulated crash"));
+        }
         f.write_all(bytes)?;
         f.sync_all()?;
+        fault::hit(fault::Stage::AfterWrite)?;
         fs::rename(&tmp, path)?;
+        fault::hit(fault::Stage::AfterRename)?;
         sync_dir(dir)
     };
     write().map_err(|e| {
-        let _ = fs::remove_file(&tmp);
+        // A simulated crash leaves its temporary file behind, like a dead process would.
+        if !fault::fired() {
+            let _ = fs::remove_file(&tmp);
+        }
         IoError::fs("atomic write failed", path, e)
     })
 }

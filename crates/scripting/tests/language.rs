@@ -300,3 +300,48 @@ fn applying_to_a_used_project_or_with_unknown_pieces_fails_cleanly() {
     let b = build("component R1 { value = \"1\" footprint = \"mystery\" }\ncomponent R2 { value = \"1\" footprint = \"0402\" }\nconnect R1.1 -> R2.1", &opts(), None).unwrap();
     assert!(!b.report.warnings.is_empty(), "{:?}", b.report);
 }
+
+/// Regressions found by the stage-44 benchmarks: automatic layouts used to run out of coordinate
+/// range at about 500 schematic parts and about 2000 board footprints.
+#[test]
+fn large_designs_stay_inside_the_coordinate_range() {
+    for n in [520usize, 2100] {
+        let src = format!(
+            "for i in 0..{n} {{ component R[i] {{ value = \"1k\" footprint = \"0603\" }} }}"
+        );
+        let b = build(&src, &opts(), None).unwrap_or_else(|e| panic!("{n} components: {e:?}"));
+        assert_eq!(b.engine.project().pcb().placed.len(), n);
+        let max = b
+            .engine
+            .project()
+            .pcb()
+            .placed
+            .values()
+            .map(|f| {
+                f.placement
+                    .position
+                    .x
+                    .abs()
+                    .max(f.placement.position.y.abs())
+            })
+            .max()
+            .unwrap();
+        assert!(max < 1 << 30, "footprints stay inside ±1.07 m ({max})");
+    }
+}
+
+#[test]
+fn absurd_coordinates_are_refused_not_overflowed() {
+    for bad in [
+        "board { outline = rect(0mm, 0mm, 5000mm, 10mm) }",
+        "component R1 { value = \"1\" footprint = \"0603\" }\nplace R1 at (2000mm, 0mm)",
+    ] {
+        assert!(
+            errors(bad)
+                .iter()
+                .any(|m| m.contains("out of range") || m.contains("range")),
+            "{bad}: {:?}",
+            errors(bad)
+        );
+    }
+}

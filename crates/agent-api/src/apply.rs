@@ -16,6 +16,22 @@ use buturecad_schematic::{Change, Component, Connectivity, Object, Placement};
 
 const G: i64 = 1_270_000;
 
+/// Every length from outside must lie inside the core's coordinate range (±2^30 nm ≈ ±1.07 m);
+/// anything else would overflow geometry arithmetic.
+fn coord(v: i64, what: &str) -> Result<i64, String> {
+    if v.unsigned_abs() > buturecad_geometry::MAX_COORD as u64 {
+        Err(format!(
+            "{what}: {v} nm is outside the supported range of ±1073 mm"
+        ))
+    } else {
+        Ok(v)
+    }
+}
+
+fn point_ok(p: [i64; 2], what: &str) -> Result<Point, String> {
+    Ok(Point::new(coord(p[0], what)?, coord(p[1], what)?))
+}
+
 fn find_component(engine: &CommandEngine, reference: &str) -> Result<(Id, Component), String> {
     for sheet in engine.project().schematic().sheets().values() {
         for (id, o) in &sheet.objects {
@@ -240,13 +256,14 @@ pub fn perform(engine: &mut CommandEngine, action: &Action) -> Result<String, St
             if rotation_deg.rem_euclid(90) != 0 {
                 return Err("rotation must be a multiple of 90°".into());
             }
+            let (x, y) = (coord(*x, "place x")?, coord(*y, "place y")?);
             let id = footprint_id(engine, reference)?;
             let before = engine.project().pcb().placed[&id].clone();
             if before.locked {
                 return Err(format!("{reference} is locked"));
             }
             let mut after = before.clone();
-            after.placement.position = Point::new(*x, *y);
+            after.placement.position = Point::new(x, y);
             after.placement.rotation = (rotation_deg.rem_euclid(360) / 90) as u8;
             after.placement.flipped = *bottom;
             engine
@@ -269,8 +286,22 @@ pub fn perform(engine: &mut CommandEngine, action: &Action) -> Result<String, St
             }
             let mut after = before.clone();
             after.placement.position = Point::new(
-                before.placement.position.x + dx,
-                before.placement.position.y + dy,
+                coord(
+                    before
+                        .placement
+                        .position
+                        .x
+                        .saturating_add(coord(*dx, "move dx")?),
+                    "moved x",
+                )?,
+                coord(
+                    before
+                        .placement
+                        .position
+                        .y
+                        .saturating_add(coord(*dy, "move dy")?),
+                    "moved y",
+                )?,
             );
             engine
                 .execute(PcbEditCommand::new(
@@ -292,6 +323,10 @@ pub fn perform(engine: &mut CommandEngine, action: &Action) -> Result<String, St
         } => {
             if points.len() < 2 || *width <= 0 {
                 return Err("a route needs at least two points and a positive width".into());
+            }
+            coord(*width, "route width")?;
+            for p in points {
+                point_ok(*p, "route point")?;
             }
             let nid = net_id(engine, net)?;
             let l = layer_by_name(&engine.project().pcb().stackup, layer)
@@ -331,6 +366,8 @@ pub fn perform(engine: &mut CommandEngine, action: &Action) -> Result<String, St
             if *drill <= 0 || diameter <= drill {
                 return Err("a via needs 0 < drill < diameter".into());
             }
+            point_ok([*x, *y], "via position")?;
+            coord(*diameter, "via diameter")?;
             let nid = net_id(engine, net)?;
             let id = engine.new_id();
             engine
@@ -359,6 +396,12 @@ pub fn perform(engine: &mut CommandEngine, action: &Action) -> Result<String, St
         } => {
             if outline.len() < 3 {
                 return Err("a zone outline needs at least 3 points".into());
+            }
+            for p in outline {
+                point_ok(*p, "zone outline")?;
+            }
+            for v in [clearance, min_width].into_iter().flatten() {
+                coord(*v, "zone clearance/width")?;
             }
             let nid = net_id(engine, net)?;
             let l = layer_by_name(&engine.project().pcb().stackup, layer)
@@ -391,6 +434,7 @@ pub fn perform(engine: &mut CommandEngine, action: &Action) -> Result<String, St
             if *value <= 0 {
                 return Err("a rule value must be positive".into());
             }
+            coord(*value, "rule value")?;
             let before = engine.project().pcb().rules.clone();
             let mut after = before.clone();
             match rule.as_str() {

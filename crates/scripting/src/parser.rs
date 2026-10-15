@@ -34,7 +34,14 @@ struct Parser {
     toks: Vec<Token>,
     pos: usize,
     diags: Vec<Diagnostic>,
+    /// Current recursion depth of nested constructs.
+    nest: u32,
 }
+
+/// Nested parentheses / blocks / unary chains allowed (the parser is recursive).
+const MAX_NEST: u32 = 100;
+/// Height of an expression tree allowed (evaluation recurses over it).
+const MAX_EXPR_DEPTH: u32 = 400;
 
 type R<T> = Result<T, ()>;
 
@@ -115,8 +122,34 @@ impl Parser {
 
     // -- expressions -----------------------------------------------------------------------------
 
+    /// Runs `f` one nesting level deeper; refuses to go past [`MAX_NEST`].
+    fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> R<T>) -> R<T> {
+        if self.nest >= MAX_NEST {
+            let sp = self.span();
+            return self.err(
+                sp,
+                format!("this is nested more than {MAX_NEST} levels deep"),
+            );
+        }
+        self.nest += 1;
+        let r = f(self);
+        self.nest -= 1;
+        r
+    }
+
+    fn mk(&mut self, kind: ExprKind, span: Span) -> R<Expr> {
+        let e = Expr::new(kind, span);
+        if e.depth > MAX_EXPR_DEPTH {
+            return self.err(
+                span,
+                format!("this expression is more than {MAX_EXPR_DEPTH} levels deep"),
+            );
+        }
+        Ok(e)
+    }
+
     fn expr(&mut self) -> R<Expr> {
-        self.binary(0)
+        self.nested(|p| p.binary(0))
     }
 
     fn binary(&mut self, level: u8) -> R<Expr> {
@@ -152,10 +185,7 @@ impl Parser {
             self.bump();
             let rhs = self.binary(level + 1)?;
             let span = lhs.span.to(rhs.span);
-            lhs = Expr {
-                kind: ExprKind::Binary(op, Box::new(lhs), Box::new(rhs)),
-                span,
-            };
+            lhs = self.mk(ExprKind::Binary(op, Box::new(lhs), Box::new(rhs)), span)?;
         }
     }
 
@@ -167,12 +197,9 @@ impl Parser {
             _ => return self.primary(),
         };
         self.bump();
-        let e = self.unary()?;
+        let e = self.nested(|p| p.unary())?;
         let span = sp.to(e.span);
-        Ok(Expr {
-            kind: ExprKind::Unary(op, Box::new(e)),
-            span,
-        })
+        self.mk(ExprKind::Unary(op, Box::new(e)), span)
     }
 
     fn primary(&mut self) -> R<Expr> {
@@ -180,24 +207,15 @@ impl Parser {
         match self.peek().clone() {
             Tok::Num(v, u) => {
                 self.bump();
-                Ok(Expr {
-                    kind: ExprKind::Num(v, u),
-                    span: sp,
-                })
+                self.mk(ExprKind::Num(v, u), sp)
             }
             Tok::Str(s) => {
                 self.bump();
-                Ok(Expr {
-                    kind: ExprKind::Str(s),
-                    span: sp,
-                })
+                self.mk(ExprKind::Str(s), sp)
             }
             Tok::Ident(s) if s == "true" || s == "false" => {
                 self.bump();
-                Ok(Expr {
-                    kind: ExprKind::Bool(s == "true"),
-                    span: sp,
-                })
+                self.mk(ExprKind::Bool(s == "true"), sp)
             }
             Tok::Ident(s) => {
                 self.bump();
@@ -211,15 +229,9 @@ impl Parser {
                         }
                     }
                     let end = self.expect(Tok::RParen, "“)”")?;
-                    Ok(Expr {
-                        kind: ExprKind::Call(s, args),
-                        span: sp.to(end.span),
-                    })
+                    self.mk(ExprKind::Call(s, args), sp.to(end.span))
                 } else {
-                    Ok(Expr {
-                        kind: ExprKind::Ident(s),
-                        span: sp,
-                    })
+                    self.mk(ExprKind::Ident(s), sp)
                 }
             }
             Tok::LParen => {
@@ -234,10 +246,7 @@ impl Parser {
                         }
                     }
                     let end = self.expect(Tok::RParen, "“)”")?;
-                    Ok(Expr {
-                        kind: ExprKind::Tuple(v),
-                        span: sp.to(end.span),
-                    })
+                    self.mk(ExprKind::Tuple(v), sp.to(end.span))
                 } else {
                     self.expect(Tok::RParen, "“)”")?;
                     Ok(first)
@@ -253,10 +262,7 @@ impl Parser {
                     }
                 }
                 let end = self.expect(Tok::RBracket, "“]”")?;
-                Ok(Expr {
-                    kind: ExprKind::List(v),
-                    span: sp.to(end.span),
-                })
+                self.mk(ExprKind::List(v), sp.to(end.span))
             }
             other => self.err(
                 sp,
@@ -372,6 +378,10 @@ impl Parser {
     }
 
     fn block(&mut self) -> R<Vec<Item>> {
+        self.nested(Self::block_inner)
+    }
+
+    fn block_inner(&mut self) -> R<Vec<Item>> {
         self.expect(Tok::LBrace, "“{”")?;
         let mut items = Vec::new();
         while *self.peek() != Tok::RBrace && *self.peek() != Tok::Eof {
@@ -723,6 +733,7 @@ pub fn parse_expr(tokens: Vec<Token>) -> Result<Expr, Vec<Diagnostic>> {
         toks: tokens,
         pos: 0,
         diags: Vec::new(),
+        nest: 0,
     };
     match p.expr() {
         Ok(e) if *p.peek() == Tok::Eof => Ok(e),
@@ -744,6 +755,7 @@ pub fn parse(tokens: Vec<Token>) -> (Program, Vec<Diagnostic>) {
         toks: tokens,
         pos: 0,
         diags: Vec::new(),
+        nest: 0,
     };
     let mut items = Vec::new();
     while *p.peek() != Tok::Eof {
@@ -826,6 +838,7 @@ class Power { width = 0.5mm nets = [VCC, GND] }
                 toks: t,
                 pos: 0,
                 diags: vec![],
+                nest: 0,
             };
             (pr.expr().unwrap(), ())
         };

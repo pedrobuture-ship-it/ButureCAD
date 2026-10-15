@@ -31,8 +31,8 @@ pub struct Viewport {
 impl Viewport {
     /// Viewport that frames `(lo, hi)` with a margin (fraction of the canvas).
     pub fn fit(lo: P, hi: P, width: u32, height: u32) -> Self {
-        let w = ((hi[0] - lo[0]) as f64).max(1.0);
-        let h = ((hi[1] - lo[1]) as f64).max(1.0);
+        let w = (hi[0] as f64 - lo[0] as f64).max(1.0);
+        let h = (hi[1] as f64 - lo[1] as f64).max(1.0);
         let scale = (f64::from(width) * 0.9 / w).min(f64::from(height) * 0.9 / h);
         Self {
             center: [(lo[0] + hi[0]) as f64 / 2.0, (lo[1] + hi[1]) as f64 / 2.0],
@@ -282,7 +282,10 @@ pub fn bounds(layers: &[LayerDraw<'_>]) -> Option<(P, P)> {
             Content::Gerber(i) => i.bounds(),
             Content::Drill(d) => d.bounds().map(|(lo, hi)| {
                 let r = d.tools.iter().map(|t| t.1).max().unwrap_or(0) / 2;
-                ([lo[0] - r, lo[1] - r], [hi[0] + r, hi[1] + r])
+                (
+                    [lo[0].saturating_sub(r), lo[1].saturating_sub(r)],
+                    [hi[0].saturating_add(r), hi[1].saturating_add(r)],
+                )
             }),
         };
         if let Some((lo, hi)) = lb {

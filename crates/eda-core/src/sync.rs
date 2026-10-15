@@ -387,19 +387,35 @@ pub fn plan_update(project: &Project, resolve: &dyn Fn(&str) -> Option<Footprint
     }
 
     // -- footprints ------------------------------------------------------------------------------
+    // Pin → net lookup, built once (a per-footprint scan of every net was quadratic: it made the
+    // sync of a 5000-part design take 1.6 s; see benchmarks/).
+    let mut pin_net: BTreeMap<(&str, &str), Id> = BTreeMap::new();
+    for (name, pins) in &desired {
+        if let Some(id) = net_id.get(name) {
+            for (r, p) in pins {
+                pin_net.insert((r.as_str(), p.as_str()), *id);
+            }
+        }
+    }
     let pad_net_for = |reference: &str, def: &Footprint| -> BTreeMap<String, Id> {
         let mut m = BTreeMap::new();
         for pad in &def.pads {
-            for (name, pins) in &desired {
-                if pins.contains(&(reference.to_owned(), pad.number.clone())) {
-                    if let Some(id) = net_id.get(name) {
-                        m.insert(pad.number.clone(), *id);
-                    }
-                }
+            if let Some(id) = pin_net.get(&(reference, pad.number.as_str())) {
+                m.insert(pad.number.clone(), *id);
             }
         }
         m
     };
+    // Pins of each part used in the schematic, for the "pin without a pad" check.
+    let mut pins_of: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for n in conn.nets() {
+        for p in &n.pins {
+            pins_of
+                .entry(p.reference.as_str())
+                .or_default()
+                .push(p.pin.as_str());
+        }
+    }
     let mut staged: Vec<(Id, PlacedFootprint, Footprint)> = Vec::new();
     for m in &matched {
         let c = m.part.comp;
@@ -425,14 +441,12 @@ pub fn plan_update(project: &Project, resolve: &dyn Fn(&str) -> Option<Footprint
             continue;
         };
         // Pins of the part that have no pad.
-        let missing: BTreeSet<String> = conn
-            .nets()
-            .iter()
-            .flat_map(|n| n.pins.iter())
-            .filter(|p| {
-                p.reference == m.part.reference && !def.pads.iter().any(|d| d.number == p.pin)
-            })
-            .map(|p| p.pin.clone())
+        let missing: BTreeSet<String> = pins_of
+            .get(m.part.reference.as_str())
+            .into_iter()
+            .flatten()
+            .filter(|p| !def.pads.iter().any(|d| d.number == **p))
+            .map(|p| (*p).to_owned())
             .collect();
         if !missing.is_empty() {
             lines.push(PlanLine {
@@ -541,11 +555,14 @@ pub fn plan_update(project: &Project, resolve: &dyn Fn(&str) -> Option<Footprint
             }
         }
         let (x0, mut x, mut y, mut row_h) = (max_x + 10_000_000, max_x + 10_000_000, 0i64, 0i64);
+        // 8 per row for a few parts, wider rows for big designs so the grid stays on the board
+        // (a fixed 8 columns ran out of coordinate range at about 2000 parts).
+        let per_row = ((staged.len() as f64).sqrt() * 1.5).ceil().max(8.0) as usize;
         for (i, (id, mut f, def)) in staged.into_iter().enumerate() {
             let probe = f.bounds(&def).map_or((5_000_000, 5_000_000), |(lo, hi)| {
                 (hi.x - lo.x, hi.y - lo.y)
             });
-            if i > 0 && i % 8 == 0 {
+            if i > 0 && i % per_row == 0 {
                 x = x0;
                 y -= row_h + 3_000_000;
                 row_h = 0;

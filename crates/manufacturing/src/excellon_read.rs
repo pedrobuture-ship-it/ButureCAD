@@ -53,7 +53,9 @@ fn num(s: &str, mm: bool) -> Option<i64> {
         return None;
     }
     let v: f64 = s.parse().ok()?;
-    Some((v * if mm { 1e6 } else { 25.4e6 }).round() as i64)
+    let nm = (v * if mm { 1e6 } else { 25.4e6 }).round();
+    // Beyond ±1000 m is not a circuit board: refused (the caller reports "bad coordinates").
+    (nm.abs() <= 1e12).then_some(nm as i64)
 }
 
 /// Splits `X1.5Y-2.0` style text into `(letter, text)`.
