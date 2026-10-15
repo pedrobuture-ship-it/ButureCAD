@@ -52,4 +52,8 @@ The detailed prompt roadmap is `promptsbuturecad.md` (50 stages). Status is trac
 | 47 | Validation project | done (`docs/validation-project.md`): reference 4-layer MCU board; 2 BLOCKER and 2 CRITICAL fixed, MAJOR/MINOR listed |
 | 48 | Feature audit | done (`docs/FEATURE_AUDIT.md`): matrix of 30 areas with evidence from tests, 12 e2e scenarios and the reference board; top gaps ranked |
 | 49 | Release cleanup | done (`docs/ALPHA_CLEANUP.md`): markers/dead code/debug code/unused dep removed, ngspice hang and temp-folder leak fixed, lock-poisoning recovery, error messages, Windows/macOS type-check |
-| 50 | Final audit | planned |
+| 50 | Final audit | done (`docs/PRODUCTION_READINESS.md`): scores, verdict (honest alpha, not for commercial boards), P0–P3 roadmap |
+
+## Next (from the final audit)
+
+The prioritised P0–P3 list is in `docs/PRODUCTION_READINESS.md`. P0 first: verified libraries, silkscreen text and BOM data, the missing DRC rules, independent output verification, design iteration (annotation, cross-probing, back-annotation) and Windows/macOS verification.

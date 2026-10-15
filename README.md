@@ -35,14 +35,14 @@
 | **Libraries** | Symbol / footprint / 3D / component libraries, fast local search, favourites |
 | **Simulation** | Netlist extraction and OP / DC / AC / transient analysis |
 | **ButureScript** | Lexer → parser → semantic analysis → EDA IR → core; modules, loops, parameters, units, Code / Split / Visual views |
-| **CLI** | `build`, `check`, `erc`, `drc`, `export-gerber`, `export-bom`, `inspect`, `import`, `agent` — no GUI code linked |
+| **CLI** | `build`, `check`, `erc`, `drc`, `fill`, `export-gerber`, `export-bom`, `inspect`, `import`, `agent` — no GUI code linked |
 | **Plugins** | WASM sandbox with fuel and memory limits, explicit permission grants, component providers |
 | **Agent API** | JSON-RPC 2.0 over stdio, MCP-shaped tools, proposals with diff and audit log |
 | **Quality** | Fuzzing of every parser, property tests for geometry/DRC/ERC, crash-safety tests with fault injection, benchmark suite up to 5000 parts |
 
 See [`docs/STATUS.md`](docs/STATUS.md) for the honest list of what is **Working**, **Partial**, **Broken**, **Planned** and **Known bugs**.
 
-> ButureCAD is under active development. A successful export is **not** a fabrication sign-off: always review the DRC report and the manufacturing preflight, and check land patterns against the datasheets of the parts you use.
+> **Status: working alpha.** See [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md): good engineering foundations, but libraries are nearly empty and nothing has been through a fabricator — not yet suitable for commercial boards. ButureCAD is under active development. A successful export is **not** a fabrication sign-off: always review the DRC report and the manufacturing preflight, and check land patterns against the datasheets of the parts you use.
 
 ## Quick start
 
@@ -142,6 +142,9 @@ scripts/         headless CI script
 | | |
 |---|---|
 | [`docs/STATUS.md`](docs/STATUS.md) | What works, what is partial, known bugs |
+| [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md) | Final audit: scores, what is ready, what is missing, prioritised roadmap |
+| [`docs/FEATURE_AUDIT.md`](docs/FEATURE_AUDIT.md) | Feature matrix compared with a modern EDA flow |
+| [`docs/validation-project.md`](docs/validation-project.md) | A real 4-layer board taken from script to Gerber, with findings |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Where the project is going |
 | [`docs/buturescript/`](docs/buturescript/README.md) | The language |
 | [`docs/cli.md`](docs/cli.md) | The command line and the headless guarantee |
